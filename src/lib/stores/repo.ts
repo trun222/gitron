@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { RepoInfo, RepoStatus, CommitGraph, Commit, Branch, FileDiff } from '$lib/api/types';
 import * as api from '$lib/api/repo';
+import { trackRepoOpen } from '$lib/stores/settings';
 
 // Core repo state
 export const repoPath = writable<string | null>(null);
@@ -36,6 +37,7 @@ export async function openRepo(path: string) {
     repoPath.set(path);
     repoInfo.set(info);
     await refreshAll(path);
+    await trackRepoOpen(path);
   } catch (e) {
     error.set(String(e));
   } finally {

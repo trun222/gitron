@@ -41,3 +41,5 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Unique IDs
 uuid = { version = "1", features = ["v4", "serde"] }
+tauri-plugin-dialog = "2.6.0"
+tauri-plugin-store = "2.4.2"

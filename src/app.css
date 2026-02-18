@@ -52,6 +52,7 @@
   --color-git-modified-bg: rgba(223, 142, 29, 0.1);
   --color-git-deleted: #d20f39;
   --color-git-deleted-bg: rgba(210, 15, 57, 0.1);
+  --color-git-modified-foreground: #ffffff;
 }
 
 .dark {
@@ -89,6 +90,7 @@
   --color-git-modified-bg: rgba(249, 226, 175, 0.1);
   --color-git-deleted: #f38ba8;
   --color-git-deleted-bg: rgba(243, 139, 168, 0.1);
+  --color-git-modified-foreground: oklch(0.178 0.012 285);
 }
 
 /* Map CSS variables to Tailwind theme */
@@ -131,6 +133,7 @@
   --color-git-modified-bg: var(--color-git-modified-bg);
   --color-git-deleted: var(--color-git-deleted);
   --color-git-deleted-bg: var(--color-git-deleted-bg);
+  --color-git-modified-foreground: var(--color-git-modified-foreground);
 
   /* Font family */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,

@@ -1,20 +1,20 @@
 <script lang="ts">
-  import { repoInfo, currentBranch, hasRepo } from '$lib/stores/repo';
-  import { openRepo } from '$lib/stores/repo';
+  import { onMount } from 'svelte';
+  import { hasRepo, currentBranch } from '$lib/stores/repo';
+  import { CommandBar } from '$lib/components/ui/command';
 
-  let folderPath = $state('');
+  let commandBar: CommandBar | undefined = $state();
 
-  async function handleOpenRepo() {
-    if (folderPath.trim()) {
-      await openRepo(folderPath.trim());
+  onMount(() => {
+    function handleKeydown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        commandBar?.focus();
+      }
     }
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      handleOpenRepo();
-    }
-  }
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
+  });
 </script>
 
 <header class="flex items-center justify-between h-12 px-4 bg-card border-b border-border select-none" style="-webkit-app-region: drag;">
@@ -23,21 +23,7 @@
   </div>
 
   <div class="flex-1 flex justify-center" style="-webkit-app-region: no-drag;">
-    <div class="flex gap-2 max-w-[500px] w-full">
-      <input
-        type="text"
-        placeholder="Open repository path..."
-        bind:value={folderPath}
-        onkeydown={handleKeydown}
-        class="flex-1 px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
-      />
-      <button
-        onclick={handleOpenRepo}
-        class="px-4 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
-      >
-        Open
-      </button>
-    </div>
+    <CommandBar bind:this={commandBar} />
   </div>
 
   <div class="flex items-center justify-end min-w-[200px]">

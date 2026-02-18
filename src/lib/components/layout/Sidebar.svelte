@@ -22,7 +22,7 @@
       >
         Changes
         {#if $stagedCount + $unstagedCount > 0}
-          <span class="bg-primary text-primary-foreground text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
+          <span class="bg-git-modified text-git-modified-foreground text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
             {$stagedCount + $unstagedCount}
           </span>
         {/if}
@@ -55,7 +55,7 @@
           {/if}
 
           {#if $repoStatus.unstaged.length > 0}
-            <div class="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            <div class="px-3 py-1.5 text-[11px] font-semibold text-git-modified uppercase tracking-wide">
               Unstaged ({$repoStatus.unstaged.length})
             </div>
             <ul class="list-none">

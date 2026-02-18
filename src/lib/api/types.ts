@@ -93,3 +93,17 @@ export interface RepoInfo {
   is_bare: boolean;
   is_empty: boolean;
 }
+
+// Persistence types (frontend-only, used by tauri-plugin-store)
+
+export interface RecentRepo {
+  path: string;
+  name: string;
+  lastOpened: string; // ISO 8601
+  pinned: boolean;
+}
+
+export interface AppSettings {
+  lastActiveRepo: string | null;
+  recentRepos: RecentRepo[];
+}

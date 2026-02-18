@@ -1,0 +1,134 @@
+<script lang="ts">
+  import { Command } from 'bits-ui';
+  import { open } from '@tauri-apps/plugin-dialog';
+  import { sortedRecentRepos } from '$lib/stores/settings';
+  import { openRepo } from '$lib/stores/repo';
+
+  let search = $state('');
+  let isOpen = $state(false);
+  let inputRef = $state<HTMLInputElement | null>(null);
+  let blurTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  export function focus() {
+    inputRef?.focus();
+  }
+
+  function handleFocus() {
+    clearTimeout(blurTimeout);
+    isOpen = true;
+  }
+
+  function handleBlur() {
+    blurTimeout = setTimeout(() => {
+      isOpen = false;
+      search = '';
+    }, 150);
+  }
+
+  async function handleSelectRepo(path: string) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await openRepo(path);
+  }
+
+  async function handleOpenFolder() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Open Git Repository',
+    });
+    if (selected) {
+      await openRepo(selected);
+    }
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      isOpen = false;
+      search = '';
+      inputRef?.blur();
+    }
+  }
+</script>
+
+<div class="relative w-full max-w-[600px]">
+  <Command.Root
+    shouldFilter={true}
+    class="w-full"
+  >
+    <Command.Input
+      bind:ref={inputRef}
+      bind:value={search}
+      onfocus={handleFocus}
+      onblur={handleBlur}
+      onkeydown={handleKeydown}
+      placeholder="Search repositories... (Cmd+K)"
+      class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
+    />
+    {#if isOpen}
+      <Command.List
+        class="absolute top-full left-0 right-0 mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50"
+      >
+        <Command.Viewport class="p-1">
+          <Command.Empty
+            class="flex items-center justify-center py-6 text-sm text-muted-foreground"
+          >
+            No repositories found
+          </Command.Empty>
+
+          {#if $sortedRecentRepos.length > 0}
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Recent Repositories
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                {#each $sortedRecentRepos as repo (repo.path)}
+                  <Command.Item
+                    value={repo.path}
+                    keywords={[repo.name, repo.path]}
+                    onSelect={() => handleSelectRepo(repo.path)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.25.25 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">
+                        {#if repo.pinned}
+                          <span class="text-primary mr-1">*</span>
+                        {/if}
+                        {repo.name}
+                      </span>
+                      <span class="truncate text-xs text-muted-foreground">{repo.path}</span>
+                    </div>
+                  </Command.Item>
+                {/each}
+              </Command.GroupItems>
+            </Command.Group>
+            <Command.Separator class="my-1 h-px bg-border" />
+          {/if}
+
+          <Command.Group>
+            <Command.GroupItems>
+              <Command.Item
+                value="open-repository"
+                keywords={['open', 'folder', 'browse', 'directory']}
+                onSelect={handleOpenFolder}
+                class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+              >
+                <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z" />
+                </svg>
+                <span>Open Repository...</span>
+              </Command.Item>
+            </Command.GroupItems>
+          </Command.Group>
+        </Command.Viewport>
+      </Command.List>
+    {/if}
+  </Command.Root>
+</div>

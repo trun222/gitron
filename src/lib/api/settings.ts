@@ -1,0 +1,68 @@
+import { LazyStore } from '@tauri-apps/plugin-store';
+import type { AppSettings, RecentRepo } from './types';
+
+const store = new LazyStore('settings.json');
+
+const MAX_RECENT_REPOS = 20;
+
+const DEFAULT_SETTINGS: AppSettings = {
+  lastActiveRepo: null,
+  recentRepos: [],
+};
+
+export async function getSettings(): Promise<AppSettings> {
+  const settings = await store.get<AppSettings>('app');
+  return settings ?? DEFAULT_SETTINGS;
+}
+
+async function saveSettings(settings: AppSettings): Promise<void> {
+  await store.set('app', settings);
+}
+
+export async function addRecentRepo(path: string): Promise<AppSettings> {
+  const settings = await getSettings();
+  const name = path.split('/').pop() ?? path;
+  const now = new Date().toISOString();
+
+  // Remove existing entry for this path (if any)
+  const filtered = settings.recentRepos.filter((r) => r.path !== path);
+
+  // Add at front
+  const entry: RecentRepo = {
+    path,
+    name,
+    lastOpened: now,
+    pinned: settings.recentRepos.find((r) => r.path === path)?.pinned ?? false,
+  };
+
+  settings.recentRepos = [entry, ...filtered].slice(0, MAX_RECENT_REPOS);
+  settings.lastActiveRepo = path;
+
+  await saveSettings(settings);
+  return settings;
+}
+
+export async function removeRecentRepo(path: string): Promise<AppSettings> {
+  const settings = await getSettings();
+  settings.recentRepos = settings.recentRepos.filter((r) => r.path !== path);
+  if (settings.lastActiveRepo === path) {
+    settings.lastActiveRepo = null;
+  }
+  await saveSettings(settings);
+  return settings;
+}
+
+export async function togglePinRepo(path: string): Promise<AppSettings> {
+  const settings = await getSettings();
+  const repo = settings.recentRepos.find((r) => r.path === path);
+  if (repo) {
+    repo.pinned = !repo.pinned;
+    await saveSettings(settings);
+  }
+  return settings;
+}
+
+export async function getLastActiveRepo(): Promise<string | null> {
+  const settings = await getSettings();
+  return settings.lastActiveRepo;
+}
