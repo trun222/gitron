@@ -43,13 +43,14 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` |
-| `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct |
+| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` (19 commands) |
+| `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct (not yet wired) |
 | `src-tauri/src/commands/repo.rs` | open_repo, get_status, get_repo_info |
 | `src-tauri/src/commands/graph.rs` | get_commit_graph, get_commit_detail |
-| `src-tauri/src/commands/diff.rs` | get_workdir_diff, get_file_diff |
-| `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_all, unstage_all |
+| `src-tauri/src/commands/diff.rs` | get_workdir_diff, get_file_diff, get_staged_file_diff |
+| `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_files, stage_all, unstage_all |
 | `src-tauri/src/commands/branch.rs` | list_branches, create_branch, checkout_branch, delete_branch |
+| `src-tauri/src/commands/commit.rs` | create_commit |
 
 **Rules**:
 - Commands are thin — delegate ALL logic to `git/` module.
@@ -62,7 +63,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 
 ## Specialist: Frontend API & Types
 
-**Trigger keywords**: TypeScript types, invoke binding, API call, frontend types, type mirror, data contract
+**Trigger keywords**: TypeScript types, invoke binding, API call, frontend types, type mirror, data contract, settings, persistence
 
 **Read first**:
 - `docs/TECHNICAL_SPEC.md` — Section 6 (Data Types Contract)
@@ -71,20 +72,22 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types |
+| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types + frontend-only types (RecentRepo, GraphColumnWidths, AppSettings) |
 | `src/lib/api/repo.ts` | All `invoke()` calls — the ONLY file that imports from `@tauri-apps/api/core` |
+| `src/lib/api/settings.ts` | Persistent settings via `tauri-plugin-store` (recent repos, column widths, last active repo) |
 
 **Rules**:
 - Types in `types.ts` MUST match `src-tauri/src/git/types.rs`. Manual sync.
 - Rust `Option<T>` → TypeScript `T | null`
 - Rust enums → TypeScript string literal unions (e.g., `'Added' | 'Modified' | ...`)
 - Only `repo.ts` calls `invoke()`. Components and stores NEVER import from `@tauri-apps/api/core`.
+- Settings persistence uses `@tauri-apps/plugin-store` (LazyStore), NOT `invoke()`.
 
 ---
 
 ## Specialist: State Management / Stores
 
-**Trigger keywords**: store, state, writable, derived, reactive, action, refresh, loading, error state
+**Trigger keywords**: store, state, writable, derived, reactive, action, refresh, loading, error state, settings, recent repos
 
 **Read first**:
 - `docs/TECHNICAL_SPEC.md` — Section 5 (State Management)
@@ -93,9 +96,10 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src/lib/stores/repo.ts` | All repo state (writable + derived stores), all actions |
+| `src/lib/stores/repo.ts` | All repo state (writable + derived stores), all repo actions |
+| `src/lib/stores/settings.ts` | Settings state (recent repos, column widths), persistence actions |
 
-**Stores**:
+**Repository Stores** (`stores/repo.ts`):
 | Store | Type | Purpose |
 |-------|------|---------|
 | `repoPath` | `Writable<string \| null>` | Path to open repo |
@@ -104,27 +108,41 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 | `commitGraph` | `Writable<CommitGraph \| null>` | Commits, branches, tags |
 | `selectedCommit` | `Writable<Commit \| null>` | Currently selected commit |
 | `selectedFileDiff` | `Writable<FileDiff \| null>` | Currently viewed diff |
+| `selectedFile` | `Writable<SelectedFileInfo \| null>` | Currently selected file (path + section) |
 | `loading` | `Writable<boolean>` | Global loading flag |
 | `error` | `Writable<string \| null>` | Last error message |
 | `hasRepo` | `Derived<boolean>` | Whether a repo is open |
+| `isFileSelected` | `Derived<boolean>` | Whether a file is selected for diff |
 | `currentBranch` | `Derived<string \| null>` | Current HEAD branch |
 | `localBranches` | `Derived<Branch[]>` | Non-remote branches |
 | `remoteBranches` | `Derived<Branch[]>` | Remote branches |
 | `stagedCount` | `Derived<number>` | Number of staged files |
 | `unstagedCount` | `Derived<number>` | Unstaged + untracked count |
 
-**Actions**: `openRepo`, `refreshAll`, `refreshStatus`, `stageFile`, `unstageFile`, `stageAllFiles`, `unstageAllFiles`, `selectCommit`, `viewFileDiff`
+**Settings Stores** (`stores/settings.ts`):
+| Store | Type | Purpose |
+|-------|------|---------|
+| `recentRepos` | `Writable<RecentRepo[]>` | Recently opened repos (max 20) |
+| `lastActiveRepo` | `Writable<string \| null>` | Auto-opened on launch |
+| `settingsLoaded` | `Writable<boolean>` | Whether settings have loaded |
+| `graphColumnWidths` | `Writable<GraphColumnWidths>` | Persisted column widths |
+| `sortedRecentRepos` | `Derived<RecentRepo[]>` | Pinned-first, then sorted by lastOpened |
+
+**Repository Actions**: `openRepo`, `refreshAll`, `refreshStatus`, `stageFile`, `unstageFile`, `stageFiles`, `stageAllFiles`, `unstageAllFiles`, `stageAllAndClear`, `stageUnstagedAndClear`, `stageUntrackedAndClear`, `unstageAllAndClear`, `selectFile`, `clearFileSelection`, `selectNextFile`, `selectPrevFile`, `stageSelectedFile`, `unstageSelectedFile`, `viewFileDiff`, `viewStagedFileDiff`, `selectCommit`, `commitAndRefresh`, `checkoutBranch`
+
+**Settings Actions**: `loadSettings`, `trackRepoOpen`, `removeRepo`, `togglePin`, `saveGraphColumnWidths`
 
 **Rules**:
 - No optimistic updates — always wait for backend confirmation.
 - Actions catch errors and write to the `error` store.
 - Parallel fetches use `Promise.all` (e.g., status + graph on repo open).
+- Selection-aware actions (e.g., `stageSelectedFile`) auto-advance to the next file.
 
 ---
 
 ## Specialist: Frontend UI / Components
 
-**Trigger keywords**: component, Svelte, layout, sidebar, toolbar, graph, diff viewer, panel, styling, CSS, theme, design token
+**Trigger keywords**: component, Svelte, layout, sidebar, toolbar, graph, diff viewer, panel, styling, CSS, theme, design token, command palette, syntax highlighting
 
 **Read first**:
 - `docs/DEVELOPER_GUIDE.md` — Section 8 (Adding a Frontend Component)
@@ -133,30 +151,55 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src/app.css` | Design system: all CSS custom properties (colors, spacing) |
+| `src/app.css` | Design system: TailwindCSS v4, shadcn vars, oklch colors, git status colors |
 | `src/app.html` | HTML shell |
-| `src/routes/+page.svelte` | Main page (renders AppShell + graph + detail) |
+| `src/lib/utils.ts` | `cn()` class merge helper (clsx + tailwind-merge) |
+| `src/lib/highlight.ts` | Shiki syntax highlighter (Catppuccin Mocha, singleton, 14 preloaded languages) |
+| `src/routes/+page.svelte` | Main page (settings load, conditional graph/diff/welcome) |
 | `src/routes/+layout.svelte` | Root layout (imports app.css) |
-| `src/lib/components/layout/AppShell.svelte` | App shell (toolbar + sidebar + main + status bar) |
-| `src/lib/components/layout/Toolbar.svelte` | Top bar (repo input, branch badge) |
-| `src/lib/components/layout/Sidebar.svelte` | Left panel (changes tab, branches tab) |
-| `src/lib/components/layout/StatusBar.svelte` | Bottom bar (branch, staged/changed counts) |
-| `src/lib/components/graph/CommitGraph.svelte` | Commit list with branch labels |
-| `src/lib/components/graph/CommitDetail.svelte` | Commit detail panel (message, author, parents) |
 
-**Design tokens** (from `app.css`):
+**Layout components** (`components/layout/`):
+| File | Responsibility |
+|------|---------------|
+| `AppShell.svelte` | Outer frame: toolbar (top) + sidebar (left) + main area + status bar (bottom) |
+| `Toolbar.svelte` | 48px header: "Gitron" brand, CommandBar (center), branch button (right); Cmd+K global shortcut |
+| `Sidebar.svelte` | 260px left panel: staged/unstaged/untracked file sections with per-file stage/unstage buttons, bulk actions, commit panel (textarea + Cmd+Enter submit) |
+| `StatusBar.svelte` | 24px footer: branch name, staged/changed counts |
+
+**Graph components** (`components/graph/`):
+| File | Responsibility |
+|------|---------------|
+| `CommitGraph.svelte` | Resizable 5-column grid (Graph/Message/Author/Date/SHA), persisted column widths, 10-color branch palette, ArrowUp/Down keyboard nav |
+| `CommitDetail.svelte` | Collapsible detail panel: summary row (collapsed) or full message + metadata table (expanded) |
+
+**Diff components** (`components/diff/`):
+| File | Responsibility |
+|------|---------------|
+| `FilePreview.svelte` | Full-area inline diff viewer with shiki syntax highlighting, hunk separators, keyboard shortcuts (s/u/Escape/arrows), binary + empty states |
+
+**UI primitives** (`components/ui/` — shadcn-svelte via bits-ui):
+| Directory | Responsibility |
+|-----------|---------------|
+| `button/` | Button (variants: default, destructive, outline, secondary, ghost, link; sizes: default, sm, lg, icon) |
+| `badge/` | Badge (variants: default, secondary, destructive, outline) |
+| `command/` | CommandBar: searchable palette (recent repos, folder dialog, local/remote branches) |
+| `scroll-area/` | ScrollArea wrapper (vertical/horizontal) |
+| `separator/` | Separator (horizontal/vertical) |
+| `tabs/` | Tabs primitive |
+| `tooltip/` | Tooltip primitive |
+
+**Design tokens** (from `app.css` — shadcn/Tailwind convention):
 ```
-Backgrounds: --bg-primary, --bg-secondary, --bg-hover, --bg-selected, --bg-input, --bg-badge
-Text: --text-primary, --text-secondary, --text-muted, --text-accent
-Borders: --border-color, --border-subtle
-Accent: --accent-color, --accent-hover
-Status: --color-added, --color-modified, --color-deleted (+ -bg variants)
+Core: --background, --foreground, --card, --popover, --primary, --secondary, --muted, --accent, --destructive
+Structural: --border, --input, --ring
+Sidebar: --sidebar-background, --sidebar-foreground, --sidebar-primary, etc.
+Git status: --color-git-added, --color-git-modified, --color-git-deleted (+ -bg, -foreground variants)
 ```
 
 **Rules**:
 - Use Svelte 5 runes (`$state`, `$derived`, `$props`), NOT Svelte 4 patterns.
-- Scoped styles only (in `<style>` block). Never global styles in components.
-- Use design tokens for all colors. No hard-coded hex values.
+- Use Tailwind classes and shadcn CSS variables for all colors. No hard-coded hex values.
+- UI primitives use `bits-ui` for headless behavior + `tailwind-variants` for styling.
 - Components read stores, call store actions. Never call `invoke()` directly.
 
 ---
@@ -245,9 +288,11 @@ Status: --color-added, --color-modified, --color-deleted (+ -bg variants)
 |------|---------------|
 | `src-tauri/Cargo.toml` | Rust dependencies and crate config |
 | `src-tauri/tauri.conf.json` | Tauri app config (window, build commands, bundle) |
+| `src-tauri/capabilities/default.json` | Tauri capability grants (core, opener, dialog, store) |
 | `package.json` | Frontend dependencies and scripts |
-| `svelte.config.js` | SvelteKit config (static adapter) |
-| `vite.config.js` | Vite config (dev server, Tauri integration) |
+| `svelte.config.js` | SvelteKit config (adapter-static, SPA fallback) |
+| `vite.config.js` | Vite config (dev server port 1420, TailwindCSS plugin, Tauri HMR) |
+| `components.json` | shadcn-svelte config (style, baseColor, aliases) |
 | `tsconfig.json` | TypeScript config |
 | `.gitignore` | Ignored files |
 
