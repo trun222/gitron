@@ -1,0 +1,36 @@
+use crate::git::{error::GitError, repository, types::*};
+
+/// List all branches
+#[tauri::command]
+pub fn list_branches(path: String) -> Result<Vec<Branch>, GitError> {
+    let repo = repository::open(&path)?;
+    repository::list_branches(&repo)
+}
+
+/// Create a new branch
+#[tauri::command]
+pub fn create_branch(
+    path: String,
+    name: String,
+    target: Option<String>,
+) -> Result<Branch, GitError> {
+    let repo = repository::open(&path)?;
+    let target_ref = target.as_deref().unwrap_or("HEAD");
+    repository::create_branch(&repo, &name, target_ref)
+}
+
+/// Checkout a branch
+#[tauri::command]
+pub fn checkout_branch(path: String, name: String) -> Result<RepoInfo, GitError> {
+    let repo = repository::open(&path)?;
+    repository::checkout_branch(&repo, &name)?;
+    repository::get_repo_info(&repo)
+}
+
+/// Delete a branch
+#[tauri::command]
+pub fn delete_branch(path: String, name: String) -> Result<Vec<Branch>, GitError> {
+    let repo = repository::open(&path)?;
+    repository::delete_branch(&repo, &name)?;
+    repository::list_branches(&repo)
+}

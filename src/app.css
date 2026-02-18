@@ -1,0 +1,77 @@
+/* Gitron — Design System */
+
+:root {
+  /* Dark theme (default) */
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #181825;
+  --bg-hover: #313244;
+  --bg-selected: #45475a;
+  --bg-input: #313244;
+  --bg-badge: rgba(137, 180, 250, 0.1);
+
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
+  --text-accent: #89b4fa;
+
+  --border-color: #313244;
+  --border-subtle: rgba(49, 50, 68, 0.5);
+
+  --accent-color: #89b4fa;
+  --accent-hover: #74a8fc;
+
+  --color-added: #a6e3a1;
+  --color-added-bg: rgba(166, 227, 161, 0.1);
+  --color-modified: #f9e2af;
+  --color-modified-bg: rgba(249, 226, 175, 0.1);
+  --color-deleted: #f38ba8;
+  --color-deleted-bg: rgba(243, 139, 168, 0.1);
+
+  /* Typography */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
