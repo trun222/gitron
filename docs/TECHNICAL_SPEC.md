@@ -57,12 +57,13 @@ Gitron is split into two processes that communicate via Tauri IPC:
 ```
 1. main.rs → gitron_lib::run()
 2. Tauri Builder initializes:
-   a. Registers plugins (tauri-plugin-opener)
-   b. Registers IPC command handlers (repo, graph, diff, staging, branch)
+   a. Registers plugins (tauri-plugin-opener, tauri-plugin-dialog, tauri-plugin-store)
+   b. Registers IPC command handlers (repo, graph, diff, staging, branch, commit)
    c. Creates native window (1280x800, min 900x600)
 3. Webview loads SvelteKit app
 4. Frontend renders AppShell with empty state (no repo open)
-5. User is presented with the welcome screen and toolbar input
+5. Frontend loads persisted settings (lastActiveRepo, recentRepos) via tauri-plugin-store
+6. If lastActiveRepo is set, auto-opens it; otherwise shows welcome screen with Cmd+K hint
 ```
 
 ### Repository Open Flow
@@ -124,7 +125,8 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
 | `get_workdir_diff` | `path: String` | `Vec<FileDiff>` | Returns diffs for all unstaged workdir changes |
-| `get_file_diff` | `path: String`, `file_path: String` | `FileDiff` | Returns diff for a single file |
+| `get_file_diff` | `path: String`, `file_path: String` | `FileDiff` | Returns diff for a single unstaged file |
+| `get_staged_file_diff` | `path: String`, `file_path: String` | `FileDiff` | Returns diff for a single staged file (tree-to-index) |
 
 ### Staging Commands (`commands/staging.rs`)
 
@@ -132,6 +134,7 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 |---------|-----------|---------|-------------|
 | `stage_file` | `path: String`, `file_path: String` | `RepoStatus` | Stages a file and returns updated status |
 | `unstage_file` | `path: String`, `file_path: String` | `RepoStatus` | Unstages a file and returns updated status |
+| `stage_files` | `path: String`, `file_paths: Vec<String>` | `RepoStatus` | Stages multiple files and returns updated status |
 | `stage_all` | `path: String` | `RepoStatus` | Stages all changes and returns updated status |
 | `unstage_all` | `path: String` | `RepoStatus` | Unstages all changes and returns updated status |
 
@@ -143,6 +146,12 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 | `create_branch` | `path: String`, `name: String`, `target: Option<String>` | `Branch` | Creates a new branch (defaults to HEAD) |
 | `checkout_branch` | `path: String`, `name: String` | `RepoInfo` | Checks out a branch and returns updated repo info |
 | `delete_branch` | `path: String`, `name: String` | `Vec<Branch>` | Deletes a local branch and returns updated list |
+
+### Commit Commands (`commands/commit.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `create_commit` | `path: String`, `message: String` | `String` | Creates a commit with the given message. Returns the new commit OID. Uses the repo's git config for author/committer signature. Handles initial (parentless) commits. |
 
 ### Command Design Principles
 
@@ -206,27 +215,44 @@ onDestroy(() => unlisten());
 
 ### Frontend State Architecture
 
-All frontend state lives in Svelte stores (`src/lib/stores/repo.ts`). There is no additional state management library.
+All frontend state lives in Svelte stores. Repository state is in `src/lib/stores/repo.ts` and settings/persistence state is in `src/lib/stores/settings.ts`. There is no additional state management library.
 
 ```
-Stores:
+Repository Stores (stores/repo.ts):
 ├── repoPath: Writable<string | null>       — path to the open repository
 ├── repoInfo: Writable<RepoInfo | null>     — basic repo metadata
 ├── repoStatus: Writable<RepoStatus | null> — staged/unstaged/untracked files
 ├── commitGraph: Writable<CommitGraph | null> — commits, branches, tags
 ├── selectedCommit: Writable<Commit | null> — currently selected commit
 ├── selectedFileDiff: Writable<FileDiff | null> — currently viewed diff
+├── selectedFile: Writable<SelectedFileInfo | null> — currently selected file (path + section)
 ├── loading: Writable<boolean>              — global loading state
 ├── error: Writable<string | null>          — last error message
 │
 Derived Stores:
 ├── hasRepo: Derived<boolean>               — whether a repo is open
+├── isFileSelected: Derived<boolean>        — whether a file is selected for diff
 ├── currentBranch: Derived<string | null>   — current HEAD branch name
 ├── localBranches: Derived<Branch[]>        — non-remote branches
 ├── remoteBranches: Derived<Branch[]>       — remote branches
 ├── stagedCount: Derived<number>            — number of staged files
 └── unstagedCount: Derived<number>          — unstaged + untracked count
+
+Settings Stores (stores/settings.ts):
+├── recentRepos: Writable<RecentRepo[]>     — recently opened repos (max 20)
+├── lastActiveRepo: Writable<string | null> — last opened repo path (auto-opened on launch)
+├── settingsLoaded: Writable<boolean>       — whether settings have loaded
+├── graphColumnWidths: Writable<GraphColumnWidths> — persisted column widths
+│
+Derived:
+└── sortedRecentRepos: Derived<RecentRepo[]> — pinned repos first, then sorted by lastOpened
 ```
+
+Types used:
+- `FileSection = 'staged' | 'unstaged' | 'untracked'`
+- `SelectedFileInfo = { path: string, section: FileSection }`
+- `RecentRepo = { path, name, lastOpened, pinned }`
+- `GraphColumnWidths = { graph, author, date, sha }` (numbers in px)
 
 ### State Update Rules
 
@@ -530,31 +556,75 @@ struct CachedState {
 
 ### Current Implementation
 
-The commit graph is rendered as a styled HTML table with one row per commit. Each row shows:
+The commit graph is rendered as a styled HTML grid with one row per commit. Each row shows:
 
 ```
 [Graph dot] [Branch labels] [Commit summary] [Author] [Date] [SHA]
 ```
 
-Branch labels are color-coded:
-- Current branch (HEAD): solid accent background with white text
-- Local branches: outlined with accent border
+Branch labels are color-coded using a cycling palette of 10 colors:
+- Current branch (HEAD): solid background with white text, white circle stroke on graph dot
+- Local branches: outlined with colored border
 - Remote branches: dashed outline, reduced opacity
+
+Branch colors cycle through: aqua, green, orange, red, purple, teal, lime, coral, pink, indigo.
 
 ### Column Layout
 
-| Column | Width | Content |
-|--------|-------|---------|
-| Graph | 32px fixed | SVG circle (colored by branch) |
+Columns are **resizable** via drag handles between them. Widths are persisted to disk via `tauri-plugin-store` through the `graphColumnWidths` settings store.
+
+| Column | Default Width | Content |
+|--------|--------------|---------|
+| Graph | 40px | SVG circle (colored by branch index) |
 | Message | flex: 1 | Branch labels + commit summary |
-| Author | 140px fixed | Author name |
-| Date | 80px fixed | Relative time (e.g., "2h ago") |
-| SHA | 70px fixed | Short OID (7 chars, monospace) |
+| Author | 140px | Author name |
+| Date | 80px | Relative time (e.g., "2h ago") |
+| SHA | 70px | Short OID (7 chars, monospace) |
 
 ### Interaction
 
 - **Click a commit**: Sets `selectedCommit` store, shows `CommitDetail` panel below the graph
-- **CommitDetail panel**: Shows full message, author, committer, date, parent SHAs
+- **Keyboard navigation**: `ArrowUp`/`ArrowDown` moves through commits (scrolls into view)
+- **CommitDetail panel**: Collapsible — click to toggle expand/collapse
+  - Collapsed: single row with chevron, summary, author, date, short OID
+  - Expanded: full message (monospace pre block), metadata table (Author, Date, SHA, Parents)
+  - Parent SHAs are displayed as 7-char links
+
+### Date Formatting
+
+Relative time display: "just now" (< 1 min), "Nm ago" (< 1 hr), "Nh ago" (< 1 day), "Nd ago" (< 30 days), locale date string beyond.
+
+### Diff Viewer (FilePreview)
+
+When a file is selected in the sidebar, the graph view is replaced by the `FilePreview` component — a full-area inline diff viewer with syntax highlighting.
+
+Features:
+- **Syntax highlighting** via `shiki` (Catppuccin Mocha theme, singleton pattern with lazy init)
+- Preloaded languages: js, ts, jsx, tsx, rust, json, toml, yaml, html, css, svelte, markdown, bash, python
+- Per-line rendering: gutter (line number + origin char), syntax-highlighted content
+- Hunk separators with skipped-line count
+- Binary file and empty diff states
+- Keyboard shortcuts: `ArrowDown`/`ArrowUp` navigate files, `Escape` closes, `s` stages, `u` unstages
+
+### Settings Persistence
+
+Application settings are persisted via `tauri-plugin-store` (`settings.json`).
+
+Persisted data:
+- `lastActiveRepo` — auto-opened on app launch
+- `recentRepos` — up to 20 recently opened repos (with pinned flag, sorted pinned-first)
+- `graphColumnWidths` — commit graph column width preferences
+
+Settings API (`src/lib/api/settings.ts`):
+- `getSettings()`, `addRecentRepo(path)`, `removeRecentRepo(path)`, `togglePinRepo(path)`
+- `getColumnWidths()`, `saveColumnWidths(widths)`
+
+### Command Palette (CommandBar)
+
+The `CommandBar` component (built on `bits-ui` Command primitive) provides a searchable command palette:
+- Opened via `Cmd+K` / `Ctrl+K` or clicking the branch badge in the toolbar
+- Sections: Recent Repositories (up to 20, pinned-first), "Open Repository..." (native folder dialog), Local Branches, Remote Branches
+- Selecting a branch triggers checkout; selecting a repo opens it
 
 ### Future: Canvas-Based Rendering
 

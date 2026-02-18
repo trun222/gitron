@@ -4,6 +4,8 @@
   import { sortedRecentRepos } from '$lib/stores/settings';
   import { openRepo, hasRepo, localBranches, remoteBranches, currentBranch, checkoutBranch } from '$lib/stores/repo';
 
+  let { onShowShortcuts }: { onShowShortcuts?: () => void } = $props();
+
   let search = $state('');
   let isOpen = $state(false);
   let inputRef = $state<HTMLInputElement | null>(null);
@@ -37,6 +39,13 @@
     search = '';
     inputRef?.blur();
     await checkoutBranch(name);
+  }
+
+  function handleShowShortcuts() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    onShowShortcuts?.();
   }
 
   async function handleOpenFolder() {
@@ -187,6 +196,23 @@
               </Command.GroupItems>
             </Command.Group>
           {/if}
+          <Command.Separator class="my-1 h-px bg-border" />
+          <Command.Group>
+            <Command.GroupItems>
+              <Command.Item
+                value="keyboard-shortcuts"
+                keywords={['shortcuts', 'keyboard', 'keys', 'hotkeys', 'help']}
+                onSelect={handleShowShortcuts}
+                class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+              >
+                <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM3.5 4a.75.75 0 0 0 0 1.5h1A.75.75 0 0 0 4.5 4Zm3.25.75A.75.75 0 0 1 7.5 4h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75ZM11.5 4a.75.75 0 0 0 0 1.5h1a.75.75 0 0 0 0-1.5ZM3.5 7a.75.75 0 0 0 0 1.5h1A.75.75 0 0 0 4.5 7Zm3.25.75A.75.75 0 0 1 7.5 7h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75ZM11.5 7a.75.75 0 0 0 0 1.5h1a.75.75 0 0 0 0-1.5ZM5 10a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5Z" />
+                </svg>
+                <span>Keyboard Shortcuts</span>
+                <kbd class="ml-auto text-xs text-muted-foreground border border-border rounded px-1 py-0.5 font-mono">?</kbd>
+              </Command.Item>
+            </Command.GroupItems>
+          </Command.Group>
         </Command.Viewport>
       </Command.List>
     {/if}

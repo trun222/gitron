@@ -1,4 +1,6 @@
-use git2::{DiffOptions, Repository};
+use std::path::Path;
+
+use git2::{DiffOptions, Repository, Status};
 
 use super::error::GitResult;
 use super::types::*;
@@ -30,6 +32,12 @@ pub fn diff_staged(repo: &Repository) -> GitResult<Vec<FileDiff>> {
 
 /// Get diff for a specific file (workdir changes)
 pub fn diff_file(repo: &Repository, path: &str) -> GitResult<FileDiff> {
+    // Check if the file is untracked — diff_index_to_workdir returns empty for these
+    let status = repo.status_file(Path::new(path))?;
+    if status.contains(Status::WT_NEW) {
+        return diff_untracked_file(repo, path);
+    }
+
     let mut diff_opts = DiffOptions::new();
     diff_opts.pathspec(path);
     diff_opts.include_untracked(true);
@@ -42,6 +50,61 @@ pub fn diff_file(repo: &Repository, path: &str) -> GitResult<FileDiff> {
         .into_iter()
         .next()
         .ok_or_else(|| super::error::GitError::Other(format!("No diff for file: {}", path)))
+}
+
+/// Build a full-addition diff for an untracked file by reading it from disk
+fn diff_untracked_file(repo: &Repository, path: &str) -> GitResult<FileDiff> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| super::error::GitError::Other("Bare repository".into()))?;
+    let full_path = workdir.join(path);
+    let content = std::fs::read(&full_path)?;
+
+    // Binary detection: check for null bytes in the first 8KB
+    let is_binary = content.iter().take(8000).any(|&b| b == 0);
+    if is_binary {
+        return Ok(FileDiff {
+            path: path.to_string(),
+            old_path: None,
+            hunks: Vec::new(),
+            is_binary: true,
+            status: FileStatusType::Added,
+        });
+    }
+
+    let text = String::from_utf8_lossy(&content);
+    let lines: Vec<DiffLine> = text
+        .lines()
+        .enumerate()
+        .map(|(i, line)| DiffLine {
+            origin: DiffLineType::Addition,
+            content: format!("{}\n", line),
+            old_lineno: None,
+            new_lineno: Some((i + 1) as u32),
+        })
+        .collect();
+
+    let num_lines = lines.len() as u32;
+    let hunks = if lines.is_empty() {
+        Vec::new()
+    } else {
+        vec![DiffHunk {
+            header: format!("@@ -0,0 +1,{} @@", num_lines),
+            old_start: 0,
+            old_lines: 0,
+            new_start: 1,
+            new_lines: num_lines,
+            lines,
+        }]
+    };
+
+    Ok(FileDiff {
+        path: path.to_string(),
+        old_path: None,
+        hunks,
+        is_binary: false,
+        status: FileStatusType::Added,
+    })
 }
 
 /// Get diff for a specific staged file (index vs HEAD)

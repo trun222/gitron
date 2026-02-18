@@ -53,196 +53,154 @@
 ```
 gitron/
 ├── docs/                        # Project documentation
+│   ├── README.md                # Doc index and reading order
 │   ├── VISION.md
-│   ├── ARCHITECTURE.md
-│   └── ROADMAP.md
+│   ├── ARCHITECTURE.md          # (this file)
+│   ├── TECHNICAL_SPEC.md
+│   ├── DEVELOPER_GUIDE.md
+│   ├── SPECIALISTS.md
+│   ├── ROADMAP.md
+│   ├── PLUGIN_SYSTEM.md
+│   └── AGENT_GATEWAY.md
 ├── src-tauri/                   # Rust backend (Tauri app)
 │   ├── Cargo.toml
-│   ├── src/
-│   │   ├── main.rs              # Tauri app entry point
-│   │   ├── lib.rs               # Library root
-│   │   ├── commands/            # Tauri IPC command handlers
-│   │   │   ├── mod.rs
-│   │   │   ├── repo.rs          # Repository operations
-│   │   │   ├── graph.rs         # Commit graph queries
-│   │   │   ├── diff.rs          # Diff operations
-│   │   │   ├── staging.rs       # Stage/unstage operations
-│   │   │   └── branch.rs        # Branch management
-│   │   ├── git/                 # Core git abstraction layer
-│   │   │   ├── mod.rs
-│   │   │   ├── traits.rs        # Core traits (GitRepository, etc.)
-│   │   │   ├── git2_backend.rs  # git2-rs implementation
-│   │   │   ├── cli_backend.rs   # git CLI fallback implementation
-│   │   │   ├── graph.rs         # Commit graph computation
-│   │   │   ├── diff.rs          # Diff computation
-│   │   │   └── types.rs         # Shared types (Commit, Branch, etc.)
-│   │   ├── watcher/             # File system watcher
-│   │   │   ├── mod.rs
-│   │   │   └── handler.rs       # Change event processing
-│   │   ├── cache/               # Repo state cache
-│   │   │   ├── mod.rs
-│   │   │   └── repo_state.rs    # In-memory repo state
-│   │   ├── plugins/             # Plugin host system
-│   │   │   ├── mod.rs
-│   │   │   ├── traits.rs        # Plugin trait definitions
-│   │   │   ├── loader.rs        # Plugin discovery and loading
-│   │   │   └── registry.rs      # Plugin registry
-│   │   └── agents/              # Agent gateway
-│   │       ├── mod.rs
-│   │       ├── gateway.rs       # Main agent gateway
-│   │       ├── mcp.rs           # MCP server implementation
-│   │       ├── permissions.rs   # Agent permission system
-│   │       ├── events.rs        # Event stream for agents
-│   │       └── queue.rs         # Action queue (approve/reject)
 │   ├── tauri.conf.json
-│   └── icons/
-├── src/                         # Svelte frontend
-│   ├── app.html
-│   ├── app.css
+│   ├── capabilities/default.json # Tauri capability grants (core, opener, dialog, store)
+│   ├── icons/
+│   └── src/
+│       ├── main.rs              # Entry point (calls gitron_lib::run())
+│       ├── lib.rs               # Tauri builder, plugin + command registration
+│       ├── commands/            # Tauri IPC command handlers (thin, no git logic)
+│       │   ├── mod.rs           # Module declarations, AppState struct (not yet wired)
+│       │   ├── repo.rs          # open_repo, get_status, get_repo_info
+│       │   ├── graph.rs         # get_commit_graph, get_commit_detail
+│       │   ├── diff.rs          # get_workdir_diff, get_file_diff, get_staged_file_diff
+│       │   ├── staging.rs       # stage_file, unstage_file, stage_files, stage_all, unstage_all
+│       │   ├── branch.rs        # list_branches, create_branch, checkout_branch, delete_branch
+│       │   └── commit.rs        # create_commit
+│       ├── git/                 # Core git logic (all git2-rs calls live here)
+│       │   ├── mod.rs           # Re-exports: types, error, repository, graph, diff
+│       │   ├── types.rs         # All data types (Commit, Branch, FileDiff, RepoStatus, etc.)
+│       │   ├── error.rs         # GitError enum + GitResult type alias
+│       │   ├── repository.rs    # Repo open, status, staging, branch CRUD, checkout, commit
+│       │   ├── graph.rs         # Commit graph building (revwalk, branch/tag collection)
+│       │   └── diff.rs          # Diff computation (workdir, staged, per-file)
+│       ├── cache/               # Repo state cache (implemented, not yet wired)
+│       │   ├── mod.rs
+│       │   └── repo_state.rs    # RepoStateCache with Arc<RwLock<Option<CachedState>>>
+│       └── watcher/             # File system watcher (implemented, not yet wired to events)
+│           ├── mod.rs
+│           └── handler.rs       # watch_repo(), event classification, 200ms debounce
+├── src/                         # Svelte 5 frontend (SPA mode)
+│   ├── app.html                 # HTML shell
+│   ├── app.css                  # Design system (TailwindCSS v4, oklch colors, shadcn vars)
 │   ├── lib/
-│   │   ├── components/          # UI components
-│   │   │   ├── graph/           # Commit graph renderer
-│   │   │   │   ├── CommitGraph.svelte
-│   │   │   │   ├── GraphCanvas.svelte
-│   │   │   │   └── GraphNode.svelte
-│   │   │   ├── diff/            # Diff viewer
-│   │   │   │   ├── DiffView.svelte
-│   │   │   │   ├── DiffLine.svelte
-│   │   │   │   └── DiffHeader.svelte
-│   │   │   ├── staging/         # Staging area
-│   │   │   │   ├── StagingPanel.svelte
-│   │   │   │   └── FileEntry.svelte
-│   │   │   ├── branches/        # Branch panel
-│   │   │   │   ├── BranchList.svelte
-│   │   │   │   └── BranchItem.svelte
-│   │   │   ├── commit/          # Commit authoring
-│   │   │   │   └── CommitPanel.svelte
-│   │   │   ├── agents/          # Agent activity view
-│   │   │   │   ├── AgentPanel.svelte
-│   │   │   │   └── AgentAction.svelte
-│   │   │   └── layout/          # App layout shell
-│   │   │       ├── AppShell.svelte
-│   │   │       ├── Sidebar.svelte
-│   │   │       ├── Toolbar.svelte
-│   │   │       └── StatusBar.svelte
-│   │   ├── stores/              # Svelte stores (state management)
-│   │   │   ├── repo.ts          # Repository state store
-│   │   │   ├── graph.ts         # Graph data store
-│   │   │   ├── ui.ts            # UI state (selected commit, panels, etc.)
-│   │   │   └── agents.ts        # Agent state store
+│   │   ├── utils.ts             # cn() helper (clsx + tailwind-merge), bits-ui re-exports
+│   │   ├── highlight.ts         # Shiki syntax highlighter (Catppuccin Mocha, singleton)
 │   │   ├── api/                 # Tauri IPC bindings
-│   │   │   ├── repo.ts          # Repository commands
-│   │   │   ├── graph.ts         # Graph commands
-│   │   │   ├── diff.ts          # Diff commands
-│   │   │   ├── staging.ts       # Staging commands
-│   │   │   └── branch.ts        # Branch commands
-│   │   ├── plugins/             # Frontend plugin system
-│   │   │   ├── api.ts           # Plugin API definition
-│   │   │   ├── registry.ts      # Plugin registry
-│   │   │   └── slots.ts         # UI extension point definitions
-│   │   └── utils/               # Shared utilities
-│   │       ├── colors.ts        # Branch color assignment
-│   │       └── format.ts        # Date/time formatting
+│   │   │   ├── types.ts         # TypeScript mirrors of all Rust types + frontend-only types
+│   │   │   ├── repo.ts          # All invoke() calls (the ONLY file that imports from @tauri-apps/api/core)
+│   │   │   └── settings.ts      # Persistent settings via tauri-plugin-store
+│   │   ├── stores/              # Svelte stores (state management)
+│   │   │   ├── repo.ts          # All repo state (writable + derived) and actions
+│   │   │   └── settings.ts      # Settings state (recent repos, column widths) and actions
+│   │   └── components/          # UI components
+│   │       ├── layout/          # App layout shell
+│   │       │   ├── AppShell.svelte    # Outer frame: toolbar + sidebar + main + status bar
+│   │       │   ├── Toolbar.svelte     # Top bar: brand, CommandBar, branch button
+│   │       │   ├── Sidebar.svelte     # Left panel: file sections + commit panel
+│   │       │   └── StatusBar.svelte   # Bottom bar: branch, staged/changed counts
+│   │       ├── graph/           # Commit graph
+│   │       │   ├── CommitGraph.svelte  # Resizable 5-column commit list with keyboard nav
+│   │       │   └── CommitDetail.svelte # Collapsible commit detail panel
+│   │       ├── diff/            # Diff viewer
+│   │       │   └── FilePreview.svelte  # Full-area inline diff with syntax highlighting
+│   │       └── ui/              # Headless UI primitives (shadcn-svelte via bits-ui)
+│   │           ├── button/      # Button component (variants: default, destructive, outline, etc.)
+│   │           ├── badge/       # Badge component (variants: default, secondary, etc.)
+│   │           ├── command/     # CommandBar — searchable command palette (repos, branches)
+│   │           ├── scroll-area/ # ScrollArea wrapper (vertical/horizontal)
+│   │           ├── separator/   # Separator (horizontal/vertical)
+│   │           ├── tabs/        # Tabs primitive
+│   │           └── tooltip/     # Tooltip primitive
 │   └── routes/
-│       ├── +layout.svelte       # Root layout
-│       └── +page.svelte         # Main page
+│       ├── +layout.ts           # SSR disabled (ssr = false)
+│       ├── +layout.svelte       # Root layout (imports app.css)
+│       └── +page.svelte         # Main page (settings load, conditional graph/diff/welcome)
 ├── static/                      # Static assets
+├── components.json              # shadcn-svelte configuration
 ├── package.json
-├── svelte.config.js
-├── vite.config.ts
+├── svelte.config.js             # SvelteKit + adapter-static (SPA fallback)
+├── vite.config.js               # Vite + SvelteKit + TailwindCSS
 ├── tsconfig.json
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
+└── CLAUDE.md                    # Claude Code instructions
 ```
+
+**Note:** Plugin system (`plugins/`, `agents/`) directories listed in the diagram at the top are planned for Phase 4-5 and do not exist yet.
 
 ## Module Details
 
 ### Core Git API Layer (`src-tauri/src/git/`)
 
-The git abstraction layer provides a unified interface over git operations. All access — from Tauri commands, plugins, and agents — goes through this layer.
+The git layer provides all git operations as free functions that take a `&Repository` reference. All access — from Tauri commands, and eventually plugins and agents — goes through this layer.
 
-#### Key Traits
+#### Module Organization
 
-```rust
-/// Core repository operations
-pub trait GitRepository: Send + Sync {
-    fn open(path: &Path) -> Result<Self> where Self: Sized;
-    fn head(&self) -> Result<Reference>;
-    fn status(&self) -> Result<RepoStatus>;
-    fn is_valid_repo(path: &Path) -> bool;
-}
-
-/// Commit graph operations (hot path — git2-rs)
-pub trait GraphOps: Send + Sync {
-    fn get_commits(&self, range: CommitRange) -> Result<Vec<Commit>>;
-    fn get_graph(&self, options: GraphOptions) -> Result<CommitGraph>;
-    fn get_commit_detail(&self, oid: &str) -> Result<CommitDetail>;
-}
-
-/// Diff operations
-pub trait DiffOps: Send + Sync {
-    fn diff_workdir(&self) -> Result<Diff>;
-    fn diff_index(&self) -> Result<Diff>;
-    fn diff_commits(&self, from: &str, to: &str) -> Result<Diff>;
-    fn diff_file(&self, path: &str) -> Result<FileDiff>;
-}
-
-/// Staging operations
-pub trait StagingOps: Send + Sync {
-    fn stage_file(&self, path: &str) -> Result<()>;
-    fn unstage_file(&self, path: &str) -> Result<()>;
-    fn stage_hunk(&self, path: &str, hunk: &HunkRange) -> Result<()>;
-    fn stage_lines(&self, path: &str, lines: &[usize]) -> Result<()>;
-    fn discard_file(&self, path: &str) -> Result<()>;
-}
-
-/// Branch operations
-pub trait BranchOps: Send + Sync {
-    fn list_branches(&self) -> Result<Vec<Branch>>;
-    fn create_branch(&self, name: &str, target: &str) -> Result<Branch>;
-    fn delete_branch(&self, name: &str) -> Result<()>;
-    fn rename_branch(&self, old: &str, new: &str) -> Result<()>;
-    fn checkout(&self, refname: &str) -> Result<()>;
-    fn merge(&self, source: &str) -> Result<MergeResult>;
-}
-
-/// Commit authoring
-pub trait CommitOps: Send + Sync {
-    fn commit(&self, message: &str) -> Result<String>;
-    fn amend(&self, message: &str) -> Result<String>;
-}
-
-/// Remote operations
-pub trait RemoteOps: Send + Sync {
-    fn fetch(&self, remote: &str) -> Result<()>;
-    fn pull(&self, remote: &str, branch: &str) -> Result<MergeResult>;
-    fn push(&self, remote: &str, branch: &str) -> Result<()>;
-    fn list_remotes(&self) -> Result<Vec<Remote>>;
-}
+```
+git/
+├── mod.rs          — Re-exports: types, error, repository, graph, diff
+├── types.rs        — All data types (Commit, Branch, FileDiff, RepoStatus, etc.)
+├── error.rs        — GitError enum (thiserror) + GitResult<T> type alias
+├── repository.rs   — Core operations: open, status, staging, branch CRUD, checkout, commit
+├── graph.rs        — Commit graph: build_commit_graph, get_commit_detail
+└── diff.rs         — Diffs: diff_workdir, diff_staged, diff_file, diff_file_staged
 ```
 
-#### Hybrid Backend Strategy
+#### Key Functions
 
-- **git2-rs** (`git2_backend.rs`): Used for all read operations and simple writes — graph traversal, diffs, status, staging, basic commits. This is the hot path and must be fast.
-- **git CLI** (`cli_backend.rs`): Used for complex operations that git2-rs doesn't fully support — interactive rebase, advanced merge strategies, submodule operations, git-flow commands.
+**`repository.rs`** — Core repository operations:
+- `open(path) → GitResult<Repository>` — uses `Repository::discover()` for parent traversal
+- `get_repo_info(repo) → GitResult<RepoInfo>`
+- `get_status(repo) → GitResult<RepoStatus>` — staged, unstaged, untracked, conflicted
+- `stage_file / unstage_file / stage_files / stage_all / unstage_all`
+- `list_branches / create_branch / checkout_branch / delete_branch`
+- `create_commit(repo, message) → GitResult<String>` — returns OID, handles initial commits
+
+**`graph.rs`** — Commit graph building:
+- `build_commit_graph(repo, options) → GitResult<CommitGraph>` — revwalk with TOPOLOGICAL|TIME sort, caps at max_commits (default 500)
+- `get_commit_detail(repo, oid) → GitResult<Commit>`
+
+**`diff.rs`** — Diff computation:
+- `diff_workdir(repo) → GitResult<Vec<FileDiff>>` — index-to-workdir (includes untracked content)
+- `diff_staged(repo) → GitResult<Vec<FileDiff>>` — tree-to-index (HEAD vs index)
+- `diff_file(repo, path) → GitResult<FileDiff>` — single unstaged file
+- `diff_file_staged(repo, path) → GitResult<FileDiff>` — single staged file
+
+#### Hybrid Backend Strategy (Current + Future)
+
+- **git2-rs** (current): Used for all implemented operations — graph traversal, diffs, status, staging, commits, branch CRUD. This is the hot path.
+- **git CLI** (future): Will be added for operations not well-supported by git2-rs — interactive rebase, advanced merge strategies, submodule operations, git-flow commands.
 
 ### Repo State Cache (`src-tauri/src/cache/`)
 
-Maintains an in-memory representation of the repository state. Updated incrementally via the file watcher. The frontend never waits for a full re-read.
+Maintains an in-memory representation of the repository state. Implemented but not yet wired to command handlers or the file watcher.
 
 ```rust
-pub struct RepoState {
-    pub head: Reference,
-    pub branches: Vec<Branch>,
-    pub tags: Vec<Tag>,
-    pub status: RepoStatus,
-    pub graph: CommitGraph,
-    pub remotes: Vec<Remote>,
-    pub stashes: Vec<Stash>,
-    pub last_updated: Instant,
+pub struct RepoStateCache {
+    state: Arc<RwLock<Option<CachedState>>>,
+}
+
+struct CachedState {
+    repo_info: RepoInfo,
+    status: RepoStatus,
+    graph: CommitGraph,
+    last_updated: Instant,
 }
 ```
+
+Methods: `new()`, `initialize()`, `update_status()`, `update_graph()`, `get_status()`, `get_graph()`, `clear()`
+
+**Status:** Implemented, not yet connected. Commands currently re-open the repo on every call (stateless pattern). Cache integration is planned for when the file watcher is wired to Tauri events.
 
 ### File Watcher (`src-tauri/src/watcher/`)
 
@@ -256,12 +214,15 @@ Events emitted:
 
 ### Tauri Commands (`src-tauri/src/commands/`)
 
-Thin handlers that bridge Tauri IPC to the Core API. Each command:
+Thin handlers that bridge Tauri IPC to the git module. Each command:
 1. Receives typed parameters from the frontend
-2. Calls the appropriate Core API method
-3. Returns serialized results
+2. Opens the repo fresh via `repository::open(path)`
+3. Calls the appropriate `git/` module function
+4. Returns serialized results
 
-Commands are grouped by domain (repo, graph, diff, staging, branch) to keep files focused.
+Commands are grouped by domain (repo, graph, diff, staging, branch, commit) to keep files focused. There are currently 19 registered commands — see `TECHNICAL_SPEC.md` Section 3 for the full reference.
+
+**`AppState`** is defined in `commands/mod.rs` with `Mutex<Option<Repository>>` but is NOT yet registered as Tauri managed state. All commands currently operate statelessly.
 
 ### Plugin System
 

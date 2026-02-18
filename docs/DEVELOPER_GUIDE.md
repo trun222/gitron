@@ -71,34 +71,46 @@ npm run tauri build
 ```
 gitron/
 ├── docs/                    # All documentation (you are here)
-├── src/                     # Frontend (Svelte + TypeScript)
+├── src/                     # Frontend (Svelte 5 + TypeScript)
 │   ├── app.html             # HTML shell
-│   ├── app.css              # Global styles and design tokens
+│   ├── app.css              # Design system (TailwindCSS v4, shadcn vars, oklch colors)
 │   ├── lib/
-│   │   ├── api/             # Tauri IPC bindings (one file per domain)
-│   │   │   ├── types.ts     # TypeScript types mirroring Rust types
-│   │   │   └── repo.ts      # All invoke() calls
+│   │   ├── utils.ts         # cn() helper (clsx + tailwind-merge)
+│   │   ├── highlight.ts     # Shiki syntax highlighter (Catppuccin Mocha)
+│   │   ├── api/             # Tauri IPC bindings
+│   │   │   ├── types.ts     # TypeScript types mirroring Rust types + frontend-only types
+│   │   │   ├── repo.ts      # All invoke() calls (the ONLY file importing @tauri-apps/api/core)
+│   │   │   └── settings.ts  # Persistent settings via tauri-plugin-store
 │   │   ├── stores/          # Svelte stores (state management)
-│   │   │   └── repo.ts      # All repo state + actions
+│   │   │   ├── repo.ts      # All repo state (writable + derived) and actions
+│   │   │   └── settings.ts  # Settings state (recent repos, column widths) and actions
 │   │   └── components/      # UI components
 │   │       ├── layout/      # App shell (toolbar, sidebar, status bar)
-│   │       └── graph/       # Commit graph and detail views
+│   │       ├── graph/       # Commit graph and detail views
+│   │       ├── diff/        # Diff viewer (FilePreview with syntax highlighting)
+│   │       └── ui/          # Headless UI primitives (shadcn-svelte via bits-ui)
 │   └── routes/
 │       ├── +layout.svelte   # Root layout
 │       ├── +layout.ts       # SSR disabled (ssr = false)
 │       └── +page.svelte     # Main page
-├── src-tauri/               # Backend (Rust + Tauri)
+├── src-tauri/               # Backend (Rust + Tauri v2)
 │   ├── Cargo.toml           # Rust dependencies
 │   ├── tauri.conf.json      # Tauri configuration
+│   ├── capabilities/        # Tauri capability grants
 │   ├── src/
 │   │   ├── main.rs          # Entry point (calls lib::run)
-│   │   ├── lib.rs           # Tauri builder, command registration
-│   │   ├── commands/        # IPC command handlers (thin, no logic)
-│   │   ├── git/             # Core git operations (all logic here)
-│   │   ├── cache/           # In-memory repo state cache
-│   │   └── watcher/         # File system change watcher
+│   │   ├── lib.rs           # Tauri builder, plugin + command registration
+│   │   ├── commands/        # IPC command handlers (thin, no git logic)
+│   │   │   ├── repo.rs, graph.rs, diff.rs, staging.rs, branch.rs, commit.rs
+│   │   │   └── mod.rs       # Module declarations + AppState struct
+│   │   ├── git/             # Core git operations (ALL git logic here)
+│   │   │   ├── types.rs, error.rs, repository.rs, graph.rs, diff.rs
+│   │   │   └── mod.rs       # Re-exports
+│   │   ├── cache/           # In-memory repo state cache (implemented, not wired)
+│   │   └── watcher/         # File system change watcher (implemented, not wired)
 │   └── icons/               # App icons for all platforms
 ├── static/                  # Static assets
+├── components.json          # shadcn-svelte configuration
 ├── package.json
 ├── svelte.config.js
 ├── vite.config.js
@@ -339,45 +351,42 @@ Checklist for adding a new Tauri command:
 
 ### Styling conventions
 
-- Use the design tokens defined in `app.css` (`var(--bg-primary)`, `var(--text-secondary)`, etc.)
-- Never use hard-coded colors in components
-- Font sizes: 11px (captions), 12px (small text), 13px (body), 14px (headings)
-- Spacing: multiples of 4px (4, 8, 12, 16, 24, 32)
-- Border radius: 3px (small elements), 4px (medium), 6px (inputs/buttons)
+- The project uses **TailwindCSS v4** with **shadcn-svelte** conventions
+- Colors use oklch color space with CSS custom properties mapped to Tailwind utilities
+- Never use hard-coded colors in components — use Tailwind classes or CSS variables
+- UI primitives (button, badge, command, etc.) are in `src/lib/components/ui/` via `bits-ui`
+- Component variants use `tailwind-variants`; class merging uses `clsx` + `tailwind-merge` via `cn()`
 
 ### Design tokens reference
 
+The design system uses shadcn/Tailwind conventions. Variables are defined in `app.css` and mapped to Tailwind via `@theme inline`.
+
 ```css
-/* Backgrounds */
---bg-primary      /* main content area */
---bg-secondary    /* sidebar, toolbar, panels */
---bg-hover        /* hover state */
---bg-selected     /* selected row/item */
---bg-input        /* input fields */
---bg-badge        /* badges and labels */
+/* Core backgrounds & text (shadcn convention) */
+--background / --foreground        /* main app background/text */
+--card / --card-foreground         /* card surfaces */
+--popover / --popover-foreground   /* popover/dropdown surfaces */
+--primary / --primary-foreground   /* primary actions */
+--secondary / --secondary-foreground /* secondary elements */
+--muted / --muted-foreground       /* muted/deemphasized text */
+--accent / --accent-foreground     /* accent highlights */
+--destructive / --destructive-foreground /* destructive actions */
 
-/* Text */
---text-primary    /* main text */
---text-secondary  /* secondary text */
---text-muted      /* deemphasized text */
---text-accent     /* links, active items */
+/* Structural */
+--border         /* standard borders */
+--input          /* input field borders */
+--ring           /* focus rings */
 
-/* Borders */
---border-color    /* standard borders */
---border-subtle   /* very light dividers */
+/* Sidebar (extends shadcn) */
+--sidebar-* variants for sidebar-specific theming
 
-/* Accent */
---accent-color    /* primary action color */
---accent-hover    /* primary action hover */
-
-/* Status colors */
---color-added     /* green — added files */
---color-added-bg  /* green background */
---color-modified  /* yellow — modified files */
---color-modified-bg
---color-deleted   /* red — deleted files */
---color-deleted-bg
+/* Git status colors (Gitron-specific) */
+--color-git-added / --color-git-added-bg / --color-git-added-foreground
+--color-git-modified / --color-git-modified-bg / --color-git-modified-foreground
+--color-git-deleted / --color-git-deleted-bg / --color-git-deleted-foreground
 ```
+
+Dark theme uses Catppuccin Mocha-inspired oklch values. Light theme uses neutral grays. Theme is dark-first (`:root` = dark, `.light` variant available).
 
 ---
 

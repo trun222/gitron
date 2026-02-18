@@ -2,14 +2,20 @@
   import { onMount } from 'svelte';
   import { hasRepo, currentBranch } from '$lib/stores/repo';
   import { CommandBar } from '$lib/components/ui/command';
+  import { ShortcutsModal } from '$lib/components/ui/shortcuts';
 
   let commandBar: CommandBar | undefined = $state();
+  let shortcutsOpen = $state(false);
 
   onMount(() => {
     function handleKeydown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         commandBar?.focus();
+      }
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        shortcutsOpen = !shortcutsOpen;
       }
     }
     document.addEventListener('keydown', handleKeydown);
@@ -23,7 +29,7 @@
   </div>
 
   <div class="flex-1 flex justify-center" style="-webkit-app-region: no-drag;">
-    <CommandBar bind:this={commandBar} />
+    <CommandBar bind:this={commandBar} onShowShortcuts={() => shortcutsOpen = true} />
   </div>
 
   <div class="flex items-center justify-end min-w-[200px]">
@@ -40,3 +46,5 @@
     {/if}
   </div>
 </header>
+
+<ShortcutsModal bind:open={shortcutsOpen} />

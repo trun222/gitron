@@ -31,16 +31,16 @@
 
 **Goal:** Make Gitron usable as a daily Git GUI for basic operations.
 
-- [ ] Staging panel — interactive stage/unstage per file
+- [x] Staging panel — interactive stage/unstage per file (in Sidebar with per-file buttons + bulk actions)
 - [ ] Hunk-level and line-level staging
-- [ ] Commit authoring panel (message input + commit button)
-- [ ] Diff viewer (inline mode)
+- [x] Commit authoring panel (message input + Cmd/Ctrl+Enter commit in Sidebar)
+- [x] Diff viewer (inline mode with shiki syntax highlighting — FilePreview component)
 - [ ] Diff viewer (side-by-side mode)
 - [ ] Branch panel — create, delete, rename with UI
-- [ ] Checkout branches via UI
+- [x] Checkout branches via UI (CommandBar with local/remote branch sections)
 - [ ] Fetch / pull / push commands
 - [ ] Remote management
-- [ ] Keyboard shortcuts for common operations
+- [x] Keyboard shortcuts for common operations (partial: Cmd+K command palette, ArrowUp/Down graph nav, s/u/Escape in diff, Cmd+Enter commit)
 - [ ] Multiple repo tabs / switching
 - [ ] File tree view for navigating repo
 
@@ -140,7 +140,8 @@ See [AGENT_GATEWAY.md](./AGENT_GATEWAY.md) for full design.
 
 ## Current Status
 
-**Phase:** 1 — Foundation
-**Completed:** Scaffolding, core git backend, IPC commands, frontend UI shell, documentation
-**Next step:** Test end-to-end with `npm run tauri dev`, then wire file watcher for live updates
+**Phase:** 1 (Foundation) — nearing completion; several Phase 2 items already done
+**Completed:** Scaffolding, core git backend (19 IPC commands), frontend UI shell (sidebar with staging + commit, command palette, inline diff viewer with syntax highlighting, resizable commit graph), settings persistence (recent repos, column widths), documentation
+**Remaining in Phase 1:** Test end-to-end with `npm run tauri dev`, wire file watcher to Tauri events for live updates, Canvas-based graph renderer
+**Phase 2 progress:** Staging panel, commit authoring, inline diff, branch checkout, partial keyboard shortcuts already implemented
 **Documentation:** See [docs/README.md](./README.md) for a full index
