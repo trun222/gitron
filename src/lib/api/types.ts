@@ -37,6 +37,36 @@ export interface CommitGraph {
   tags: Tag[];
   head_oid: string | null;
   head_branch: string | null;
+  layout: GraphLayout | null;
+}
+
+export interface GraphLayout {
+  nodes: GraphNode[];
+  max_lanes: number;
+  branch_colors: BranchColorEntry[];
+}
+
+export interface GraphNode {
+  oid: string;
+  lane: number;
+  color_index: number;
+  branch_name: string | null;
+  edges: GraphEdge[];
+}
+
+export interface GraphEdge {
+  from_lane: number;
+  to_lane: number;
+  to_row: number;
+  color_index: number;
+  edge_type: GraphEdgeType;
+}
+
+export type GraphEdgeType = 'Straight' | 'MergeIn' | 'ForkOut';
+
+export interface BranchColorEntry {
+  name: string;
+  color_index: number;
 }
 
 export interface RepoStatus {

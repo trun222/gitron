@@ -1,13 +1,14 @@
 <script lang="ts">
   import { commitGraph, selectedCommit, selectCommit } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
-  import type { Commit, Branch, GraphColumnWidths } from '$lib/api/types';
+  import type { Commit, Branch, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
-  const BRANCH_COLORS = [
-    '#4fc3f7', '#81c784', '#ffb74d', '#e57373',
-    '#ba68c8', '#4dd0e1', '#aed581', '#ff8a65',
-    '#f06292', '#7986cb',
-  ];
+  const GRAPH_COLOR_COUNT = 14;
+  const ROW_HEIGHT = 30;
+  const LANE_WIDTH = 20;
+  const LANE_PADDING = 8;
+  const CIRCLE_RADIUS = 4;
+  const LINE_WIDTH = 2;
 
   const MIN_WIDTHS: Record<keyof GraphColumnWidths, number> = {
     graph: 30,
@@ -27,11 +28,34 @@
     colWidths = { ...storeVal };
   });
 
-  function getGridTemplate(): string {
-    return `${colWidths.graph}px 1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
+  // Cache graph colors from CSS custom properties
+  let graphColors: string[] = $state([]);
+  $effect(() => {
+    const style = getComputedStyle(document.documentElement);
+    const colors: string[] = [];
+    for (let i = 0; i < GRAPH_COLOR_COUNT; i++) {
+      colors.push(style.getPropertyValue(`--color-graph-${i}`).trim() || '#888');
+    }
+    graphColors = colors;
+  });
+
+  function getGraphColor(colorIndex: number): string {
+    if (graphColors.length === 0) return '#888';
+    return graphColors[colorIndex % graphColors.length];
   }
 
-  // Drag state
+  // Dynamic graph column width based on layout lane count
+  let graphColumnWidth = $derived.by(() => {
+    const layout = $commitGraph?.layout;
+    if (!layout) return colWidths.graph;
+    return Math.max(colWidths.graph, layout.max_lanes * LANE_WIDTH + LANE_PADDING * 2);
+  });
+
+  function getGridTemplate(): string {
+    return `${graphColumnWidth}px 1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
+  }
+
+  // Drag state for column resizing
   type DragMode =
     | { kind: 'single'; column: keyof GraphColumnWidths; startWidth: number; inverse: boolean }
     | { kind: 'pair'; left: keyof GraphColumnWidths; right: keyof GraphColumnWidths; startLeft: number; startRight: number };
@@ -84,9 +108,88 @@
     saveGraphColumnWidths({ ...colWidths });
   }
 
-  function getBranchColor(index: number): string {
-    return BRANCH_COLORS[index % BRANCH_COLORS.length];
+  // --- Lane activity precomputation ---
+  interface LaneActivity {
+    hasTop: boolean;
+    hasBottom: boolean;
+    colorIndex: number;
   }
+
+  let laneActivities = $derived.by(() => {
+    const layout = $commitGraph?.layout;
+    if (!layout) return [] as Map<number, LaneActivity>[];
+
+    const result: Map<number, LaneActivity>[] = [];
+    for (let i = 0; i < layout.nodes.length; i++) {
+      result.push(new Map());
+    }
+
+    function ensure(row: number, lane: number, colorIndex: number): LaneActivity {
+      if (row < 0 || row >= result.length) return { hasTop: false, hasBottom: false, colorIndex };
+      const rowMap = result[row];
+      if (!rowMap.has(lane)) rowMap.set(lane, { hasTop: false, hasBottom: false, colorIndex });
+      return rowMap.get(lane)!;
+    }
+
+    for (let row = 0; row < layout.nodes.length; row++) {
+      const node = layout.nodes[row];
+      for (const edge of node.edges) {
+        if (edge.from_lane === edge.to_lane) {
+          // Straight edge: vertical line at this lane from row to edge.to_row
+          const lane = edge.from_lane;
+          ensure(row, lane, edge.color_index).hasBottom = true;
+          for (let r = row + 1; r < edge.to_row; r++) {
+            const a = ensure(r, lane, edge.color_index);
+            a.hasTop = true;
+            a.hasBottom = true;
+          }
+          if (edge.to_row > row) {
+            ensure(edge.to_row, lane, edge.color_index).hasTop = true;
+          }
+        } else {
+          // Cross-lane edge: curve at this row, then vertical at to_lane
+          const lane = edge.to_lane;
+          const startRow = row + 1;
+          const endRow = edge.to_row;
+          if (startRow <= endRow) {
+            const a = ensure(startRow, lane, edge.color_index);
+            a.hasTop = true;
+            if (startRow < endRow) a.hasBottom = true;
+            for (let r = startRow + 1; r < endRow; r++) {
+              const b = ensure(r, lane, edge.color_index);
+              b.hasTop = true;
+              b.hasBottom = true;
+            }
+            if (endRow > startRow) {
+              ensure(endRow, lane, edge.color_index).hasTop = true;
+            }
+          }
+        }
+      }
+    }
+
+    return result;
+  });
+
+  function laneX(lane: number): number {
+    return lane * LANE_WIDTH + LANE_PADDING + LANE_WIDTH / 2;
+  }
+
+  function getEdgePath(edge: GraphEdge): string {
+    const x1 = laneX(edge.from_lane);
+    const y1 = ROW_HEIGHT / 2;
+    const x2 = laneX(edge.to_lane);
+    const y2 = ROW_HEIGHT;
+    // S-curve cubic bezier
+    return `M ${x1} ${y1} C ${x1} ${y1 + ROW_HEIGHT * 0.35}, ${x2} ${y2 - ROW_HEIGHT * 0.35}, ${x2} ${y2}`;
+  }
+
+  // Branch color lookup from layout
+  let branchColorMap = $derived.by(() => {
+    const layout = $commitGraph?.layout;
+    if (!layout) return new Map<string, number>();
+    return new Map(layout.branch_colors.map((e) => [e.name, e.color_index]));
+  });
 
   function formatDate(timestamp: string): string {
     const date = new Date(timestamp);
@@ -140,10 +243,24 @@
     const row = listEl.children[index] as HTMLElement | undefined;
     row?.scrollIntoView({ block: 'nearest' });
   }
+
+  function getBranchLabelStyle(branch: Branch): string {
+    const colorIdx = branchColorMap.get(branch.name);
+    if (colorIdx === undefined) return '';
+    const color = getGraphColor(colorIdx);
+    if (branch.is_head) {
+      return `border-color: ${color}; background: ${color}; color: var(--primary-foreground)`;
+    }
+    if (branch.is_remote) {
+      return `border-color: ${color}80; color: ${color}; border-style: dashed; opacity: 0.7`;
+    }
+    return `border-color: ${color}; color: ${color}; background: ${color}1a`;
+  }
 </script>
 
 <div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
+    {@const layout = $commitGraph.layout}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
       <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
@@ -163,31 +280,86 @@
       onkeydown={handleKeydown}
     >
       {#each $commitGraph.commits as commit, i}
+        {@const node = layout?.nodes[i]}
         {@const branches = getBranchesForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
+        {@const rowLanes = laneActivities[i] ?? new Map()}
         <button
           role="option"
           aria-selected={isSelected(commit)}
-          class="commit-row px-2 py-1 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
+          class="commit-row px-2 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
+          style="height: {ROW_HEIGHT}px"
           onclick={() => selectCommit(commit)}
         >
-          <span class="flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24">
-              <circle
-                cx="12"
-                cy="12"
-                r="4"
-                fill={getBranchColor(i % BRANCH_COLORS.length)}
-                stroke={isHead ? '#fff' : 'none'}
-                stroke-width={isHead ? 2 : 0}
-              />
-            </svg>
+          <span class="flex items-center overflow-hidden" style="height: {ROW_HEIGHT}px">
+            {#if node}
+              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block shrink-0">
+                <!-- Pass-through vertical lines and commit lane lines -->
+                {#each [...rowLanes] as [lane, activity]}
+                  {#if lane !== node.lane}
+                    <!-- Pass-through: full vertical line -->
+                    <line
+                      x1={laneX(lane)} y1={0}
+                      x2={laneX(lane)} y2={ROW_HEIGHT}
+                      stroke={getGraphColor(activity.colorIndex)}
+                      stroke-width={LINE_WIDTH}
+                    />
+                  {:else}
+                    <!-- Commit's lane: split around circle -->
+                    {#if activity.hasTop}
+                      <line
+                        x1={laneX(lane)} y1={0}
+                        x2={laneX(lane)} y2={ROW_HEIGHT / 2}
+                        stroke={getGraphColor(activity.colorIndex)}
+                        stroke-width={LINE_WIDTH}
+                      />
+                    {/if}
+                    {#if activity.hasBottom}
+                      <line
+                        x1={laneX(lane)} y1={ROW_HEIGHT / 2}
+                        x2={laneX(lane)} y2={ROW_HEIGHT}
+                        stroke={getGraphColor(activity.colorIndex)}
+                        stroke-width={LINE_WIDTH}
+                      />
+                    {/if}
+                  {/if}
+                {/each}
+
+                <!-- Cross-lane edge curves -->
+                {#each node.edges as edge}
+                  {#if edge.from_lane !== edge.to_lane}
+                    <path
+                      d={getEdgePath(edge)}
+                      stroke={getGraphColor(edge.color_index)}
+                      stroke-width={LINE_WIDTH}
+                      fill="none"
+                    />
+                  {/if}
+                {/each}
+
+                <!-- Commit circle -->
+                <circle
+                  cx={laneX(node.lane)}
+                  cy={ROW_HEIGHT / 2}
+                  r={CIRCLE_RADIUS}
+                  fill={getGraphColor(node.color_index)}
+                  stroke={isHead ? '#fff' : 'none'}
+                  stroke-width={isHead ? 2 : 0}
+                />
+              </svg>
+            {:else}
+              <svg width="24" height="24" viewBox="0 0 24 24" class="block shrink-0">
+                <circle cx="12" cy="12" r="4" fill="#888" />
+              </svg>
+            {/if}
           </span>
 
           <span class="flex items-center gap-1.5 min-w-0 overflow-hidden">
             {#each branches as branch}
+              {@const labelStyle = getBranchLabelStyle(branch)}
               <span
-                class="inline-flex px-1.5 py-px rounded-sm text-[11px] font-semibold shrink-0 border {branch.is_head ? 'bg-primary text-primary-foreground border-primary' : branch.is_remote ? 'bg-transparent text-primary border-primary/50 border-dashed opacity-70' : 'bg-primary/10 text-primary border-primary'}"
+                class="inline-flex px-1.5 py-px rounded-sm text-[11px] font-semibold shrink-0 border"
+                style={labelStyle}
               >
                 {branch.name}
               </span>

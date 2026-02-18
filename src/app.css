@@ -54,6 +54,22 @@
   --color-git-deleted-bg: rgba(210, 15, 57, 0.1);
   --color-git-modified-foreground: #ffffff;
   --color-git-added-foreground: #ffffff;
+
+  /* Graph lane colors (light theme) */
+  --color-graph-0: #1e88e5;
+  --color-graph-1: #43a047;
+  --color-graph-2: #e53935;
+  --color-graph-3: #fb8c00;
+  --color-graph-4: #8e24aa;
+  --color-graph-5: #00acc1;
+  --color-graph-6: #d81b60;
+  --color-graph-7: #6d4c41;
+  --color-graph-8: #3949ab;
+  --color-graph-9: #00897b;
+  --color-graph-10: #c0ca33;
+  --color-graph-11: #f4511e;
+  --color-graph-12: #5e35b1;
+  --color-graph-13: #039be5;
 }
 
 .dark {
@@ -93,6 +109,22 @@
   --color-git-deleted-bg: rgba(243, 139, 168, 0.1);
   --color-git-modified-foreground: oklch(0.178 0.012 285);
   --color-git-added-foreground: oklch(0.178 0.012 285);
+
+  /* Graph lane colors (dark theme — brighter for dark backgrounds) */
+  --color-graph-0: #4fc3f7;
+  --color-graph-1: #81c784;
+  --color-graph-2: #e57373;
+  --color-graph-3: #ffb74d;
+  --color-graph-4: #ba68c8;
+  --color-graph-5: #4dd0e1;
+  --color-graph-6: #f06292;
+  --color-graph-7: #a1887f;
+  --color-graph-8: #7986cb;
+  --color-graph-9: #80cbc4;
+  --color-graph-10: #dce775;
+  --color-graph-11: #ff8a65;
+  --color-graph-12: #9575cd;
+  --color-graph-13: #4fc3f7;
 }
 
 /* Map CSS variables to Tailwind theme */
@@ -137,6 +169,22 @@
   --color-git-deleted-bg: var(--color-git-deleted-bg);
   --color-git-modified-foreground: var(--color-git-modified-foreground);
   --color-git-added-foreground: var(--color-git-added-foreground);
+
+  /* Graph lane colors */
+  --color-graph-0: var(--color-graph-0);
+  --color-graph-1: var(--color-graph-1);
+  --color-graph-2: var(--color-graph-2);
+  --color-graph-3: var(--color-graph-3);
+  --color-graph-4: var(--color-graph-4);
+  --color-graph-5: var(--color-graph-5);
+  --color-graph-6: var(--color-graph-6);
+  --color-graph-7: var(--color-graph-7);
+  --color-graph-8: var(--color-graph-8);
+  --color-graph-9: var(--color-graph-9);
+  --color-graph-10: var(--color-graph-10);
+  --color-graph-11: var(--color-graph-11);
+  --color-graph-12: var(--color-graph-12);
+  --color-graph-13: var(--color-graph-13);
 
   /* Font family */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,

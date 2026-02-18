@@ -48,6 +48,50 @@ pub struct CommitGraph {
     pub tags: Vec<Tag>,
     pub head_oid: Option<String>,
     pub head_branch: Option<String>,
+    pub layout: Option<GraphLayout>,
+}
+
+/// Graph layout data for visualization (1:1 with commits)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphLayout {
+    pub nodes: Vec<GraphNode>,
+    pub max_lanes: usize,
+    pub branch_colors: Vec<BranchColorEntry>,
+}
+
+/// A single node in the graph layout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphNode {
+    pub oid: String,
+    pub lane: usize,
+    pub color_index: usize,
+    pub branch_name: Option<String>,
+    pub edges: Vec<GraphEdge>,
+}
+
+/// An edge connecting a commit to a parent
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub from_lane: usize,
+    pub to_lane: usize,
+    pub to_row: usize,
+    pub color_index: usize,
+    pub edge_type: GraphEdgeType,
+}
+
+/// Type of edge connection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GraphEdgeType {
+    Straight,
+    MergeIn,
+    ForkOut,
+}
+
+/// Maps a branch name to its assigned color index
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchColorEntry {
+    pub name: String,
+    pub color_index: usize,
 }
 
 /// Repository status summary

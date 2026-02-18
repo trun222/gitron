@@ -2,7 +2,7 @@
   import { Command } from 'bits-ui';
   import { open } from '@tauri-apps/plugin-dialog';
   import { sortedRecentRepos } from '$lib/stores/settings';
-  import { openRepo, hasRepo, localBranches, remoteBranches, currentBranch, checkoutBranch } from '$lib/stores/repo';
+  import { openRepo, hasRepo, localBranches, remoteBranches, currentBranch, checkoutBranch, createAndCheckoutBranch } from '$lib/stores/repo';
 
   let { onShowShortcuts }: { onShowShortcuts?: () => void } = $props();
 
@@ -60,6 +60,25 @@
     if (selected) {
       await openRepo(selected);
     }
+  }
+
+  // Show "Create branch" when search text doesn't match any existing branch
+  let showCreateBranch = $derived.by(() => {
+    const name = search.trim();
+    if (!name || !$hasRepo) return false;
+    const allBranches = [...$localBranches, ...$remoteBranches];
+    return !allBranches.some((b) => b.name === name);
+  });
+
+  let createBranchName = $derived(search.trim());
+
+  async function handleCreateBranch() {
+    const name = createBranchName;
+    if (!name) return;
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await createAndCheckoutBranch(name);
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -144,13 +163,26 @@
             </Command.GroupItems>
           </Command.Group>
 
-          {#if $hasRepo && $localBranches.length > 0}
+          {#if $hasRepo && ($localBranches.length > 0 || showCreateBranch)}
             <Command.Separator class="my-1 h-px bg-border" />
             <Command.Group>
               <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
                 Branches
               </Command.GroupHeading>
               <Command.GroupItems>
+                {#if showCreateBranch}
+                  <Command.Item
+                    value={`create:${createBranchName}`}
+                    keywords={[createBranchName, 'create', 'new', 'branch']}
+                    onSelect={handleCreateBranch}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" />
+                    </svg>
+                    <span>Create branch "<strong>{createBranchName}</strong>"</span>
+                  </Command.Item>
+                {/if}
                 {#each $localBranches as branch (branch.name)}
                   <Command.Item
                     value={`branch:${branch.name}`}
