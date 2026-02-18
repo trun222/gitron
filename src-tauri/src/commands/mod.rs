@@ -3,6 +3,7 @@ pub mod graph;
 pub mod diff;
 pub mod staging;
 pub mod branch;
+pub mod commit;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

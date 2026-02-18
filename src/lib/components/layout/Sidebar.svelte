@@ -2,85 +2,195 @@
   import {
     hasRepo,
     repoStatus,
-    commitGraph,
-    localBranches,
-    remoteBranches,
     stagedCount,
     unstagedCount,
     repoPath,
+    selectedFile,
+    selectFile,
+    stageFile,
+    unstageFile,
+    stageUnstagedAndClear,
+    stageUntrackedAndClear,
+    unstageAllAndClear,
+    commitAndRefresh,
   } from '$lib/stores/repo';
+  import type { FileSection } from '$lib/stores/repo';
 
-  let activeTab: 'changes' | 'branches' = $state('changes');
+  let commitTitle = $state('');
+  let commitBody = $state('');
+  let commitError = $state<string | null>(null);
+  let committing = $state(false);
+
+  function handleFileClick(path: string, section: FileSection) {
+    selectFile(path, section);
+  }
+
+  function handleStageClick(e: MouseEvent, filePath: string) {
+    e.stopPropagation();
+    const path = $repoPath;
+    if (path) stageFile(path, filePath);
+  }
+
+  function handleUnstageClick(e: MouseEvent, filePath: string) {
+    e.stopPropagation();
+    const path = $repoPath;
+    if (path) unstageFile(path, filePath);
+  }
+
+  function isSelected(path: string, section: FileSection): boolean {
+    return $selectedFile?.path === path && $selectedFile?.section === section;
+  }
+
+  async function handleCommit() {
+    if (!commitTitle.trim() || $stagedCount === 0 || committing) return;
+    const message = commitBody.trim()
+      ? `${commitTitle.trim()}\n\n${commitBody.trim()}`
+      : commitTitle.trim();
+    committing = true;
+    commitError = null;
+    const oid = await commitAndRefresh(message);
+    committing = false;
+    if (oid) {
+      commitTitle = '';
+      commitBody = '';
+    } else {
+      commitError = 'Commit failed. Check your git config (user.name / user.email).';
+    }
+  }
+
+  function handleCommitKeydown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleCommit();
+    }
+  }
+
+  const bubbleColor = 'bg-primary text-primary-foreground';
 </script>
 
 <aside class="w-[260px] min-w-[200px] bg-card border-r border-border flex flex-col overflow-hidden">
   {#if $hasRepo}
-    <div class="flex border-b border-border">
-      <button
-        class="flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer {activeTab === 'changes' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'}"
-        onclick={() => (activeTab = 'changes')}
-      >
-        Changes
-        {#if $stagedCount + $unstagedCount > 0}
-          <span class="bg-git-modified text-git-modified-foreground text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
-            {$stagedCount + $unstagedCount}
-          </span>
-        {/if}
-      </button>
-      <button
-        class="flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer {activeTab === 'branches' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'}"
-        onclick={() => (activeTab = 'branches')}
-      >
-        Branches
-      </button>
+    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+      <span class="text-xs font-medium text-foreground">Changes</span>
+      {#if $stagedCount + $unstagedCount > 0}
+        <span class="{bubbleColor} text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
+          {$stagedCount + $unstagedCount}
+        </span>
+      {/if}
     </div>
 
-    <div class="flex-1 overflow-y-auto py-2">
-      {#if activeTab === 'changes'}
+    <div
+      class="flex-1 overflow-y-auto py-2"
+      role="listbox"
+      aria-label="Changed files"
+    >
         {#if $repoStatus}
+          <!-- STAGED -->
           {#if $repoStatus.staged.length > 0}
-            <div class="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Staged ({$repoStatus.staged.length})
+            <div class="flex items-center justify-between px-3 py-1.5">
+              <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
+                Staged ({$repoStatus.staged.length})
+              </span>
+              <button
+                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                onclick={() => unstageAllAndClear()}
+              >
+                Unstage All
+              </button>
             </div>
             <ul class="list-none">
               {#each $repoStatus.staged as file}
-                <li class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors">
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]">
+                <li
+                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                  onclick={() => handleFileClick(file.path, 'staged')}
+                  role="option"
+                  aria-selected={isSelected(file.path, 'staged')}
+                >
+                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]">
                     {file.status[0]}
                   </span>
-                  <span class="truncate text-foreground">{file.path}</span>
+                  <span class="truncate text-foreground flex-1">{file.path}</span>
+                  <button
+                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                    onclick={(e) => handleUnstageClick(e, file.path)}
+                    aria-label="Unstage {file.path}"
+                  >
+                    −
+                  </button>
                 </li>
               {/each}
             </ul>
           {/if}
 
+          <!-- UNSTAGED -->
           {#if $repoStatus.unstaged.length > 0}
-            <div class="px-3 py-1.5 text-[11px] font-semibold text-git-modified uppercase tracking-wide">
-              Unstaged ({$repoStatus.unstaged.length})
+            <div class="flex items-center justify-between px-3 py-1.5">
+              <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
+                Unstaged ({$repoStatus.unstaged.length})
+              </span>
+              <button
+                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                onclick={() => stageUnstagedAndClear()}
+              >
+                Stage All
+              </button>
             </div>
             <ul class="list-none">
               {#each $repoStatus.unstaged as file}
-                <li class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors">
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]">
+                <li
+                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                  onclick={() => handleFileClick(file.path, 'unstaged')}
+                  role="option"
+                  aria-selected={isSelected(file.path, 'unstaged')}
+                >
+                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]">
                     {file.status[0]}
                   </span>
-                  <span class="truncate text-foreground">{file.path}</span>
+                  <span class="truncate text-foreground flex-1">{file.path}</span>
+                  <button
+                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                    onclick={(e) => handleStageClick(e, file.path)}
+                    aria-label="Stage {file.path}"
+                  >
+                    +
+                  </button>
                 </li>
               {/each}
             </ul>
           {/if}
 
+          <!-- UNTRACKED -->
           {#if $repoStatus.untracked.length > 0}
-            <div class="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Untracked ({$repoStatus.untracked.length})
+            <div class="flex items-center justify-between px-3 py-1.5">
+              <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                Untracked ({$repoStatus.untracked.length})
+              </span>
+              <button
+                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                onclick={() => stageUntrackedAndClear()}
+              >
+                Stage All
+              </button>
             </div>
             <ul class="list-none">
               {#each $repoStatus.untracked as file}
-                <li class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors">
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm text-muted-foreground bg-accent">
+                <li
+                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                  onclick={() => handleFileClick(file, 'untracked')}
+                  role="option"
+                  aria-selected={isSelected(file, 'untracked')}
+                >
+                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-muted-foreground bg-accent">
                     ?
                   </span>
-                  <span class="truncate text-foreground">{file}</span>
+                  <span class="truncate text-foreground flex-1">{file}</span>
+                  <button
+                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                    onclick={(e) => handleStageClick(e, file)}
+                    aria-label="Stage {file}"
+                  >
+                    +
+                  </button>
                 </li>
               {/each}
             </ul>
@@ -90,32 +200,39 @@
             <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
           {/if}
         {/if}
-
-      {:else if activeTab === 'branches'}
-        <div class="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Local</div>
-        <ul class="list-none">
-          {#each $localBranches as branch}
-            <li class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {branch.is_head ? 'text-primary font-medium' : ''}">
-              {#if branch.is_head}
-                <span class="text-primary font-bold">*</span>
-              {/if}
-              <span class="truncate">{branch.name}</span>
-            </li>
-          {/each}
-        </ul>
-
-        {#if $remoteBranches.length > 0}
-          <div class="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Remote</div>
-          <ul class="list-none">
-            {#each $remoteBranches as branch}
-              <li class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors opacity-70">
-                <span class="truncate">{branch.name}</span>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      {/if}
     </div>
+
+    <!-- Commit Panel -->
+    {#if $stagedCount > 0}
+      <div class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
+        <input
+          type="text"
+          class="w-full bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Commit title"
+          bind:value={commitTitle}
+          onkeydown={handleCommitKeydown}
+          disabled={committing}
+        />
+        <textarea
+          class="w-full bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          rows="3"
+          placeholder="Description (optional)"
+          bind:value={commitBody}
+          onkeydown={handleCommitKeydown}
+          disabled={committing}
+        ></textarea>
+        <button
+          class="w-full text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer {commitTitle.trim() && !committing ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-muted text-muted-foreground cursor-not-allowed'}"
+          onclick={handleCommit}
+          disabled={!commitTitle.trim() || committing}
+        >
+          {committing ? 'Committing...' : `Commit (${$stagedCount})`}
+        </button>
+        {#if commitError}
+          <p class="text-[11px] text-destructive">{commitError}</p>
+        {/if}
+      </div>
+    {/if}
   {:else}
     <div class="flex items-center justify-center h-full">
       <p class="text-muted-foreground text-sm text-center p-4">Open a repository to get started</p>

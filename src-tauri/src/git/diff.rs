@@ -7,6 +7,7 @@ use super::types::*;
 pub fn diff_workdir(repo: &Repository) -> GitResult<Vec<FileDiff>> {
     let mut diff_opts = DiffOptions::new();
     diff_opts.include_untracked(true);
+    diff_opts.show_untracked_content(true);
 
     let diff = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     parse_diff(&diff)
@@ -31,6 +32,8 @@ pub fn diff_staged(repo: &Repository) -> GitResult<Vec<FileDiff>> {
 pub fn diff_file(repo: &Repository, path: &str) -> GitResult<FileDiff> {
     let mut diff_opts = DiffOptions::new();
     diff_opts.pathspec(path);
+    diff_opts.include_untracked(true);
+    diff_opts.show_untracked_content(true);
 
     let diff = repo.diff_index_to_workdir(None, Some(&mut diff_opts))?;
     let files = parse_diff(&diff)?;
@@ -39,6 +42,25 @@ pub fn diff_file(repo: &Repository, path: &str) -> GitResult<FileDiff> {
         .into_iter()
         .next()
         .ok_or_else(|| super::error::GitError::Other(format!("No diff for file: {}", path)))
+}
+
+/// Get diff for a specific staged file (index vs HEAD)
+pub fn diff_file_staged(repo: &Repository, path: &str) -> GitResult<FileDiff> {
+    let head_tree = repo
+        .head()
+        .ok()
+        .and_then(|h| h.peel_to_tree().ok());
+
+    let mut diff_opts = DiffOptions::new();
+    diff_opts.pathspec(path);
+
+    let diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut diff_opts))?;
+    let files = parse_diff(&diff)?;
+
+    files
+        .into_iter()
+        .next()
+        .ok_or_else(|| super::error::GitError::Other(format!("No staged diff for file: {}", path)))
 }
 
 /// Parse a git2 Diff into our FileDiff types
@@ -99,6 +121,7 @@ fn parse_diff(diff: &git2::Diff) -> GitResult<Vec<FileDiff>> {
                 git2::Delta::Renamed => FileStatusType::Renamed,
                 git2::Delta::Copied => FileStatusType::Copied,
                 git2::Delta::Typechange => FileStatusType::TypeChanged,
+                git2::Delta::Untracked => FileStatusType::Added,
                 _ => FileStatusType::Modified,
             };
 
@@ -111,33 +134,37 @@ fn parse_diff(diff: &git2::Diff) -> GitResult<Vec<FileDiff>> {
             });
         }
 
-        // Process hunk header
+        // Process hunk header — git2 sends the hunk ref with every line,
+        // so only start a new hunk when the header actually changes.
         if let Some(h) = hunk {
-            // Save previous hunk
-            if !current_lines.is_empty() {
-                current_hunks.push(DiffHunk {
-                    header: current_hunk_header.clone(),
-                    old_start: current_old_start,
-                    old_lines: current_old_lines,
-                    new_start: current_new_start,
-                    new_lines: current_new_lines,
-                    lines: std::mem::take(&mut current_lines),
-                });
-            }
+            let header = String::from_utf8_lossy(h.header()).to_string();
+            if header != current_hunk_header {
+                // Save previous hunk
+                if !current_lines.is_empty() {
+                    current_hunks.push(DiffHunk {
+                        header: current_hunk_header.clone(),
+                        old_start: current_old_start,
+                        old_lines: current_old_lines,
+                        new_start: current_new_start,
+                        new_lines: current_new_lines,
+                        lines: std::mem::take(&mut current_lines),
+                    });
+                }
 
-            current_hunk_header = String::from_utf8_lossy(h.header()).to_string();
-            current_old_start = h.old_start();
-            current_old_lines = h.old_lines();
-            current_new_start = h.new_start();
-            current_new_lines = h.new_lines();
+                current_hunk_header = header;
+                current_old_start = h.old_start();
+                current_old_lines = h.old_lines();
+                current_new_start = h.new_start();
+                current_new_lines = h.new_lines();
+            }
         }
 
-        // Process line
+        // Process line — skip file header lines (---, +++, etc.)
         let origin = match line.origin() {
             '+' => DiffLineType::Addition,
             '-' => DiffLineType::Deletion,
             ' ' => DiffLineType::Context,
-            _ => DiffLineType::Header,
+            _ => return true,
         };
 
         let content = String::from_utf8_lossy(line.content()).to_string();

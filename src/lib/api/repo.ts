@@ -37,12 +37,20 @@ export async function getFileDiff(path: string, filePath: string): Promise<FileD
   return invoke('get_file_diff', { path, filePath });
 }
 
+export async function getStagedFileDiff(path: string, filePath: string): Promise<FileDiff> {
+  return invoke('get_staged_file_diff', { path, filePath });
+}
+
 export async function stageFile(path: string, filePath: string): Promise<RepoStatus> {
   return invoke('stage_file', { path, filePath });
 }
 
 export async function unstageFile(path: string, filePath: string): Promise<RepoStatus> {
   return invoke('unstage_file', { path, filePath });
+}
+
+export async function stageFiles(path: string, filePaths: string[]): Promise<RepoStatus> {
+  return invoke('stage_files', { path, filePaths });
 }
 
 export async function stageAll(path: string): Promise<RepoStatus> {
@@ -71,4 +79,8 @@ export async function checkoutBranch(path: string, name: string): Promise<RepoIn
 
 export async function deleteBranch(path: string, name: string): Promise<Branch[]> {
   return invoke('delete_branch', { path, name });
+}
+
+export async function createCommit(path: string, message: string): Promise<string> {
+  return invoke('create_commit', { path, message });
 }

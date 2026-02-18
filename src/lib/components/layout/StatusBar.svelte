@@ -2,7 +2,7 @@
   import { repoInfo, currentBranch, stagedCount, unstagedCount, hasRepo } from '$lib/stores/repo';
 </script>
 
-<footer class="flex items-center justify-between h-6 px-3 bg-primary text-primary-foreground text-[11px]">
+<footer class="flex items-center justify-between h-6 px-3 bg-card border-t border-border text-muted-foreground text-[11px]">
   {#if $hasRepo}
     <div class="flex items-center gap-3">
       <span class="flex items-center gap-1">

@@ -166,6 +166,24 @@ pub fn unstage_file(repo: &Repository, path: &str) -> GitResult<()> {
     Ok(())
 }
 
+/// Stage a list of files by path
+pub fn stage_files(repo: &Repository, paths: &[String]) -> GitResult<()> {
+    let mut index = repo.index()?;
+    let workdir = repo.workdir().ok_or(GitError::Other("Bare repository".into()))?;
+
+    for path in paths {
+        let file_path = Path::new(path);
+        if workdir.join(file_path).exists() {
+            index.add_path(file_path)?;
+        } else {
+            index.remove_path(file_path)?;
+        }
+    }
+
+    index.write()?;
+    Ok(())
+}
+
 /// Stage all changes
 pub fn stage_all(repo: &Repository) -> GitResult<()> {
     let mut index = repo.index()?;
@@ -277,4 +295,21 @@ pub fn delete_branch(repo: &Repository, name: &str) -> GitResult<()> {
 
     branch.delete()?;
     Ok(())
+}
+
+/// Create a commit with the current index
+pub fn create_commit(repo: &Repository, message: &str) -> GitResult<String> {
+    let sig = repo.signature()?;
+    let mut index = repo.index()?;
+    let tree_oid = index.write_tree()?;
+    let tree = repo.find_tree(tree_oid)?;
+
+    let parents = match repo.head() {
+        Ok(head) => vec![head.peel_to_commit()?],
+        Err(_) => vec![], // empty repo — initial commit
+    };
+    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+
+    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)?;
+    Ok(oid.to_string())
 }

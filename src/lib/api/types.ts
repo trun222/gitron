@@ -103,7 +103,15 @@ export interface RecentRepo {
   pinned: boolean;
 }
 
+export interface GraphColumnWidths {
+  graph: number;
+  author: number;
+  date: number;
+  sha: number;
+}
+
 export interface AppSettings {
   lastActiveRepo: string | null;
   recentRepos: RecentRepo[];
+  graphColumnWidths?: GraphColumnWidths;
 }

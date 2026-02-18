@@ -1,5 +1,5 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
-import type { AppSettings, RecentRepo } from './types';
+import type { AppSettings, GraphColumnWidths, RecentRepo } from './types';
 
 const store = new LazyStore('settings.json');
 
@@ -65,4 +65,15 @@ export async function togglePinRepo(path: string): Promise<AppSettings> {
 export async function getLastActiveRepo(): Promise<string | null> {
   const settings = await getSettings();
   return settings.lastActiveRepo;
+}
+
+export async function getColumnWidths(): Promise<GraphColumnWidths | null> {
+  const settings = await getSettings();
+  return settings.graphColumnWidths ?? null;
+}
+
+export async function saveColumnWidths(widths: GraphColumnWidths): Promise<void> {
+  const settings = await getSettings();
+  settings.graphColumnWidths = widths;
+  await saveSettings(settings);
 }

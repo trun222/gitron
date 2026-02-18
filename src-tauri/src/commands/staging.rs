@@ -16,6 +16,14 @@ pub fn unstage_file(path: String, file_path: String) -> Result<RepoStatus, GitEr
     repository::get_status(&repo)
 }
 
+/// Stage a list of files
+#[tauri::command]
+pub fn stage_files(path: String, file_paths: Vec<String>) -> Result<RepoStatus, GitError> {
+    let repo = repository::open(&path)?;
+    repository::stage_files(&repo, &file_paths)?;
+    repository::get_status(&repo)
+}
+
 /// Stage all changes
 #[tauri::command]
 pub fn stage_all(path: String) -> Result<RepoStatus, GitError> {

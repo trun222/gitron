@@ -3,7 +3,8 @@
   import AppShell from '$lib/components/layout/AppShell.svelte';
   import CommitGraph from '$lib/components/graph/CommitGraph.svelte';
   import CommitDetail from '$lib/components/graph/CommitDetail.svelte';
-  import { hasRepo, selectedCommit, openRepo } from '$lib/stores/repo';
+  import FilePreview from '$lib/components/diff/FilePreview.svelte';
+  import { hasRepo, selectedCommit, isFileSelected, openRepo } from '$lib/stores/repo';
   import { loadSettings, lastActiveRepo } from '$lib/stores/settings';
   import { get } from 'svelte/store';
 
@@ -18,9 +19,13 @@
 
 <AppShell>
   {#if $hasRepo}
-    <CommitGraph />
-    {#if $selectedCommit}
-      <CommitDetail />
+    {#if $isFileSelected}
+      <FilePreview />
+    {:else}
+      <CommitGraph />
+      {#if $selectedCommit}
+        <CommitDetail />
+      {/if}
     {/if}
   {:else}
     <div class="flex items-center justify-center flex-1">

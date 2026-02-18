@@ -1,6 +1,7 @@
 <script lang="ts">
   import { commitGraph, selectedCommit, selectCommit } from '$lib/stores/repo';
-  import type { Commit, Branch } from '$lib/api/types';
+  import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
+  import type { Commit, Branch, GraphColumnWidths } from '$lib/api/types';
 
   const BRANCH_COLORS = [
     '#4fc3f7', '#81c784', '#ffb74d', '#e57373',
@@ -8,7 +9,80 @@
     '#f06292', '#7986cb',
   ];
 
+  const MIN_WIDTHS: Record<keyof GraphColumnWidths, number> = {
+    graph: 30,
+    author: 60,
+    date: 60,
+    sha: 50,
+  };
+
   let listEl: HTMLDivElement | undefined = $state();
+
+  // Local column widths driven by the store
+  let colWidths: GraphColumnWidths = $state({ graph: 40, author: 140, date: 80, sha: 70 });
+
+  // Sync from store
+  $effect(() => {
+    const storeVal = $graphColumnWidths;
+    colWidths = { ...storeVal };
+  });
+
+  function getGridTemplate(): string {
+    return `${colWidths.graph}px 1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
+  }
+
+  // Drag state
+  type DragMode =
+    | { kind: 'single'; column: keyof GraphColumnWidths; startWidth: number; inverse: boolean }
+    | { kind: 'pair'; left: keyof GraphColumnWidths; right: keyof GraphColumnWidths; startLeft: number; startRight: number };
+  let dragMode: DragMode | null = $state(null);
+  let dragStartX = 0;
+
+  function startResize(column: keyof GraphColumnWidths, inverse = false) {
+    return (e: MouseEvent) => {
+      e.preventDefault();
+      dragMode = { kind: 'single', column, startWidth: colWidths[column], inverse };
+      dragStartX = e.clientX;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    };
+  }
+
+  function startResizePair(left: keyof GraphColumnWidths, right: keyof GraphColumnWidths) {
+    return (e: MouseEvent) => {
+      e.preventDefault();
+      dragMode = { kind: 'pair', left, right, startLeft: colWidths[left], startRight: colWidths[right] };
+      dragStartX = e.clientX;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    };
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!dragMode) return;
+    const delta = e.clientX - dragStartX;
+    if (dragMode.kind === 'single') {
+      const adjusted = dragMode.inverse ? -delta : delta;
+      colWidths[dragMode.column] = Math.max(MIN_WIDTHS[dragMode.column], dragMode.startWidth + adjusted);
+    } else {
+      colWidths[dragMode.left] = Math.max(MIN_WIDTHS[dragMode.left], dragMode.startLeft + delta);
+      colWidths[dragMode.right] = Math.max(MIN_WIDTHS[dragMode.right], dragMode.startRight - delta);
+    }
+  }
+
+  function onMouseUp() {
+    if (!dragMode) return;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    dragMode = null;
+    saveGraphColumnWidths({ ...colWidths });
+  }
 
   function getBranchColor(index: number): string {
     return BRANCH_COLORS[index % BRANCH_COLORS.length];
@@ -68,14 +142,15 @@
   }
 </script>
 
-<div class="flex flex-col flex-1 overflow-hidden text-[13px]">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-      <span class="text-center">Graph</span>
-      <span>Message</span>
-      <span>Author</span>
-      <span>Date</span>
-      <span class="text-right">SHA</span>
+      <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
+      <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
+      <span class="text-center header-cell">Author<span class="resize-handle" role="separator" onmousedown={startResizePair('author', 'date')}></span></span>
+      <span class="text-center header-cell">Date<span class="resize-handle" role="separator" onmousedown={startResizePair('date', 'sha')}></span></span>
+      <span class="text-center">SHA</span>
     </div>
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -120,9 +195,9 @@
             <span class="truncate">{commit.summary}</span>
           </span>
 
-          <span class="text-muted-foreground truncate">{commit.author.name}</span>
-          <span class="text-muted-foreground text-xs">{formatDate(commit.timestamp)}</span>
-          <span class="font-mono text-[11px] text-muted-foreground text-right">{commit.short_oid}</span>
+          <span class="text-muted-foreground truncate text-center">{commit.author.name}</span>
+          <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
+          <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
         </button>
       {/each}
     </div>
@@ -136,8 +211,41 @@
 <style>
   .commit-row {
     display: grid;
-    grid-template-columns: 40px 1fr 140px 80px 70px;
+    grid-template-columns: var(--grid-cols);
     align-items: center;
     gap: 4px;
+  }
+
+  .header-cell {
+    position: relative;
+  }
+
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    right: -5px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 1;
+    background: transparent;
+  }
+
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 50%;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--primary);
+    opacity: 0.35;
+    transform: translateX(-50%);
+    transition: opacity 150ms ease;
+  }
+
+  .resize-handle:hover::after {
+    opacity: 0.8;
   }
 </style>

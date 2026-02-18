@@ -3,7 +3,7 @@ pub mod git;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, diff, graph, repo, staging};
+use commands::{branch, commit, diff, graph, repo, staging};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,14 +19,17 @@ pub fn run() {
             graph::get_commit_detail,
             diff::get_workdir_diff,
             diff::get_file_diff,
+            diff::get_staged_file_diff,
             staging::stage_file,
             staging::unstage_file,
+            staging::stage_files,
             staging::stage_all,
             staging::unstage_all,
             branch::list_branches,
             branch::create_branch,
             branch::checkout_branch,
             branch::delete_branch,
+            commit::create_commit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

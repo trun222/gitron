@@ -13,3 +13,10 @@ pub fn get_file_diff(path: String, file_path: String) -> Result<FileDiff, GitErr
     let repo = repository::open(&path)?;
     git_diff::diff_file(&repo, &file_path)
 }
+
+/// Get diff for a specific staged file
+#[tauri::command]
+pub fn get_staged_file_diff(path: String, file_path: String) -> Result<FileDiff, GitError> {
+    let repo = repository::open(&path)?;
+    git_diff::diff_file_staged(&repo, &file_path)
+}

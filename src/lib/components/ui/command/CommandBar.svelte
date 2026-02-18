@@ -2,7 +2,7 @@
   import { Command } from 'bits-ui';
   import { open } from '@tauri-apps/plugin-dialog';
   import { sortedRecentRepos } from '$lib/stores/settings';
-  import { openRepo } from '$lib/stores/repo';
+  import { openRepo, hasRepo, localBranches, remoteBranches, currentBranch, checkoutBranch } from '$lib/stores/repo';
 
   let search = $state('');
   let isOpen = $state(false);
@@ -30,6 +30,13 @@
     search = '';
     inputRef?.blur();
     await openRepo(path);
+  }
+
+  async function handleSelectBranch(name: string) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await checkoutBranch(name);
   }
 
   async function handleOpenFolder() {
@@ -66,7 +73,7 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder="Search repositories... (Cmd+K)"
+      placeholder="Search... (Cmd+K)"
       class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
     />
     {#if isOpen}
@@ -127,6 +134,59 @@
               </Command.Item>
             </Command.GroupItems>
           </Command.Group>
+
+          {#if $hasRepo && $localBranches.length > 0}
+            <Command.Separator class="my-1 h-px bg-border" />
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Branches
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                {#each $localBranches as branch (branch.name)}
+                  <Command.Item
+                    value={`branch:${branch.name}`}
+                    keywords={[branch.name, 'checkout', 'switch', 'branch']}
+                    onSelect={() => handleSelectBranch(branch.name)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    {#if branch.is_head}
+                      <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                        <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                      </svg>
+                    {:else}
+                      <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                        <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
+                      </svg>
+                    {/if}
+                    <span class={branch.is_head ? 'font-medium text-primary' : ''}>{branch.name}</span>
+                  </Command.Item>
+                {/each}
+              </Command.GroupItems>
+            </Command.Group>
+          {/if}
+
+          {#if $hasRepo && $remoteBranches.length > 0}
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Remote Branches
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                {#each $remoteBranches as branch (branch.name)}
+                  <Command.Item
+                    value={`remote:${branch.name}`}
+                    keywords={[branch.name, 'remote', 'checkout', 'branch']}
+                    onSelect={() => handleSelectBranch(branch.name)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent opacity-70"
+                  >
+                    <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
+                    </svg>
+                    <span>{branch.name}</span>
+                  </Command.Item>
+                {/each}
+              </Command.GroupItems>
+            </Command.Group>
+          {/if}
         </Command.Viewport>
       </Command.List>
     {/if}
