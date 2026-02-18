@@ -2,7 +2,6 @@
   import { commitGraph, selectedCommit, selectCommit } from '$lib/stores/repo';
   import type { Commit, Branch } from '$lib/api/types';
 
-  // Branch colors for the graph
   const BRANCH_COLORS = [
     '#4fc3f7', '#81c784', '#ffb74d', '#e57373',
     '#ba68c8', '#4dd0e1', '#aed581', '#ff8a65',
@@ -38,27 +37,25 @@
   }
 </script>
 
-<div class="commit-graph">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]">
   {#if $commitGraph && $commitGraph.commits.length > 0}
-    <div class="graph-header">
-      <span class="col col-graph">Graph</span>
-      <span class="col col-message">Message</span>
-      <span class="col col-author">Author</span>
-      <span class="col col-date">Date</span>
-      <span class="col col-sha">SHA</span>
+    <div class="flex items-center px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+      <span class="w-8 shrink-0">Graph</span>
+      <span class="flex-1">Message</span>
+      <span class="w-[140px] shrink-0 px-2">Author</span>
+      <span class="w-[80px] shrink-0 px-2">Date</span>
+      <span class="w-[70px] shrink-0">SHA</span>
     </div>
 
-    <div class="graph-body">
+    <div class="flex-1 overflow-y-auto">
       {#each $commitGraph.commits as commit, i}
         {@const branches = getBranchesForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
         <button
-          class="commit-row"
-          class:selected={isSelected(commit)}
-          class:is-head={isHead}
+          class="flex items-center px-2 py-1 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
           onclick={() => selectCommit(commit)}
         >
-          <span class="col col-graph">
+          <span class="w-8 shrink-0 flex items-center">
             <svg width="24" height="24" viewBox="0 0 24 24">
               <circle
                 cx="12"
@@ -71,165 +68,26 @@
             </svg>
           </span>
 
-          <span class="col col-message">
+          <span class="flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
             {#each branches as branch}
               <span
-                class="branch-label"
-                class:head={branch.is_head}
-                class:remote={branch.is_remote}
+                class="inline-flex px-1.5 py-px rounded-sm text-[11px] font-semibold shrink-0 border {branch.is_head ? 'bg-primary text-primary-foreground border-primary' : branch.is_remote ? 'bg-transparent text-primary border-primary/50 border-dashed opacity-70' : 'bg-primary/10 text-primary border-primary'}"
               >
                 {branch.name}
               </span>
             {/each}
-            <span class="commit-summary">{commit.summary}</span>
+            <span class="truncate">{commit.summary}</span>
           </span>
 
-          <span class="col col-author">{commit.author.name}</span>
-          <span class="col col-date">{formatDate(commit.timestamp)}</span>
-          <span class="col col-sha">{commit.short_oid}</span>
+          <span class="w-[140px] shrink-0 px-2 text-muted-foreground truncate">{commit.author.name}</span>
+          <span class="w-[80px] shrink-0 px-2 text-muted-foreground text-xs">{formatDate(commit.timestamp)}</span>
+          <span class="w-[70px] shrink-0 font-mono text-[11px] text-muted-foreground">{commit.short_oid}</span>
         </button>
       {/each}
     </div>
   {:else}
-    <div class="empty-state">
+    <div class="flex items-center justify-center h-full text-muted-foreground">
       <p>No commits to display</p>
     </div>
   {/if}
 </div>
-
-<style>
-  .commit-graph {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
-    font-size: 13px;
-  }
-
-  .graph-header {
-    display: flex;
-    align-items: center;
-    padding: 6px 8px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .graph-body {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .commit-row {
-    display: flex;
-    align-items: center;
-    padding: 4px 8px;
-    border: none;
-    border-bottom: 1px solid var(--border-subtle);
-    background: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 0.1s;
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: inherit;
-  }
-
-  .commit-row:hover {
-    background: var(--bg-hover);
-  }
-
-  .commit-row.selected {
-    background: var(--bg-selected);
-  }
-
-  .commit-row.is-head {
-    font-weight: 500;
-  }
-
-  .col {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .col-graph {
-    width: 32px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .col-message {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .col-author {
-    width: 140px;
-    flex-shrink: 0;
-    color: var(--text-secondary);
-    padding: 0 8px;
-  }
-
-  .col-date {
-    width: 80px;
-    flex-shrink: 0;
-    color: var(--text-muted);
-    font-size: 12px;
-    padding: 0 8px;
-  }
-
-  .col-sha {
-    width: 70px;
-    flex-shrink: 0;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .commit-summary {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .branch-label {
-    display: inline-flex;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: 600;
-    flex-shrink: 0;
-    background: var(--bg-badge);
-    color: var(--text-accent);
-    border: 1px solid var(--accent-color);
-  }
-
-  .branch-label.head {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
-  }
-
-  .branch-label.remote {
-    opacity: 0.7;
-    border-style: dashed;
-  }
-
-  .empty-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-muted);
-  }
-</style>

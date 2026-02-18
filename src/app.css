@@ -1,60 +1,154 @@
-/* Gitron — Design System */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Gitron Design System
+ *
+ * Dark-first theme built on shadcn-svelte conventions.
+ * Uses Catppuccin Mocha-inspired colors for the dark theme.
+ * shadcn components reference these variables via Tailwind theme mappings below.
+ *
+ * Gitron-specific tokens (--color-git-*) are for git status indicators
+ * and are used directly in components, not through shadcn.
+ */
 
 :root {
-  /* Dark theme (default) */
-  --bg-primary: #1e1e2e;
-  --bg-secondary: #181825;
-  --bg-hover: #313244;
-  --bg-selected: #45475a;
-  --bg-input: #313244;
-  --bg-badge: rgba(137, 180, 250, 0.1);
+  --radius: 0.5rem;
 
-  --text-primary: #cdd6f4;
-  --text-secondary: #a6adc8;
-  --text-muted: #6c7086;
-  --text-accent: #89b4fa;
+  /* Light theme */
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.45 0.18 260);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.45 0.18 260);
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.45 0.18 260);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.45 0.18 260);
 
-  --border-color: #313244;
-  --border-subtle: rgba(49, 50, 68, 0.5);
-
-  --accent-color: #89b4fa;
-  --accent-hover: #74a8fc;
-
-  --color-added: #a6e3a1;
-  --color-added-bg: rgba(166, 227, 161, 0.1);
-  --color-modified: #f9e2af;
-  --color-modified-bg: rgba(249, 226, 175, 0.1);
-  --color-deleted: #f38ba8;
-  --color-deleted-bg: rgba(243, 139, 168, 0.1);
-
-  /* Typography */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Gitron-specific: git status colors */
+  --color-git-added: #40a02b;
+  --color-git-added-bg: rgba(64, 160, 43, 0.1);
+  --color-git-modified: #df8e1d;
+  --color-git-modified-bg: rgba(223, 142, 29, 0.1);
+  --color-git-deleted: #d20f39;
+  --color-git-deleted-bg: rgba(210, 15, 57, 0.1);
 }
 
-/* Reset */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+.dark {
+  --background: oklch(0.178 0.012 285);
+  --foreground: oklch(0.895 0.013 275);
+  --card: oklch(0.155 0.012 285);
+  --card-foreground: oklch(0.895 0.013 275);
+  --popover: oklch(0.178 0.012 285);
+  --popover-foreground: oklch(0.895 0.013 275);
+  --primary: oklch(0.68 0.15 260);
+  --primary-foreground: oklch(0.155 0.012 285);
+  --secondary: oklch(0.255 0.014 285);
+  --secondary-foreground: oklch(0.895 0.013 275);
+  --muted: oklch(0.255 0.014 285);
+  --muted-foreground: oklch(0.535 0.02 280);
+  --accent: oklch(0.34 0.015 285);
+  --accent-foreground: oklch(0.895 0.013 275);
+  --destructive: oklch(0.65 0.2 20);
+  --border: oklch(0.255 0.014 285);
+  --input: oklch(0.3 0.014 285);
+  --ring: oklch(0.68 0.15 260);
+  --sidebar: oklch(0.155 0.012 285);
+  --sidebar-foreground: oklch(0.895 0.013 275);
+  --sidebar-primary: oklch(0.68 0.15 260);
+  --sidebar-primary-foreground: oklch(0.155 0.012 285);
+  --sidebar-accent: oklch(0.255 0.014 285);
+  --sidebar-accent-foreground: oklch(0.895 0.013 275);
+  --sidebar-border: oklch(0.255 0.014 285);
+  --sidebar-ring: oklch(0.68 0.15 260);
+
+  /* Gitron-specific: git status colors (dark) */
+  --color-git-added: #a6e3a1;
+  --color-git-added-bg: rgba(166, 227, 161, 0.1);
+  --color-git-modified: #f9e2af;
+  --color-git-modified-bg: rgba(249, 226, 175, 0.1);
+  --color-git-deleted: #f38ba8;
+  --color-git-deleted-bg: rgba(243, 139, 168, 0.1);
 }
 
-body {
-  margin: 0;
-  overflow: hidden;
+/* Map CSS variables to Tailwind theme */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Gitron-specific colors available as Tailwind utilities */
+  --color-git-added: var(--color-git-added);
+  --color-git-added-bg: var(--color-git-added-bg);
+  --color-git-modified: var(--color-git-modified);
+  --color-git-modified-bg: var(--color-git-modified-bg);
+  --color-git-deleted: var(--color-git-deleted);
+  --color-git-deleted-bg: var(--color-git-deleted-bg);
+
+  /* Font family */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground overflow-hidden;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 /* Scrollbar styling */
@@ -68,10 +162,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--muted-foreground);
 }

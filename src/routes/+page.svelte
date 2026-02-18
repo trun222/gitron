@@ -12,44 +12,12 @@
       <CommitDetail />
     {/if}
   {:else}
-    <div class="welcome">
-      <div class="welcome-content">
-        <h1 class="welcome-title">Gitron</h1>
-        <p class="welcome-subtitle">Open-source, AI-native Git GUI</p>
-        <p class="welcome-hint">Enter a repository path in the toolbar to get started</p>
+    <div class="flex items-center justify-center flex-1">
+      <div class="text-center">
+        <h1 class="text-5xl font-extrabold text-primary mb-2 tracking-tight">Gitron</h1>
+        <p class="text-lg text-muted-foreground mb-6">Open-source, AI-native Git GUI</p>
+        <p class="text-sm text-muted-foreground/70">Enter a repository path in the toolbar to get started</p>
       </div>
     </div>
   {/if}
 </AppShell>
-
-<style>
-  .welcome {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-  }
-
-  .welcome-content {
-    text-align: center;
-  }
-
-  .welcome-title {
-    font-size: 48px;
-    font-weight: 800;
-    color: var(--text-accent);
-    margin-bottom: 8px;
-    letter-spacing: -1px;
-  }
-
-  .welcome-subtitle {
-    font-size: 18px;
-    color: var(--text-secondary);
-    margin-bottom: 24px;
-  }
-
-  .welcome-hint {
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-</style>

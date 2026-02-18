@@ -2,39 +2,18 @@
   import Sidebar from './Sidebar.svelte';
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
+  import type { Snippet } from 'svelte';
+
+  let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="app-shell">
+<div class="flex flex-col h-screen overflow-hidden bg-background text-foreground">
   <Toolbar />
-  <div class="app-body">
+  <div class="flex flex-1 overflow-hidden">
     <Sidebar />
-    <main class="main-content">
-      <slot />
+    <main class="flex-1 overflow-auto flex flex-col">
+      {@render children()}
     </main>
   </div>
   <StatusBar />
 </div>
-
-<style>
-  .app-shell {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-  }
-
-  .app-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .main-content {
-    flex: 1;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-  }
-</style>

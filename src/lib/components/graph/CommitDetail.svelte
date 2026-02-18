@@ -7,34 +7,34 @@
 </script>
 
 {#if $selectedCommit}
-  <div class="commit-detail">
-    <div class="detail-header">
-      <h3 class="commit-summary">{$selectedCommit.summary}</h3>
-      <span class="commit-sha">{$selectedCommit.oid}</span>
+  <div class="px-4 py-3 border-t border-border bg-card max-h-[200px] overflow-y-auto">
+    <div class="flex items-start justify-between gap-3 mb-2">
+      <h3 class="text-sm font-semibold text-foreground">{$selectedCommit.summary}</h3>
+      <span class="font-mono text-[11px] text-muted-foreground shrink-0">{$selectedCommit.oid}</span>
     </div>
 
     {#if $selectedCommit.message !== $selectedCommit.summary}
-      <pre class="commit-body">{$selectedCommit.message}</pre>
+      <pre class="mb-2 p-2 bg-background rounded text-xs text-muted-foreground whitespace-pre-wrap font-mono">{$selectedCommit.message}</pre>
     {/if}
 
-    <div class="detail-meta">
-      <div class="meta-row">
-        <span class="meta-label">Author</span>
-        <span class="meta-value">
+    <div class="flex flex-col gap-1">
+      <div class="flex gap-2 text-xs">
+        <span class="text-muted-foreground min-w-[60px] font-medium">Author</span>
+        <span class="text-secondary-foreground">
           {$selectedCommit.author.name}
           &lt;{$selectedCommit.author.email}&gt;
         </span>
       </div>
-      <div class="meta-row">
-        <span class="meta-label">Date</span>
-        <span class="meta-value">{formatFullDate($selectedCommit.timestamp)}</span>
+      <div class="flex gap-2 text-xs">
+        <span class="text-muted-foreground min-w-[60px] font-medium">Date</span>
+        <span class="text-secondary-foreground">{formatFullDate($selectedCommit.timestamp)}</span>
       </div>
       {#if $selectedCommit.parents.length > 0}
-        <div class="meta-row">
-          <span class="meta-label">Parents</span>
-          <span class="meta-value">
+        <div class="flex gap-2 text-xs">
+          <span class="text-muted-foreground min-w-[60px] font-medium">Parents</span>
+          <span class="text-secondary-foreground">
             {#each $selectedCommit.parents as parent, i}
-              <span class="parent-sha">{parent.substring(0, 7)}</span>
+              <span class="font-mono text-primary">{parent.substring(0, 7)}</span>
               {#if i < $selectedCommit.parents.length - 1},&nbsp;{/if}
             {/each}
           </span>
@@ -43,73 +43,3 @@
     </div>
   </div>
 {/if}
-
-<style>
-  .commit-detail {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  .detail-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .commit-summary {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .commit-sha {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 11px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
-  .commit-body {
-    margin: 0 0 8px;
-    padding: 8px;
-    background: var(--bg-primary);
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    white-space: pre-wrap;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-  }
-
-  .detail-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .meta-row {
-    display: flex;
-    gap: 8px;
-    font-size: 12px;
-  }
-
-  .meta-label {
-    color: var(--text-muted);
-    min-width: 60px;
-    font-weight: 500;
-  }
-
-  .meta-value {
-    color: var(--text-secondary);
-  }
-
-  .parent-sha {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    color: var(--accent-color);
-  }
-</style>

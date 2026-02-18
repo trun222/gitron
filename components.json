@@ -1,0 +1,15 @@
+{
+  "style": "default",
+  "tailwind": {
+    "css": "src/app.css",
+    "baseColor": "zinc"
+  },
+  "typescript": true,
+  "aliases": {
+    "utils": "$lib/utils",
+    "components": "$lib/components",
+    "hooks": "$lib/hooks",
+    "ui": "$lib/components/ui"
+  },
+  "registry": "https://shadcn-svelte.com/registry"
+}
