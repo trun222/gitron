@@ -5,15 +5,25 @@
 **Goal:** Prove the Rust + Tauri + Svelte pipeline works end-to-end. Establish the core git abstraction and render a commit graph.
 
 - [x] Document vision, architecture, and roadmap
-- [ ] Scaffold Tauri v2 + Svelte project
-- [ ] Implement core git trait layer (`git/traits.rs`, `git/types.rs`)
-- [ ] Implement git2-rs backend for graph reading
-- [ ] Implement git2-rs backend for repo status
-- [ ] Wire up Tauri IPC commands (repo open, graph query, status)
-- [ ] Build commit graph canvas renderer (Svelte)
-- [ ] Build basic app shell layout (sidebar, toolbar, main area)
-- [ ] File watcher integration (notify-rs)
-- [ ] Repo state cache with incremental updates
+- [x] Document technical spec, plugin system, agent gateway, developer guide
+- [x] Scaffold Tauri v2 + Svelte project
+- [x] Define core data types (Rust + TypeScript mirrors)
+- [x] Implement git2-rs backend for graph reading
+- [x] Implement git2-rs backend for repo status
+- [x] Implement git2-rs backend for diff computation
+- [x] Implement git2-rs backend for staging operations
+- [x] Implement git2-rs backend for branch operations
+- [x] Wire up Tauri IPC commands (repo, graph, diff, staging, branch)
+- [x] Build app shell layout (sidebar, toolbar, status bar)
+- [x] Build commit graph list view with branch labels
+- [x] Build commit detail panel
+- [x] Build sidebar (changes tab, branches tab)
+- [x] Create Svelte stores and API bindings
+- [x] Create file watcher stub (notify-rs)
+- [x] Create repo state cache stub
+- [ ] Test end-to-end with `npm run tauri dev`
+- [ ] Wire file watcher to Tauri events for live updates
+- [ ] Implement Canvas-based graph renderer (replace HTML table)
 
 **Exit criteria:** Can open a git repo, see the commit graph, and see it update live when changes happen.
 
@@ -21,20 +31,20 @@
 
 **Goal:** Make Gitron usable as a daily Git GUI for basic operations.
 
-- [ ] Staging panel — stage/unstage files
+- [ ] Staging panel — interactive stage/unstage per file
 - [ ] Hunk-level and line-level staging
-- [ ] Commit authoring panel
+- [ ] Commit authoring panel (message input + commit button)
 - [ ] Diff viewer (inline mode)
 - [ ] Diff viewer (side-by-side mode)
-- [ ] Branch panel — list, create, delete, rename
-- [ ] Checkout branches
-- [ ] Fetch / pull / push
+- [ ] Branch panel — create, delete, rename with UI
+- [ ] Checkout branches via UI
+- [ ] Fetch / pull / push commands
 - [ ] Remote management
-- [ ] Status bar with repo info
 - [ ] Keyboard shortcuts for common operations
 - [ ] Multiple repo tabs / switching
+- [ ] File tree view for navigating repo
 
-**Exit criteria:** Can perform a full daily git workflow (status → stage → commit → push) without touching the CLI.
+**Exit criteria:** Can perform a full daily git workflow (status -> stage -> commit -> push) without touching the CLI.
 
 ## Phase 3: Advanced Git Features
 
@@ -61,6 +71,8 @@
 
 **Goal:** Open the platform for community extensions.
 
+See [PLUGIN_SYSTEM.md](./PLUGIN_SYSTEM.md) for full design.
+
 - [ ] Backend plugin trait and lifecycle
 - [ ] Plugin loader and registry
 - [ ] Plugin sandboxing and permissions
@@ -81,6 +93,8 @@
 ## Phase 5: Agent Gateway & AI Integration
 
 **Goal:** Make Gitron an AI-native git interface.
+
+See [AGENT_GATEWAY.md](./AGENT_GATEWAY.md) for full design.
 
 - [ ] Agent Gateway core
 - [ ] MCP server exposing repo state as resources
@@ -127,5 +141,6 @@
 ## Current Status
 
 **Phase:** 1 — Foundation
-**Next step:** Scaffold Tauri v2 + Svelte project, implement core git traits
-**Documentation:** See [VISION.md](./VISION.md) and [ARCHITECTURE.md](./ARCHITECTURE.md)
+**Completed:** Scaffolding, core git backend, IPC commands, frontend UI shell, documentation
+**Next step:** Test end-to-end with `npm run tauri dev`, then wire file watcher for live updates
+**Documentation:** See [docs/README.md](./README.md) for a full index
