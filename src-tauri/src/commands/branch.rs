@@ -34,3 +34,11 @@ pub fn delete_branch(path: String, name: String) -> Result<Vec<Branch>, GitError
     repository::delete_branch(&repo, &name)?;
     repository::list_branches(&repo)
 }
+
+/// Reset current branch to a specific commit
+#[tauri::command]
+pub fn reset_to_commit(path: String, commit_oid: String, reset_type: String) -> Result<RepoInfo, GitError> {
+    let repo = repository::open(&path)?;
+    repository::reset_to_commit(&repo, &commit_oid, &reset_type)?;
+    repository::get_repo_info(&repo)
+}

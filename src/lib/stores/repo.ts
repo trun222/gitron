@@ -315,11 +315,59 @@ export async function createBranchAtCommit(name: string, targetOid: string) {
   }
 }
 
+export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixed' | 'hard') {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const info = await api.resetToCommit(path, commitOid, resetType);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function deleteBranch(name: string) {
   const path = get(repoPath);
   if (!path) return;
   try {
     await api.deleteBranch(path, name);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function applyStash(index: number) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.applyStash(path, index);
+    repoStatus.set(status);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function popStash(index: number) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.popStash(path, index);
+    repoStatus.set(status);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function dropStash(index: number) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.dropStash(path, index);
+    repoStatus.set(status);
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));

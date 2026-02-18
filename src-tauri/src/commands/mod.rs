@@ -4,6 +4,7 @@ pub mod diff;
 pub mod staging;
 pub mod branch;
 pub mod commit;
+pub mod stash;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

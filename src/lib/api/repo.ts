@@ -81,6 +81,26 @@ export async function deleteBranch(path: string, name: string): Promise<Branch[]
   return invoke('delete_branch', { path, name });
 }
 
+export async function resetToCommit(
+  path: string,
+  commitOid: string,
+  resetType: 'soft' | 'mixed' | 'hard'
+): Promise<RepoInfo> {
+  return invoke('reset_to_commit', { path, commitOid, resetType });
+}
+
 export async function createCommit(path: string, message: string): Promise<string> {
   return invoke('create_commit', { path, message });
+}
+
+export async function applyStash(path: string, index: number): Promise<RepoStatus> {
+  return invoke('apply_stash', { path, index });
+}
+
+export async function popStash(path: string, index: number): Promise<RepoStatus> {
+  return invoke('pop_stash', { path, index });
+}
+
+export async function dropStash(path: string, index: number): Promise<RepoStatus> {
+  return invoke('drop_stash', { path, index });
 }

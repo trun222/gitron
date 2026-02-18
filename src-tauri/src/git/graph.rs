@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{TimeZone, Utc};
 use git2::Repository;
@@ -10,6 +10,9 @@ use super::types::*;
 pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResult<CommitGraph> {
     let max_commits = options.max_commits.unwrap_or(500);
     let mut commits = Vec::new();
+
+    // Collect stashes and build skip set for internal stash commits
+    let (stashes, stash_internal_oids) = collect_stashes(repo);
 
     // Set up the revwalk
     let mut revwalk = repo.revwalk()?;
@@ -34,13 +37,16 @@ pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResul
         }
     }
 
-    // Walk commits
+    // Walk commits, skipping internal stash commits
     for oid_result in revwalk {
         if commits.len() >= max_commits {
             break;
         }
 
         let oid = oid_result?;
+        if stash_internal_oids.contains(&oid.to_string()) {
+            continue;
+        }
         let commit = repo.find_commit(oid)?;
         commits.push(commit_to_type(&commit));
     }
@@ -74,6 +80,7 @@ pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResul
         commits,
         branches,
         tags,
+        stashes,
         head_oid,
         head_branch,
         layout: Some(layout),
@@ -139,7 +146,7 @@ fn commit_to_type(commit: &git2::Commit) -> Commit {
 fn compute_graph_layout(
     commits: &[Commit],
     branches: &[Branch],
-    head_branch: &Option<String>,
+    _head_branch: &Option<String>,
 ) -> GraphLayout {
     // Build oid → index lookup
     let oid_to_index: HashMap<&str, usize> = commits
@@ -208,18 +215,28 @@ fn compute_graph_layout(
         }
     }
 
-    // --- Color assignment ---
+    // --- Color assignment (stable: alphabetical, not HEAD-first) ---
+    let mut color_sorted_branches: Vec<&Branch> = branches
+        .iter()
+        .filter(|b| b.target_oid.is_some())
+        .collect();
+    color_sorted_branches.sort_by(|a, b| {
+        let tier = |br: &Branch| -> u8 {
+            if matches!(br.name.as_str(), "main" | "master" | "develop") {
+                0
+            } else if !br.is_remote {
+                1
+            } else {
+                2
+            }
+        };
+        tier(a).cmp(&tier(b)).then_with(|| a.name.cmp(&b.name))
+    });
+
     let mut branch_color_map: HashMap<String, usize> = HashMap::new();
     let mut next_color: usize = 0;
 
-    // HEAD branch gets color 0
-    if let Some(ref hb) = head_branch {
-        branch_color_map.insert(hb.clone(), 0);
-        next_color = 1;
-    }
-
-    // Assign colors in branch priority order
-    for branch in &sorted_branches {
+    for branch in &color_sorted_branches {
         if !branch_color_map.contains_key(&branch.name) {
             branch_color_map.insert(branch.name.clone(), next_color);
             next_color += 1;
@@ -401,6 +418,53 @@ fn compute_graph_layout(
         max_lanes,
         branch_colors,
     }
+}
+
+/// Collect stash entries and their internal commit OIDs (to filter from the graph)
+fn collect_stashes(repo: &Repository) -> (Vec<StashEntry>, HashSet<String>) {
+    let mut stashes = Vec::new();
+    let mut internal_oids = HashSet::new();
+
+    let reflog = match repo.reflog("refs/stash") {
+        Ok(log) => log,
+        Err(_) => return (stashes, internal_oids), // No stashes
+    };
+
+    for (index, entry) in reflog.iter().enumerate() {
+        let oid = entry.id_new();
+        let oid_str = oid.to_string();
+        let short_oid = oid_str[..7.min(oid_str.len())].to_string();
+        let message = entry
+            .message()
+            .unwrap_or("")
+            .to_string();
+
+        // Find the base commit (first parent of the stash commit)
+        let base_oid = if let Ok(commit) = repo.find_commit(oid) {
+            // Stash commits have: parent[0] = base, parent[1] = index state, parent[2] = untracked
+            // Mark internal commits (index state + untracked) for filtering
+            let parent_ids: Vec<git2::Oid> = commit.parent_ids().collect();
+            if parent_ids.len() > 1 {
+                internal_oids.insert(parent_ids[1].to_string());
+            }
+            if parent_ids.len() > 2 {
+                internal_oids.insert(parent_ids[2].to_string());
+            }
+            parent_ids.first().map(|p| p.to_string()).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        stashes.push(StashEntry {
+            index,
+            oid: oid_str,
+            short_oid,
+            message,
+            base_oid,
+        });
+    }
+
+    (stashes, internal_oids)
 }
 
 /// Collect all tags in the repository

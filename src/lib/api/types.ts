@@ -31,10 +31,19 @@ export interface Tag {
   message: string | null;
 }
 
+export interface StashEntry {
+  index: number;
+  oid: string;
+  short_oid: string;
+  message: string;
+  base_oid: string;
+}
+
 export interface CommitGraph {
   commits: Commit[];
   branches: Branch[];
   tags: Tag[];
+  stashes: StashEntry[];
   head_oid: string | null;
   head_branch: string | null;
   layout: GraphLayout | null;

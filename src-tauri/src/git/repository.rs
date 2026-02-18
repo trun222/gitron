@@ -297,6 +297,41 @@ pub fn delete_branch(repo: &Repository, name: &str) -> GitResult<()> {
     Ok(())
 }
 
+/// Reset current branch to a specific commit
+pub fn reset_to_commit(repo: &Repository, commit_oid: &str, reset_type: &str) -> GitResult<()> {
+    let oid = git2::Oid::from_str(commit_oid)
+        .map_err(|_| GitError::CommitNotFound(commit_oid.to_string()))?;
+    let commit = repo
+        .find_commit(oid)
+        .map_err(|_| GitError::CommitNotFound(commit_oid.to_string()))?;
+    let rt = match reset_type {
+        "soft" => git2::ResetType::Soft,
+        "mixed" => git2::ResetType::Mixed,
+        "hard" => git2::ResetType::Hard,
+        _ => return Err(GitError::Other(format!("Invalid reset type: {}", reset_type))),
+    };
+    repo.reset(commit.as_object(), rt, None)?;
+    Ok(())
+}
+
+/// Apply a stash by index (does not remove it)
+pub fn apply_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
+    repo.stash_apply(index, None)
+        .map_err(|e| GitError::Other(format!("Failed to apply stash: {}", e)))
+}
+
+/// Pop a stash by index (applies and removes it)
+pub fn pop_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
+    repo.stash_pop(index, None)
+        .map_err(|e| GitError::Other(format!("Failed to pop stash: {}", e)))
+}
+
+/// Drop a stash by index (removes without applying)
+pub fn drop_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
+    repo.stash_drop(index)
+        .map_err(|e| GitError::Other(format!("Failed to drop stash: {}", e)))
+}
+
 /// Create a commit with the current index
 pub fn create_commit(repo: &Repository, message: &str) -> GitResult<String> {
     let sig = repo.signature()?;

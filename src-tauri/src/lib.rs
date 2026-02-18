@@ -3,7 +3,7 @@ pub mod git;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, commit, diff, graph, repo, staging};
+use commands::{branch, commit, diff, graph, repo, staging, stash};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,7 +29,11 @@ pub fn run() {
             branch::create_branch,
             branch::checkout_branch,
             branch::delete_branch,
+            branch::reset_to_commit,
             commit::create_commit,
+            stash::apply_stash,
+            stash::pop_stash,
+            stash::drop_stash,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

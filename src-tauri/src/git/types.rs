@@ -40,12 +40,23 @@ pub struct Tag {
     pub message: Option<String>,
 }
 
+/// A stash entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StashEntry {
+    pub index: usize,
+    pub oid: String,
+    pub short_oid: String,
+    pub message: String,
+    pub base_oid: String,
+}
+
 /// The commit graph — nodes and their relationships
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommitGraph {
     pub commits: Vec<Commit>,
     pub branches: Vec<Branch>,
     pub tags: Vec<Tag>,
+    pub stashes: Vec<StashEntry>,
     pub head_oid: Option<String>,
     pub head_branch: Option<String>,
     pub layout: Option<GraphLayout>,

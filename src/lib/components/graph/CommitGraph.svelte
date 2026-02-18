@@ -2,9 +2,11 @@
   import {
     commitGraph, selectedCommit, selectCommit,
     checkoutBranch, deleteBranch, createBranchAtCommit,
+    resetToCommit, currentBranch,
+    applyStash, popStash, dropStash,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
-  import type { Commit, Branch, GraphColumnWidths, GraphEdge } from '$lib/api/types';
+  import type { Commit, Branch, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
   const GRAPH_COLOR_COUNT = 14;
   const ROW_HEIGHT = 30;
@@ -190,6 +192,13 @@
     return new Map(layout.branch_colors.map((e) => [e.name, e.color_index]));
   });
 
+  // Stash OID lookup from graph
+  let stashMap = $derived.by(() => {
+    const stashes = $commitGraph?.stashes;
+    if (!stashes) return new Map<string, StashEntry>();
+    return new Map(stashes.map((s) => [s.oid, s]));
+  });
+
   function formatDate(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
@@ -262,6 +271,7 @@
     label: string;
     disabled?: boolean;
     danger?: boolean;
+    submenu?: MenuAction[];
   }
 
   interface ContextMenuState {
@@ -273,28 +283,69 @@
     shortOid?: string;
     commitMessage?: string;
     branchName?: string;
+    stashIndex?: number;
   }
 
   let contextMenu: ContextMenuState | null = $state(null);
+  let hoveredSubmenu: string | null = $state(null);
 
   function closeContextMenu() {
     contextMenu = null;
+    hoveredSubmenu = null;
   }
 
   function handleCommitContextMenu(e: MouseEvent, commit: Commit) {
     e.preventDefault();
+
+    // Stash-specific context menu
+    const stash = stashMap.get(commit.oid);
+    if (stash) {
+      contextMenu = {
+        x: e.clientX,
+        y: e.clientY,
+        commitOid: commit.oid,
+        shortOid: commit.short_oid,
+        commitMessage: commit.message,
+        stashIndex: stash.index,
+        items: [
+          { id: 'apply-stash', label: 'Apply Stash' },
+          { id: 'pop-stash', label: 'Pop Stash' },
+          { id: 'drop-stash', label: 'Drop Stash', danger: true },
+          'separator',
+          { id: 'copy-sha', label: 'Copy commit SHA' },
+          { id: 'copy-message', label: 'Copy stash message' },
+        ],
+      };
+      return;
+    }
+
+    const branch = $currentBranch;
+    const items: (MenuAction | 'separator')[] = [
+      { id: 'create-branch', label: 'Create branch here' },
+    ];
+    if (branch) {
+      items.push({
+        id: 'reset-submenu',
+        label: `Reset ${branch} to this commit`,
+        submenu: [
+          { id: 'reset-soft', label: 'Soft \u2013 keep all changes staged' },
+          { id: 'reset-mixed', label: 'Mixed \u2013 keep changes unstaged' },
+          { id: 'reset-hard', label: 'Hard \u2013 discard all changes', danger: true },
+        ],
+      });
+    }
+    items.push(
+      'separator',
+      { id: 'copy-sha', label: 'Copy commit SHA' },
+      { id: 'copy-message', label: 'Copy commit message' },
+    );
     contextMenu = {
       x: e.clientX,
       y: e.clientY,
       commitOid: commit.oid,
       shortOid: commit.short_oid,
       commitMessage: commit.message,
-      items: [
-        { id: 'create-branch', label: 'Create branch here' },
-        'separator',
-        { id: 'copy-sha', label: 'Copy commit SHA' },
-        { id: 'copy-message', label: 'Copy commit message' },
-      ],
+      items,
     };
   }
 
@@ -317,7 +368,7 @@
   function executeMenuAction(actionId: string) {
     if (!contextMenu) return;
     // Snapshot values before closing
-    const { x, y, commitOid, shortOid, commitMessage, branchName } = contextMenu;
+    const { x, y, commitOid, shortOid, commitMessage, branchName, stashIndex } = contextMenu;
     closeContextMenu();
 
     switch (actionId) {
@@ -340,6 +391,24 @@
         break;
       case 'copy-name':
         if (branchName) navigator.clipboard.writeText(branchName);
+        break;
+      case 'reset-soft':
+        if (commitOid) resetToCommit(commitOid, 'soft');
+        break;
+      case 'reset-mixed':
+        if (commitOid) resetToCommit(commitOid, 'mixed');
+        break;
+      case 'reset-hard':
+        if (commitOid) resetToCommit(commitOid, 'hard');
+        break;
+      case 'apply-stash':
+        if (stashIndex !== undefined) applyStash(stashIndex);
+        break;
+      case 'pop-stash':
+        if (stashIndex !== undefined) popStash(stashIndex);
+        break;
+      case 'drop-stash':
+        if (stashIndex !== undefined) dropStash(stashIndex);
         break;
     }
   }
@@ -482,14 +551,25 @@
                   {/if}
                 {/each}
 
-                <circle
-                  cx={laneX(node.lane)}
-                  cy={ROW_HEIGHT / 2}
-                  r={CIRCLE_RADIUS}
-                  fill={getGraphColor(node.color_index)}
-                  stroke={isHead ? '#fff' : 'none'}
-                  stroke-width={isHead ? 2 : 0}
-                />
+                {#if stashMap.has(commit.oid)}
+                  <!-- Treasure chest icon for stash commits -->
+                  {@const cx = laneX(node.lane)}
+                  {@const cy = ROW_HEIGHT / 2}
+                  {@const color = getGraphColor(node.color_index)}
+                  <rect x={cx - 7} y={cy - 6} width="14" height="4" rx="1.5" fill={color} />
+                  <rect x={cx - 8} y={cy - 2} width="16" height="9" rx="1.5" fill={color} />
+                  <rect x={cx - 0.5} y={cy - 6} width="1" height="13" fill="var(--background)" opacity="0.5" />
+                  <circle cx={cx} cy={cy + 2} r="1.8" fill="var(--background)" />
+                {:else}
+                  <circle
+                    cx={laneX(node.lane)}
+                    cy={ROW_HEIGHT / 2}
+                    r={CIRCLE_RADIUS}
+                    fill={getGraphColor(node.color_index)}
+                    stroke={isHead ? '#fff' : 'none'}
+                    stroke-width={isHead ? 2 : 0}
+                  />
+                {/if}
               </svg>
 
               <!-- Branch tags absolutely positioned next to the commit circle -->
@@ -503,7 +583,8 @@
                     <span
                       class="branch-tag"
                       style={getBranchLabelStyle(branch)}
-                      onclick={(e) => handleBranchClick(e, branch)}
+                      onclick={(e) => e.stopPropagation()}
+                      ondblclick={(e) => handleBranchClick(e, branch)}
                       oncontextmenu={(e) => handleBranchContextMenu(e, branch)}
                     >
                       {branch.name}
@@ -547,6 +628,35 @@
     {#each contextMenu.items as item}
       {#if item === 'separator'}
         <div class="my-1 h-px bg-border"></div>
+      {:else if item.submenu}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="submenu-parent relative"
+          onmouseenter={() => hoveredSubmenu = item.id}
+          onmouseleave={() => hoveredSubmenu = null}
+        >
+          <button
+            type="button"
+            class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors text-popover-foreground hover:bg-accent cursor-pointer flex items-center justify-between"
+          >
+            <span>{item.label}</span>
+            <span class="ml-2 text-muted-foreground">&rsaquo;</span>
+          </button>
+          {#if hoveredSubmenu === item.id}
+            <div class="absolute left-full top-0 ml-0.5 min-w-[200px] rounded-lg border border-border bg-popover shadow-lg py-1 z-[60]">
+              {#each item.submenu as sub}
+                <button
+                  type="button"
+                  class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors
+                    {sub.danger ? 'text-destructive hover:bg-destructive/10 cursor-pointer' : 'text-popover-foreground hover:bg-accent cursor-pointer'}"
+                  onclick={() => executeMenuAction(sub.id)}
+                >
+                  {sub.label}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {:else}
         <button
           type="button"
@@ -594,6 +704,12 @@
     position: relative;
     z-index: 1;
     overflow: visible;
+  }
+
+  /* Prevent message column from covering absolutely-positioned branch tags */
+  .commit-row > span:nth-child(2) {
+    position: relative;
+    z-index: 0;
   }
 
   .branch-tags {
