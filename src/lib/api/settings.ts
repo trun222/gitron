@@ -77,3 +77,9 @@ export async function saveColumnWidths(widths: GraphColumnWidths): Promise<void>
   settings.graphColumnWidths = widths;
   await saveSettings(settings);
 }
+
+export async function saveSidebarCollapsed(collapsed: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.sidebarCollapsed = collapsed;
+  await saveSettings(settings);
+}

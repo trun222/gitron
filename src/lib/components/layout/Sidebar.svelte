@@ -15,6 +15,7 @@
     commitAndRefresh,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
+  import { sidebarCollapsed, toggleSidebar } from '$lib/stores/settings';
 
   let commitTitle = $state('');
   let commitBody = $state('');
@@ -66,17 +67,49 @@
   }
 
   const bubbleColor = 'bg-primary text-primary-foreground';
+  const totalChanges = $derived($stagedCount + $unstagedCount);
 </script>
 
-<aside class="w-[260px] min-w-[200px] bg-card border-r border-border flex flex-col overflow-hidden">
-  {#if $hasRepo}
-    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border">
-      <span class="text-xs font-medium text-foreground">Changes</span>
-      {#if $stagedCount + $unstagedCount > 0}
-        <span class="{bubbleColor} text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
-          {$stagedCount + $unstagedCount}
+<aside
+  class="bg-card border-r border-border flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out"
+  class:w-[260px]={!$sidebarCollapsed}
+  class:min-w-[200px]={!$sidebarCollapsed}
+  class:w-10={$sidebarCollapsed}
+  class:min-w-10={$sidebarCollapsed}
+>
+  {#if $sidebarCollapsed}
+    <!-- Collapsed strip -->
+    <div class="flex flex-col items-center py-2 gap-2 h-full">
+      <button
+        class="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        onclick={toggleSidebar}
+        aria-label="Expand sidebar"
+        title="Expand sidebar"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+      {#if totalChanges > 0}
+        <span class="{bubbleColor} text-[10px] w-5 h-5 rounded-full flex items-center justify-center" title="{totalChanges} changes">
+          {totalChanges}
         </span>
       {/if}
+    </div>
+  {:else if $hasRepo}
+    <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+      <span class="text-xs font-medium text-foreground flex-1">Changes</span>
+      {#if totalChanges > 0}
+        <span class="{bubbleColor} text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
+          {totalChanges}
+        </span>
+      {/if}
+      <button
+        class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        onclick={toggleSidebar}
+        aria-label="Collapse sidebar"
+        title="Collapse sidebar"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
     </div>
 
     <div

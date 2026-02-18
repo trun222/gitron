@@ -12,6 +12,7 @@ export const graphColumnWidths = writable<GraphColumnWidths>({
   date: 80,
   sha: 70,
 });
+export const sidebarCollapsed = writable(false);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -29,6 +30,9 @@ export async function loadSettings(): Promise<void> {
   lastActiveRepo.set(settings.lastActiveRepo);
   if (settings.graphColumnWidths) {
     graphColumnWidths.set(settings.graphColumnWidths);
+  }
+  if (settings.sidebarCollapsed != null) {
+    sidebarCollapsed.set(settings.sidebarCollapsed);
   }
   settingsLoaded.set(true);
 }
@@ -53,4 +57,12 @@ export async function togglePin(path: string): Promise<void> {
 export async function saveGraphColumnWidths(widths: GraphColumnWidths): Promise<void> {
   graphColumnWidths.set(widths);
   await settingsApi.saveColumnWidths(widths);
+}
+
+export async function toggleSidebar(): Promise<void> {
+  sidebarCollapsed.update((v) => {
+    const next = !v;
+    settingsApi.saveSidebarCollapsed(next);
+    return next;
+  });
 }

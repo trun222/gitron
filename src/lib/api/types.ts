@@ -144,4 +144,5 @@ export interface AppSettings {
   lastActiveRepo: string | null;
   recentRepos: RecentRepo[];
   graphColumnWidths?: GraphColumnWidths;
+  sidebarCollapsed?: boolean;
 }

@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { commitGraph, selectedCommit, selectCommit } from '$lib/stores/repo';
+  import {
+    commitGraph, selectedCommit, selectCommit,
+    checkoutBranch, deleteBranch, createBranchAtCommit,
+  } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
   import type { Commit, Branch, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
@@ -22,7 +25,6 @@
   // Local column widths driven by the store
   let colWidths: GraphColumnWidths = $state({ graph: 40, author: 140, date: 80, sha: 70 });
 
-  // Sync from store
   $effect(() => {
     const storeVal = $graphColumnWidths;
     colWidths = { ...storeVal };
@@ -55,7 +57,7 @@
     return `${graphColumnWidth}px 1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
   }
 
-  // Drag state for column resizing
+  // --- Column resize ---
   type DragMode =
     | { kind: 'single'; column: keyof GraphColumnWidths; startWidth: number; inverse: boolean }
     | { kind: 'pair'; left: keyof GraphColumnWidths; right: keyof GraphColumnWidths; startLeft: number; startRight: number };
@@ -135,7 +137,6 @@
       const node = layout.nodes[row];
       for (const edge of node.edges) {
         if (edge.from_lane === edge.to_lane) {
-          // Straight edge: vertical line at this lane from row to edge.to_row
           const lane = edge.from_lane;
           ensure(row, lane, edge.color_index).hasBottom = true;
           for (let r = row + 1; r < edge.to_row; r++) {
@@ -147,7 +148,6 @@
             ensure(edge.to_row, lane, edge.color_index).hasTop = true;
           }
         } else {
-          // Cross-lane edge: curve at this row, then vertical at to_lane
           const lane = edge.to_lane;
           const startRow = row + 1;
           const endRow = edge.to_row;
@@ -180,7 +180,6 @@
     const y1 = ROW_HEIGHT / 2;
     const x2 = laneX(edge.to_lane);
     const y2 = ROW_HEIGHT;
-    // S-curve cubic bezier
     return `M ${x1} ${y1} C ${x1} ${y1 + ROW_HEIGHT * 0.35}, ${x2} ${y2 - ROW_HEIGHT * 0.35}, ${x2} ${y2}`;
   }
 
@@ -256,6 +255,153 @@
     }
     return `border-color: ${color}; color: ${color}; background: ${color}1a`;
   }
+
+  // --- Context menu (uses action IDs, not closures, to avoid $state proxy issues) ---
+  interface MenuAction {
+    id: string;
+    label: string;
+    disabled?: boolean;
+    danger?: boolean;
+  }
+
+  interface ContextMenuState {
+    x: number;
+    y: number;
+    items: (MenuAction | 'separator')[];
+    // Target data for action dispatch
+    commitOid?: string;
+    shortOid?: string;
+    commitMessage?: string;
+    branchName?: string;
+  }
+
+  let contextMenu: ContextMenuState | null = $state(null);
+
+  function closeContextMenu() {
+    contextMenu = null;
+  }
+
+  function handleCommitContextMenu(e: MouseEvent, commit: Commit) {
+    e.preventDefault();
+    contextMenu = {
+      x: e.clientX,
+      y: e.clientY,
+      commitOid: commit.oid,
+      shortOid: commit.short_oid,
+      commitMessage: commit.message,
+      items: [
+        { id: 'create-branch', label: 'Create branch here' },
+        'separator',
+        { id: 'copy-sha', label: 'Copy commit SHA' },
+        { id: 'copy-message', label: 'Copy commit message' },
+      ],
+    };
+  }
+
+  function handleBranchContextMenu(e: MouseEvent, branch: Branch) {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = {
+      x: e.clientX,
+      y: e.clientY,
+      branchName: branch.name,
+      items: [
+        { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
+        { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head || branch.is_remote, danger: true },
+        'separator',
+        { id: 'copy-name', label: 'Copy branch name' },
+      ],
+    };
+  }
+
+  function executeMenuAction(actionId: string) {
+    if (!contextMenu) return;
+    // Snapshot values before closing
+    const { x, y, commitOid, shortOid, commitMessage, branchName } = contextMenu;
+    closeContextMenu();
+
+    switch (actionId) {
+      case 'create-branch':
+        if (commitOid && shortOid) {
+          branchPrompt = { x, y, commitOid, shortOid };
+        }
+        break;
+      case 'copy-sha':
+        if (commitOid) navigator.clipboard.writeText(commitOid);
+        break;
+      case 'copy-message':
+        if (commitMessage) navigator.clipboard.writeText(commitMessage);
+        break;
+      case 'checkout':
+        if (branchName) checkoutBranch(branchName);
+        break;
+      case 'delete-branch':
+        if (branchName) deleteBranch(branchName);
+        break;
+      case 'copy-name':
+        if (branchName) navigator.clipboard.writeText(branchName);
+        break;
+    }
+  }
+
+  function handleBranchClick(e: MouseEvent, branch: Branch) {
+    e.stopPropagation();
+    if (branch.is_head) return;
+    checkoutBranch(branch.name);
+  }
+
+  // --- Branch creation prompt ---
+  let branchPrompt = $state<{
+    x: number;
+    y: number;
+    commitOid: string;
+    shortOid: string;
+  } | null>(null);
+
+  let newBranchName = $state('');
+
+  function closeBranchPrompt() {
+    branchPrompt = null;
+    newBranchName = '';
+  }
+
+  function handleBranchPromptKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      closeBranchPrompt();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const name = newBranchName.trim();
+      if (name && branchPrompt) {
+        const oid = branchPrompt.commitOid;
+        closeBranchPrompt();
+        createBranchAtCommit(name, oid);
+      }
+    }
+  }
+
+  function autoFocusAction(node: HTMLInputElement) {
+    requestAnimationFrame(() => node.focus());
+  }
+
+  // Close overlays on scroll
+  function handleListScroll() {
+    closeContextMenu();
+    closeBranchPrompt();
+  }
+
+  // Close overlays on Escape
+  $effect(() => {
+    if (contextMenu || branchPrompt) {
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          closeContextMenu();
+          closeBranchPrompt();
+        }
+      };
+      document.addEventListener('keydown', handler);
+      return () => document.removeEventListener('keydown', handler);
+    }
+  });
 </script>
 
 <div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {getGridTemplate()}">
@@ -278,6 +424,7 @@
       aria-label="Commit list"
       bind:this={listEl}
       onkeydown={handleKeydown}
+      onscroll={handleListScroll}
     >
       {#each $commitGraph.commits as commit, i}
         {@const node = layout?.nodes[i]}
@@ -290,14 +437,14 @@
           class="commit-row px-2 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
           style="height: {ROW_HEIGHT}px"
           onclick={() => selectCommit(commit)}
+          oncontextmenu={(e) => handleCommitContextMenu(e, commit)}
         >
-          <span class="flex items-center overflow-hidden" style="height: {ROW_HEIGHT}px">
+          <!-- Graph column: SVG with branch tags absolutely positioned after commit circle -->
+          <span class="graph-cell" style="height: {ROW_HEIGHT}px">
             {#if node}
-              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block shrink-0">
-                <!-- Pass-through vertical lines and commit lane lines -->
+              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block">
                 {#each [...rowLanes] as [lane, activity]}
                   {#if lane !== node.lane}
-                    <!-- Pass-through: full vertical line -->
                     <line
                       x1={laneX(lane)} y1={0}
                       x2={laneX(lane)} y2={ROW_HEIGHT}
@@ -305,7 +452,6 @@
                       stroke-width={LINE_WIDTH}
                     />
                   {:else}
-                    <!-- Commit's lane: split around circle -->
                     {#if activity.hasTop}
                       <line
                         x1={laneX(lane)} y1={0}
@@ -325,7 +471,6 @@
                   {/if}
                 {/each}
 
-                <!-- Cross-lane edge curves -->
                 {#each node.edges as edge}
                   {#if edge.from_lane !== edge.to_lane}
                     <path
@@ -337,7 +482,6 @@
                   {/if}
                 {/each}
 
-                <!-- Commit circle -->
                 <circle
                   cx={laneX(node.lane)}
                   cy={ROW_HEIGHT / 2}
@@ -347,25 +491,35 @@
                   stroke-width={isHead ? 2 : 0}
                 />
               </svg>
+
+              <!-- Branch tags absolutely positioned next to the commit circle -->
+              {#if branches.length > 0}
+                <span
+                  class="branch-tags"
+                  style="left: {laneX(node.lane) + CIRCLE_RADIUS + 6}px"
+                >
+                  {#each branches as branch}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <span
+                      class="branch-tag"
+                      style={getBranchLabelStyle(branch)}
+                      onclick={(e) => handleBranchClick(e, branch)}
+                      oncontextmenu={(e) => handleBranchContextMenu(e, branch)}
+                    >
+                      {branch.name}
+                    </span>
+                  {/each}
+                </span>
+              {/if}
             {:else}
-              <svg width="24" height="24" viewBox="0 0 24 24" class="block shrink-0">
+              <svg width="24" height="24" viewBox="0 0 24 24" class="block">
                 <circle cx="12" cy="12" r="4" fill="#888" />
               </svg>
             {/if}
           </span>
 
-          <span class="flex items-center gap-1.5 min-w-0 overflow-hidden">
-            {#each branches as branch}
-              {@const labelStyle = getBranchLabelStyle(branch)}
-              <span
-                class="inline-flex px-1.5 py-px rounded-sm text-[11px] font-semibold shrink-0 border"
-                style={labelStyle}
-              >
-                {branch.name}
-              </span>
-            {/each}
-            <span class="truncate">{commit.summary}</span>
-          </span>
+          <!-- Message column (just the summary now) -->
+          <span class="min-w-0 overflow-hidden truncate">{commit.summary}</span>
 
           <span class="text-muted-foreground truncate text-center">{commit.author.name}</span>
           <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
@@ -380,12 +534,94 @@
   {/if}
 </div>
 
+<!-- Context menu overlay -->
+{#if contextMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" onclick={closeContextMenu} oncontextmenu={(e) => { e.preventDefault(); closeContextMenu(); }}></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed z-50 min-w-[180px] rounded-lg border border-border bg-popover shadow-lg py-1"
+    style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+    onclick={(e) => e.stopPropagation()}
+  >
+    {#each contextMenu.items as item}
+      {#if item === 'separator'}
+        <div class="my-1 h-px bg-border"></div>
+      {:else}
+        <button
+          type="button"
+          class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors
+            {item.disabled ? 'text-muted-foreground/50 cursor-default pointer-events-none' : item.danger ? 'text-destructive hover:bg-destructive/10 cursor-pointer' : 'text-popover-foreground hover:bg-accent cursor-pointer'}"
+          onclick={() => executeMenuAction(item.id)}
+        >
+          {item.label}
+        </button>
+      {/if}
+    {/each}
+  </div>
+{/if}
+
+<!-- Branch creation prompt -->
+{#if branchPrompt}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" onclick={closeBranchPrompt}></div>
+  <div
+    class="fixed z-50 min-w-[240px] rounded-lg border border-border bg-popover shadow-lg p-3"
+    style="left: {branchPrompt.x}px; top: {branchPrompt.y}px"
+  >
+    <div class="text-xs text-muted-foreground mb-2">
+      Create branch at <span class="font-mono">{branchPrompt.shortOid}</span>
+    </div>
+    <input
+      class="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md outline-none focus:border-primary transition-colors"
+      placeholder="Branch name..."
+      bind:value={newBranchName}
+      onkeydown={handleBranchPromptKeydown}
+      use:autoFocusAction
+    />
+  </div>
+{/if}
+
 <style>
   .commit-row {
     display: grid;
     grid-template-columns: var(--grid-cols);
     align-items: center;
     gap: 4px;
+  }
+
+  .graph-cell {
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+  }
+
+  .branch-tags {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+    pointer-events: auto;
+  }
+
+  .branch-tag {
+    display: inline-flex;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-width: 1px;
+    border-style: solid;
+    cursor: pointer;
+    transition: filter 150ms ease;
+  }
+
+  .branch-tag:hover {
+    filter: brightness(1.25);
   }
 
   .header-cell {
@@ -419,5 +655,9 @@
 
   .resize-handle:hover::after {
     opacity: 0.8;
+  }
+
+  .context-menu-item:disabled {
+    pointer-events: none;
   }
 </style>

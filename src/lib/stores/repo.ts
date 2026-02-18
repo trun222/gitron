@@ -301,3 +301,27 @@ export async function createAndCheckoutBranch(name: string) {
     error.set(String(e));
   }
 }
+
+export async function createBranchAtCommit(name: string, targetOid: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.createBranch(path, name, targetOid);
+    const info = await api.checkoutBranch(path, name);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function deleteBranch(name: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.deleteBranch(path, name);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
