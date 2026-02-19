@@ -207,6 +207,28 @@ export interface DeviceCodeResponse {
   interval: number;
 }
 
+export interface CloneResult {
+  path: string;
+  repo_info: RepoInfo;
+  output: OperationOutput;
+}
+
+export interface GitHubRepo {
+  id: number;
+  full_name: string;
+  name: string;
+  description: string | null;
+  private: boolean;
+  clone_url: string;
+  updated_at: string;
+  owner: GitHubRepoOwner;
+}
+
+export interface GitHubRepoOwner {
+  login: string;
+  avatar_url: string;
+}
+
 // Settings types
 export type ThemeMode = 'dark' | 'light' | 'system' | 'tron' | 'tron-enhanced';
 export type AutoFetchInterval = 0 | 60 | 300 | 900; // seconds; 0 = off

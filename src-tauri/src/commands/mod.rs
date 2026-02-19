@@ -7,6 +7,7 @@ pub mod commit;
 pub mod stash;
 pub mod remote;
 pub mod github;
+pub mod clone;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

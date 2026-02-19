@@ -424,6 +424,42 @@ pub fn discard_all_changes(repo: &Repository) -> GitResult<()> {
     Ok(())
 }
 
+/// Clone a repository from a URL to a destination path (uses CLI for network ops)
+pub async fn clone_repo(url: &str, dest: &str) -> GitResult<CloneResult> {
+    let dest_path = std::path::Path::new(dest);
+    let parent = dest_path
+        .parent()
+        .ok_or_else(|| GitError::Other("Invalid destination path".into()))?;
+
+    let parent_str = parent.to_string_lossy().to_string();
+
+    // Use the dest folder name as the target (git clone creates it)
+    let folder_name = dest_path
+        .file_name()
+        .ok_or_else(|| GitError::Other("Invalid destination path".into()))?
+        .to_string_lossy()
+        .to_string();
+
+    let output = super::cli::run_git_async_with_github_auth(
+        &parent_str,
+        &["clone", url, &folder_name],
+    )
+    .await?;
+
+    // Open the cloned repo and get info
+    let repo = open(dest)?;
+    let repo_info = get_repo_info(&repo)?;
+
+    Ok(CloneResult {
+        path: dest.to_string(),
+        repo_info,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
 /// Create a commit with the current index using git CLI (runs hooks)
 pub fn create_commit(workdir: &str, message: &str) -> GitResult<CommitResult> {
     let output = super::cli::run_git_raw(workdir, &["commit", "-m", message])?;

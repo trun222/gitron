@@ -1,5 +1,6 @@
 use super::credential;
 use super::error::{GitHubError, GitHubResult};
+use super::types::GitHubRepo;
 
 /// Get a reqwest client configured with the stored GitHub token (if available).
 pub fn authenticated_client() -> GitHubResult<(reqwest::Client, Option<String>)> {
@@ -40,4 +41,28 @@ pub async fn get(path: &str) -> GitHubResult<reqwest::Response> {
     }
 
     Ok(resp)
+}
+
+/// List repositories for the authenticated user, paginating until all repos are fetched.
+pub async fn list_user_repos() -> GitHubResult<Vec<GitHubRepo>> {
+    let mut all_repos = Vec::new();
+    let mut page = 1u32;
+
+    loop {
+        let resp = get(&format!(
+            "/user/repos?per_page=100&sort=pushed&direction=desc&type=all&page={page}"
+        ))
+        .await?;
+
+        let repos: Vec<GitHubRepo> = resp.json().await.map_err(GitHubError::Http)?;
+        let count = repos.len();
+        all_repos.extend(repos);
+
+        if count < 100 {
+            break;
+        }
+        page += 1;
+    }
+
+    Ok(all_repos)
 }

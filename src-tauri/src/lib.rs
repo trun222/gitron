@@ -4,7 +4,7 @@ pub mod github;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, commit, diff, github as github_cmd, graph, remote, repo, staging, stash};
+use commands::{branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -50,6 +50,8 @@ pub fn run() {
             github_cmd::github_poll_device_flow,
             github_cmd::github_logout,
             github_cmd::github_get_user,
+            github_cmd::github_list_repos,
+            clone::clone_repo,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

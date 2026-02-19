@@ -239,6 +239,14 @@ pub struct PullResult {
     pub output: OperationOutput,
 }
 
+/// Result of a clone operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloneResult {
+    pub path: String,
+    pub repo_info: RepoInfo,
+    pub output: OperationOutput,
+}
+
 /// Options for graph queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphOptions {

@@ -11,6 +11,7 @@ import type {
   PushResult,
   PullResult,
   CommitResult,
+  CloneResult,
 } from './types';
 
 export async function openRepo(path: string): Promise<RepoInfo> {
@@ -170,6 +171,10 @@ export async function pullFromRemote(
   branch?: string
 ): Promise<PullResult> {
   return invoke('pull_from_remote', { path, remoteName, branch });
+}
+
+export async function cloneRepo(url: string, dest: string): Promise<CloneResult> {
+  return invoke('clone_repo', { url, dest });
 }
 
 export async function checkoutRemoteBranch(

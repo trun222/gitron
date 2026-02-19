@@ -45,3 +45,23 @@ pub struct TokenResponse {
     pub error_description: Option<String>,
     pub interval: Option<u64>,
 }
+
+/// A GitHub repository
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepo {
+    pub id: u64,
+    pub full_name: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub private: bool,
+    pub clone_url: String,
+    pub updated_at: String,
+    pub owner: GitHubRepoOwner,
+}
+
+/// Owner of a GitHub repository
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepoOwner {
+    pub login: String,
+    pub avatar_url: String,
+}

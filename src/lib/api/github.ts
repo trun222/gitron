@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { GitHubAuthInfo, DeviceCodeResponse, GitHubUser } from './types';
+import type { GitHubAuthInfo, DeviceCodeResponse, GitHubUser, GitHubRepo } from './types';
 
 export async function checkAuth(): Promise<GitHubAuthInfo> {
   return invoke('github_check_auth');
@@ -23,4 +23,8 @@ export async function logout(): Promise<void> {
 
 export async function getUser(): Promise<GitHubUser | null> {
   return invoke('github_get_user');
+}
+
+export async function listRepos(): Promise<GitHubRepo[]> {
+  return invoke('github_list_repos');
 }

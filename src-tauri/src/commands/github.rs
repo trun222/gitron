@@ -1,5 +1,5 @@
 use crate::github::auth;
-use crate::github::error::GitHubResult;
+use crate::github::{api, error::GitHubResult};
 use crate::github::types::*;
 
 #[tauri::command]
@@ -36,4 +36,9 @@ pub async fn github_get_user() -> GitHubResult<Option<GitHubUser>> {
         }
         None => Ok(None),
     }
+}
+
+#[tauri::command]
+pub async fn github_list_repos() -> GitHubResult<Vec<GitHubRepo>> {
+    api::list_user_repos().await
 }

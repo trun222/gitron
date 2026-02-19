@@ -10,6 +10,7 @@
     addRemote, removeRemote,
     discardConfirmOpen,
   } from '$lib/stores/repo';
+  import { openCloneDialog } from '$lib/stores/clone';
 
   let { onShowShortcuts, onShowSettings }: { onShowShortcuts?: () => void; onShowSettings?: () => void } = $props();
 
@@ -61,6 +62,13 @@
     search = '';
     inputRef?.blur();
     onShowSettings?.();
+  }
+
+  function handleCloneRepo() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    openCloneDialog();
   }
 
   async function handleOpenFolder() {
@@ -240,6 +248,17 @@
                   <path fill="currentColor" d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1H13a1 1 0 0 1 1 1v.5H2.75a.75.75 0 0 0 0 1.5h11.978a1 1 0 0 1 .994 1.117L15 13.25A1.75 1.75 0 0 1 13.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237Z" />
                 </svg>
                 <span>Open Repository...</span>
+              </Command.Item>
+              <Command.Item
+                value="clone-repository"
+                keywords={['clone', 'download', 'github', 'git']}
+                onSelect={handleCloneRepo}
+                class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+              >
+                <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25ZM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
+                </svg>
+                <span>Clone Repository...</span>
               </Command.Item>
             </Command.GroupItems>
           </Command.Group>
