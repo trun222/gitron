@@ -256,4 +256,5 @@ export interface AppSettings {
   sidebarCollapsed?: boolean;
   theme?: ThemeMode;
   autoFetchInterval?: AutoFetchInterval;
+  autoShowOutput?: boolean;
 }

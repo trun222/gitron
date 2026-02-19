@@ -95,3 +95,9 @@ export async function saveAutoFetchInterval(interval: AutoFetchInterval): Promis
   settings.autoFetchInterval = interval;
   await saveSettings(settings);
 }
+
+export async function saveAutoShowOutput(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.autoShowOutput = enabled;
+  await saveSettings(settings);
+}

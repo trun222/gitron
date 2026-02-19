@@ -16,6 +16,7 @@ export const graphColumnWidths = writable<GraphColumnWidths>({
 export const sidebarCollapsed = writable(false);
 export const theme = writable<ThemeMode>('tron');
 export const autoFetchInterval = writable<AutoFetchInterval>(0);
+export const autoShowOutput = writable(true);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -79,6 +80,11 @@ export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise
   await settingsApi.saveAutoFetchInterval(interval);
 }
 
+export async function setAutoShowOutput(enabled: boolean): Promise<void> {
+  autoShowOutput.set(enabled);
+  await settingsApi.saveAutoShowOutput(enabled);
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -100,6 +106,9 @@ export async function loadSettings(): Promise<void> {
   const savedInterval = settings.autoFetchInterval ?? 0;
   autoFetchInterval.set(savedInterval);
   startAutoFetch(savedInterval);
+
+  // Auto-show output panel
+  autoShowOutput.set(settings.autoShowOutput ?? true);
 
   settingsLoaded.set(true);
 }

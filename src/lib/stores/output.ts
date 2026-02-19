@@ -1,4 +1,5 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
+import { autoShowOutput } from '$lib/stores/settings';
 
 export interface OutputEntry {
   id: number;
@@ -35,7 +36,7 @@ export function addOutput(
   };
 
   outputEntries.update((entries) => [...entries, entry]);
-  outputPanelOpen.set(true);
+  if (get(autoShowOutput)) outputPanelOpen.set(true);
 }
 
 export function clearOutput() {

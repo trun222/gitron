@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { theme, setTheme, sidebarCollapsed, toggleSidebar } from '$lib/stores/settings';
+  import { theme, setTheme, sidebarCollapsed, toggleSidebar, autoShowOutput, setAutoShowOutput } from '$lib/stores/settings';
   import type { ThemeMode } from '$lib/api/types';
 
   const themeOptions: { value: ThemeMode; label: string }[] = [
@@ -44,6 +44,22 @@
       role="switch"
       aria-checked={$sidebarCollapsed}
       aria-label="Toggle sidebar collapsed"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Auto-show output panel</span>
+      <span class="label-description">Automatically open the output panel when operations produce output</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$autoShowOutput}
+      onclick={() => setAutoShowOutput(!$autoShowOutput)}
+      role="switch"
+      aria-checked={$autoShowOutput}
+      aria-label="Toggle auto-show output panel"
     >
       <span class="toggle-thumb"></span>
     </button>

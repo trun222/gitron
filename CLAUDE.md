@@ -80,6 +80,16 @@ src/
   routes/          — SvelteKit pages
 ```
 
+## Version Bumps
+
+When asked to update the version, **all three files must be updated together**:
+
+1. `src-tauri/tauri.conf.json` — `"version"` field (Tauri uses this for installers)
+2. `package.json` — `"version"` field
+3. `src-tauri/Cargo.toml` — `version` under `[package]`
+
+Tag format: `v{VERSION}` (e.g. `v0.2.0`). The tag must match the version in the files.
+
 ## Commit Convention
 
 ```
