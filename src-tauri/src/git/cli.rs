@@ -97,18 +97,19 @@ pub async fn run_git_async_with_github_auth(workdir: &str, args: &[&str]) -> Git
         None => return run_git_async(workdir, args).await,
     };
 
-    let header_value = format!("AUTHORIZATION: Bearer {token}");
+    // Rewrite github.com URLs to embed the OAuth token inline.
+    // This is the same approach GitHub Desktop uses — proven reliable
+    // across all git versions and credential helper configurations.
+    let authed_url = format!("https://x-access-token:{token}@github.com/");
+    let config_key = format!("url.{authed_url}.insteadOf");
 
     let output = AsyncCommand::new("git")
         .args(args)
         .current_dir(workdir)
         .env("GIT_TERMINAL_PROMPT", "0")
-        // Override system credential helper so it doesn't conflict with our token
-        .env("GIT_CONFIG_COUNT", "2")
-        .env("GIT_CONFIG_KEY_0", "credential.helper")
-        .env("GIT_CONFIG_VALUE_0", "")
-        .env("GIT_CONFIG_KEY_1", "http.https://github.com/.extraheader")
-        .env("GIT_CONFIG_VALUE_1", &header_value)
+        .env("GIT_CONFIG_COUNT", "1")
+        .env("GIT_CONFIG_KEY_0", &config_key)
+        .env("GIT_CONFIG_VALUE_0", "https://github.com/")
         .output()
         .await
         .map_err(|e| GitError::Io(e))?;
