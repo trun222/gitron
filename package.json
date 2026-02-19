@@ -1,6 +1,6 @@
 {
   "name": "gitron",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open-source, AI-native Git GUI built with Rust and Svelte",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri"
   },
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/api": "^2",
