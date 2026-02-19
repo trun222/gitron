@@ -12,6 +12,10 @@
   </p>
 </p>
 
+<p align="center">
+  <img src="static/screenshot-1.png" alt="Gitron screenshot" width="800" />
+</p>
+
 ---
 
 Gitron is a fast, cross-platform Git GUI that aims to deliver the polish and depth of GitKraken — for free, as open source. Built on Rust (Tauri v2) for performance and Svelte 5 for a responsive UI, Gitron is designed from the ground up with a plugin architecture and first-class AI agent integration.
