@@ -103,9 +103,12 @@ pub async fn run_git_async_with_github_auth(workdir: &str, args: &[&str]) -> Git
         .args(args)
         .current_dir(workdir)
         .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_CONFIG_COUNT", "1")
-        .env("GIT_CONFIG_KEY_0", "http.https://github.com/.extraheader")
-        .env("GIT_CONFIG_VALUE_0", &header_value)
+        // Override system credential helper so it doesn't conflict with our token
+        .env("GIT_CONFIG_COUNT", "2")
+        .env("GIT_CONFIG_KEY_0", "credential.helper")
+        .env("GIT_CONFIG_VALUE_0", "")
+        .env("GIT_CONFIG_KEY_1", "http.https://github.com/.extraheader")
+        .env("GIT_CONFIG_VALUE_1", &header_value)
         .output()
         .await
         .map_err(|e| GitError::Io(e))?;
