@@ -14,10 +14,6 @@
     unstageAllAndClear,
     commitAndRefresh,
     discardConfirmOpen,
-    remotes,
-    networkOperation,
-    fetchFromRemote,
-    removeRemote,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
   import { sidebarCollapsed, toggleSidebar } from '$lib/stores/settings';
@@ -73,7 +69,6 @@
 
   const bubbleColor = 'bg-primary text-primary-foreground';
   const totalChanges = $derived($stagedCount + $unstagedCount);
-  let remotesExpanded = $state(true);
 </script>
 
 <aside
@@ -248,54 +243,6 @@
           {/if}
         {/if}
 
-        <!-- REMOTES -->
-        {#if $remotes.length > 0}
-          <div class="border-t border-border mt-2 pt-1">
-            <button
-              class="flex items-center gap-1 w-full px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors cursor-pointer"
-              onclick={() => remotesExpanded = !remotesExpanded}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                class="transition-transform shrink-0"
-                class:rotate-90={remotesExpanded}
-              >
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-              Remotes ({$remotes.length})
-            </button>
-            {#if remotesExpanded}
-              <ul class="list-none">
-                {#each $remotes as remote (remote.name)}
-                  <li class="group flex items-center gap-2 px-3 py-1 text-xs hover:bg-accent transition-colors">
-                    <div class="flex flex-col min-w-0 flex-1">
-                      <span class="font-medium text-foreground truncate">{remote.name}</span>
-                      <span class="text-[10px] text-muted-foreground truncate">{remote.url}</span>
-                    </div>
-                    <button
-                      class="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0"
-                      onclick={() => fetchFromRemote(remote.name)}
-                      disabled={!!$networkOperation}
-                      aria-label="Fetch {remote.name}"
-                      title="Fetch {remote.name}"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"></polyline><line x1="12" y1="12" x2="12" y2="21"></line><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path></svg>
-                    </button>
-                    <button
-                      class="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shrink-0"
-                      onclick={() => removeRemote(remote.name)}
-                      aria-label="Remove {remote.name}"
-                      title="Remove {remote.name}"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
     </div>
 
     <!-- Commit Panel -->

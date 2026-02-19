@@ -1,11 +1,19 @@
 <script lang="ts">
-  import { repoInfo, currentBranch, stagedCount, unstagedCount, hasRepo, trackingStatus } from '$lib/stores/repo';
+  import { repoInfo, repoPath, currentBranch, stagedCount, unstagedCount, hasRepo, trackingStatus } from '$lib/stores/repo';
   import { hasEntries, toggleOutputPanel, outputPanelOpen } from '$lib/stores/output';
 </script>
 
 <footer class="flex items-center justify-between h-6 px-3 bg-card border-t border-border text-muted-foreground text-[11px]">
   {#if $hasRepo}
     <div class="flex items-center gap-3">
+      {#if $repoPath}
+        <span class="flex items-center gap-1" title={$repoPath}>
+          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z" />
+          </svg>
+          {$repoPath.split('/').pop()}
+        </span>
+      {/if}
       <span class="flex items-center gap-1">
         <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
           <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
