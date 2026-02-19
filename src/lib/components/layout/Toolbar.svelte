@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { hasRepo, currentBranch } from '$lib/stores/repo';
+  import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote, fetchFromRemote } from '$lib/stores/repo';
   import { CommandBar } from '$lib/components/ui/command';
   import { ShortcutsModal } from '$lib/components/ui/shortcuts';
 
@@ -32,10 +32,42 @@
     <CommandBar bind:this={commandBar} onShowShortcuts={() => shortcutsOpen = true} />
   </div>
 
-  <div class="flex items-center justify-end min-w-[200px]">
+  <div class="flex items-center justify-end min-w-[200px] gap-1">
     {#if $hasRepo && $currentBranch}
       <button
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-secondary text-xs font-medium text-muted-foreground cursor-pointer hover:bg-accent hover:text-foreground transition-colors"
+        class="toolbar-btn"
+        onclick={() => fetchFromRemote()}
+        disabled={!!$networkOperation}
+        title="Fetch all remotes"
+      >
+        {#if $networkOperation === 'fetching'}
+          <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
+        {:else}
+          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v6.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V2.75A.75.75 0 0 1 8 2Z" />
+            <path fill="currentColor" d="M2.5 13.25a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
+          </svg>
+        {/if}
+      </button>
+      <button
+        class="toolbar-btn"
+        onclick={() => pullFromRemote()}
+        disabled={!!$networkOperation}
+        title="Pull"
+      >
+        {#if $networkOperation === 'pulling'}
+          <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
+        {:else}
+          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M8 14a.75.75 0 0 1-.53-.22l-3-3a.75.75 0 1 1 1.06-1.06L7.25 11.44V2.75a.75.75 0 0 1 1.5 0v8.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3A.75.75 0 0 1 8 14Z" />
+          </svg>
+        {/if}
+        {#if $behindCount > 0}
+          <span class="text-[10px] bg-accent rounded px-1">{$behindCount}</span>
+        {/if}
+      </button>
+      <button
+        class="toolbar-btn !gap-1.5 !px-2.5"
         onclick={() => commandBar?.focus()}
       >
         <svg class="shrink-0" viewBox="0 0 16 16" width="14" height="14">
@@ -43,8 +75,58 @@
         </svg>
         {$currentBranch}
       </button>
+      <button
+        class="toolbar-btn"
+        onclick={() => pushToRemote()}
+        disabled={!!$networkOperation}
+        title="Push"
+      >
+        {#if $networkOperation === 'pushing'}
+          <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
+        {:else}
+          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M8 2a.75.75 0 0 1 .53.22l3 3a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69a.75.75 0 0 1-1.5 0V4.56L5.53 6.28a.75.75 0 0 1-1.06-1.06l3-3A.75.75 0 0 1 8 2Z" />
+          </svg>
+        {/if}
+        {#if $aheadCount > 0}
+          <span class="text-[10px] bg-accent rounded px-1">{$aheadCount}</span>
+        {/if}
+      </button>
     {/if}
   </div>
 </header>
 
 <ShortcutsModal bind:open={shortcutsOpen} />
+
+<style>
+  .toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--secondary);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background 150ms, color 150ms;
+  }
+  .toolbar-btn:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    flex-shrink: 0;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

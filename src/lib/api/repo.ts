@@ -1,5 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RepoInfo, RepoStatus, CommitGraph, Branch, FileDiff } from './types';
+import type {
+  RepoInfo,
+  RepoStatus,
+  CommitGraph,
+  Branch,
+  FileDiff,
+  Remote,
+  TrackingStatus,
+  FetchResult,
+  PushResult,
+  PullResult,
+} from './types';
 
 export async function openRepo(path: string): Promise<RepoInfo> {
   return invoke('open_repo', { path });
@@ -61,6 +72,10 @@ export async function unstageAll(path: string): Promise<RepoStatus> {
   return invoke('unstage_all', { path });
 }
 
+export async function discardAllChanges(path: string): Promise<RepoStatus> {
+  return invoke('discard_all_changes', { path });
+}
+
 export async function listBranches(path: string): Promise<Branch[]> {
   return invoke('list_branches', { path });
 }
@@ -103,4 +118,62 @@ export async function popStash(path: string, index: number): Promise<RepoStatus>
 
 export async function dropStash(path: string, index: number): Promise<RepoStatus> {
   return invoke('drop_stash', { path, index });
+}
+
+// Remote operations
+
+export async function listRemotes(path: string): Promise<Remote[]> {
+  return invoke('list_remotes', { path });
+}
+
+export async function addRemote(path: string, name: string, url: string): Promise<Remote[]> {
+  return invoke('add_remote', { path, name, url });
+}
+
+export async function removeRemote(path: string, name: string): Promise<Remote[]> {
+  return invoke('remove_remote', { path, name });
+}
+
+export async function getTrackingStatus(
+  path: string,
+  branchName: string
+): Promise<TrackingStatus> {
+  return invoke('get_tracking_status', { path, branchName });
+}
+
+export async function fetchRemote(
+  path: string,
+  remoteName: string,
+  branch?: string
+): Promise<FetchResult> {
+  return invoke('fetch_remote', { path, remoteName, branch });
+}
+
+export async function fetchAllRemotes(path: string): Promise<FetchResult> {
+  return invoke('fetch_all_remotes', { path });
+}
+
+export async function pushToRemote(
+  path: string,
+  remoteName: string,
+  branch?: string,
+  force?: boolean,
+  setUpstream?: boolean
+): Promise<PushResult> {
+  return invoke('push_to_remote', { path, remoteName, branch, force, setUpstream });
+}
+
+export async function pullFromRemote(
+  path: string,
+  remoteName: string,
+  branch?: string
+): Promise<PullResult> {
+  return invoke('pull_from_remote', { path, remoteName, branch });
+}
+
+export async function checkoutRemoteBranch(
+  path: string,
+  remoteBranchName: string
+): Promise<RepoInfo> {
+  return invoke('checkout_remote_branch', { path, remoteBranchName });
 }

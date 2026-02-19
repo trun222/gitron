@@ -3,7 +3,7 @@ pub mod git;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, commit, diff, graph, repo, staging, stash};
+use commands::{branch, commit, diff, graph, remote, repo, staging, stash};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -25,6 +25,7 @@ pub fn run() {
             staging::stage_files,
             staging::stage_all,
             staging::unstage_all,
+            staging::discard_all_changes,
             branch::list_branches,
             branch::create_branch,
             branch::checkout_branch,
@@ -34,6 +35,15 @@ pub fn run() {
             stash::apply_stash,
             stash::pop_stash,
             stash::drop_stash,
+            remote::list_remotes,
+            remote::add_remote,
+            remote::remove_remote,
+            remote::get_tracking_status,
+            remote::fetch_remote,
+            remote::fetch_all_remotes,
+            remote::push_to_remote,
+            remote::pull_from_remote,
+            remote::checkout_remote_branch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

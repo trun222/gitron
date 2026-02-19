@@ -180,6 +180,47 @@ pub struct RepoInfo {
     pub is_empty: bool,
 }
 
+/// A configured remote
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Remote {
+    pub name: String,
+    pub url: String,
+    pub push_url: Option<String>,
+}
+
+/// Tracking status (ahead/behind upstream)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackingStatus {
+    pub ahead: usize,
+    pub behind: usize,
+    pub upstream: Option<String>,
+}
+
+/// Result of a fetch operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchResult {
+    pub remote: String,
+    pub updated_refs: Vec<String>,
+    pub summary: String,
+}
+
+/// Result of a push operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushResult {
+    pub remote: String,
+    pub branch: String,
+    pub summary: String,
+}
+
+/// Result of a pull operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullResult {
+    pub remote: String,
+    pub branch: String,
+    pub summary: String,
+    pub merge_conflicts: bool,
+}
+
 /// Options for graph queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphOptions {

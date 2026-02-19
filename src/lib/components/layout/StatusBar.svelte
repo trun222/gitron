@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { repoInfo, currentBranch, stagedCount, unstagedCount, hasRepo } from '$lib/stores/repo';
+  import { repoInfo, currentBranch, stagedCount, unstagedCount, hasRepo, trackingStatus } from '$lib/stores/repo';
 </script>
 
 <footer class="flex items-center justify-between h-6 px-3 bg-card border-t border-border text-muted-foreground text-[11px]">
@@ -11,6 +11,20 @@
         </svg>
         {$currentBranch ?? 'HEAD detached'}
       </span>
+      {#if $trackingStatus?.upstream}
+        {#if $trackingStatus.ahead > 0 || $trackingStatus.behind > 0}
+          <span class="flex items-center gap-1 text-[10px]">
+            {#if $trackingStatus.ahead > 0}
+              <span title="Commits ahead of upstream">↑{$trackingStatus.ahead}</span>
+            {/if}
+            {#if $trackingStatus.behind > 0}
+              <span title="Commits behind upstream">↓{$trackingStatus.behind}</span>
+            {/if}
+          </span>
+        {:else}
+          <span class="text-[10px] opacity-70" title="Up to date with upstream">✓</span>
+        {/if}
+      {/if}
     </div>
     <div class="flex items-center gap-3">
       {#if $stagedCount > 0}

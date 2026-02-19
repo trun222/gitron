@@ -1,5 +1,15 @@
 import { writable, derived, get } from 'svelte/store';
-import type { RepoInfo, RepoStatus, CommitGraph, Commit, Branch, FileDiff, FileStatus } from '$lib/api/types';
+import type {
+  RepoInfo,
+  RepoStatus,
+  CommitGraph,
+  Commit,
+  Branch,
+  FileDiff,
+  FileStatus,
+  Remote,
+  TrackingStatus,
+} from '$lib/api/types';
 import * as api from '$lib/api/repo';
 import { trackRepoOpen } from '$lib/stores/settings';
 
@@ -22,6 +32,21 @@ export const selectedFile = writable<SelectedFileInfo | null>(null);
 export const loading = writable(false);
 export const error = writable<string | null>(null);
 
+// Remote state
+export const remotes = writable<Remote[]>([]);
+export const trackingStatus = writable<TrackingStatus | null>(null);
+export const networkOperation = writable<string | null>(null);
+
+// Discard all confirmation
+export const discardConfirmOpen = writable(false);
+
+// Branch conflict prompt (shown when checking out a remote branch with existing local)
+export interface BranchConflictInfo {
+  localName: string;
+  remoteBranchName: string;
+}
+export const branchConflictPrompt = writable<BranchConflictInfo | null>(null);
+
 // Derived stores
 export const hasRepo = derived(repoInfo, ($info) => $info !== null);
 export const isFileSelected = derived(selectedFile, ($f) => $f !== null);
@@ -32,6 +57,11 @@ export const localBranches = derived(commitGraph, ($graph) =>
 export const remoteBranches = derived(commitGraph, ($graph) =>
   $graph?.branches.filter((b) => b.is_remote) ?? []
 );
+export const defaultRemote = derived(remotes, ($remotes) => {
+  return $remotes.find((r) => r.name === 'origin') ?? $remotes[0] ?? null;
+});
+export const aheadCount = derived(trackingStatus, ($ts) => $ts?.ahead ?? 0);
+export const behindCount = derived(trackingStatus, ($ts) => $ts?.behind ?? 0);
 export const stagedCount = derived(repoStatus, ($status) => $status?.staged.length ?? 0);
 export const unstagedCount = derived(
   repoStatus,
@@ -58,6 +88,8 @@ export async function openRepo(path: string) {
     repoPath.set(path);
     repoInfo.set(info);
     await refreshAll(path);
+    await refreshRemotes(path);
+    await refreshTrackingStatus();
     await trackRepoOpen(path);
   } catch (e) {
     error.set(String(e));
@@ -74,6 +106,7 @@ export async function refreshAll(path: string) {
     ]);
     repoStatus.set(status);
     commitGraph.set(graph);
+    await refreshTrackingStatus();
   } catch (e) {
     error.set(String(e));
   }
@@ -263,6 +296,20 @@ export async function unstageAllAndClear() {
   clearFileSelection();
 }
 
+export async function discardAllChanges() {
+  const path = get(repoPath);
+  if (!path) return;
+  discardConfirmOpen.set(false);
+  try {
+    const status = await api.discardAllChanges(path);
+    repoStatus.set(status);
+    clearFileSelection();
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function commitAndRefresh(message: string): Promise<string | null> {
   const path = get(repoPath);
   if (!path) return null;
@@ -280,6 +327,21 @@ export async function commitAndRefresh(message: string): Promise<string | null> 
 export async function checkoutBranch(name: string) {
   const path = get(repoPath);
   if (!path) return;
+
+  // Check if this is a remote branch with an existing local counterpart
+  const graph = get(commitGraph);
+  if (graph) {
+    const isRemote = graph.branches.some((b) => b.is_remote && b.name === name);
+    if (isRemote) {
+      const localName = name.includes('/') ? name.split('/').slice(1).join('/') : name;
+      const localExists = graph.branches.some((b) => !b.is_remote && b.name === localName);
+      if (localExists) {
+        branchConflictPrompt.set({ localName, remoteBranchName: name });
+        return;
+      }
+    }
+  }
+
   try {
     const info = await api.checkoutBranch(path, name);
     repoInfo.set(info);
@@ -287,6 +349,36 @@ export async function checkoutBranch(name: string) {
   } catch (e) {
     error.set(String(e));
   }
+}
+
+export async function resetLocalToRemote(remoteBranchName: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  branchConflictPrompt.set(null);
+  try {
+    const info = await api.checkoutRemoteBranch(path, remoteBranchName);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function checkoutLocalInstead(localName: string) {
+  branchConflictPrompt.set(null);
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const info = await api.checkoutBranch(path, localName);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export function dismissBranchConflict() {
+  branchConflictPrompt.set(null);
 }
 
 export async function createAndCheckoutBranch(name: string) {
@@ -371,5 +463,122 @@ export async function dropStash(index: number) {
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));
+  }
+}
+
+// Remote actions
+
+export async function refreshRemotes(path: string) {
+  try {
+    const result = await api.listRemotes(path);
+    remotes.set(result);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function refreshTrackingStatus() {
+  const path = get(repoPath);
+  const info = get(repoInfo);
+  if (!path || !info?.head_branch) {
+    trackingStatus.set(null);
+    return;
+  }
+  try {
+    const status = await api.getTrackingStatus(path, info.head_branch);
+    trackingStatus.set(status);
+  } catch {
+    trackingStatus.set(null);
+  }
+}
+
+export async function addRemote(name: string, url: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.addRemote(path, name, url);
+    remotes.set(result);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function removeRemote(name: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.removeRemote(path, name);
+    remotes.set(result);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function fetchFromRemote(remoteName?: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  if (get(networkOperation)) return;
+  networkOperation.set('fetching');
+  try {
+    if (remoteName) {
+      await api.fetchRemote(path, remoteName);
+    } else {
+      await api.fetchAllRemotes(path);
+    }
+    await refreshAll(path);
+    await refreshRemotes(path);
+  } catch (e) {
+    error.set(String(e));
+  } finally {
+    networkOperation.set(null);
+  }
+}
+
+export async function pushToRemote(remoteName?: string, force?: boolean) {
+  const path = get(repoPath);
+  if (!path) return;
+  if (get(networkOperation)) return;
+  const remote = remoteName ?? get(defaultRemote)?.name;
+  if (!remote) {
+    error.set('No remote configured');
+    return;
+  }
+  const info = get(repoInfo);
+  const branch = info?.head_branch ?? undefined;
+  const ts = get(trackingStatus);
+  const setUpstream = !ts?.upstream;
+  networkOperation.set('pushing');
+  try {
+    await api.pushToRemote(path, remote, branch, force, setUpstream);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  } finally {
+    networkOperation.set(null);
+  }
+}
+
+export async function pullFromRemote(remoteName?: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  if (get(networkOperation)) return;
+  const remote = remoteName ?? get(defaultRemote)?.name;
+  if (!remote) {
+    error.set('No remote configured');
+    return;
+  }
+  const info = get(repoInfo);
+  const branch = info?.head_branch ?? undefined;
+  networkOperation.set('pulling');
+  try {
+    const result = await api.pullFromRemote(path, remote, branch);
+    if (result.merge_conflicts) {
+      error.set('Pull completed with merge conflicts. Resolve conflicts and commit.');
+    }
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  } finally {
+    networkOperation.set(null);
   }
 }

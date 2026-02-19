@@ -20,6 +20,16 @@ pub enum GitError {
     #[error("Staging error: {0}")]
     StagingError(String),
 
+    #[error("CLI error ({exit_code}): {stderr}")]
+    CliError {
+        command: String,
+        stderr: String,
+        exit_code: i32,
+    },
+
+    #[error("Remote error: {0}")]
+    RemoteError(String),
+
     #[error("Git2 error: {0}")]
     Git2(#[from] git2::Error),
 

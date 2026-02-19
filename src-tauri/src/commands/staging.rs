@@ -39,3 +39,11 @@ pub fn unstage_all(path: String) -> Result<RepoStatus, GitError> {
     repository::unstage_all(&repo)?;
     repository::get_status(&repo)
 }
+
+/// Discard all changes (staged, unstaged, and untracked)
+#[tauri::command]
+pub fn discard_all_changes(path: String) -> Result<RepoStatus, GitError> {
+    let repo = repository::open(&path)?;
+    repository::discard_all_changes(&repo)?;
+    repository::get_status(&repo)
+}

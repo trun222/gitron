@@ -269,22 +269,90 @@ pub fn create_branch<'repo>(
     })
 }
 
-/// Checkout a branch by name
+/// Helper: checkout a tree object and set HEAD to the given ref
+pub fn do_checkout(repo: &Repository, refname: &str) -> GitResult<()> {
+    let obj = repo
+        .revparse_single(refname)
+        .map_err(|_| GitError::BranchNotFound(refname.to_string()))?;
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    checkout.safe();
+    repo.checkout_tree(&obj, Some(&mut checkout))?;
+    repo.set_head(refname)?;
+    Ok(())
+}
+
+/// Checkout a branch by name (supports both local and remote branches)
 pub fn checkout_branch(repo: &Repository, name: &str) -> GitResult<()> {
-    let refname = if name.starts_with("refs/") {
-        name.to_string()
+    // If it's a full ref, use it directly
+    if name.starts_with("refs/") {
+        return do_checkout(repo, name);
+    }
+
+    // Try local branch first
+    if let Ok(branch) = repo.find_branch(name, git2::BranchType::Local) {
+        let refname = branch
+            .get()
+            .name()
+            .ok_or_else(|| GitError::BranchNotFound(name.to_string()))?
+            .to_string();
+        return do_checkout(repo, &refname);
+    }
+
+    // Try remote branch — find one matching the name (e.g., "origin/feature" or just "feature")
+    let remote_branch = if name.contains('/') {
+        // Full remote branch name like "origin/feature"
+        repo.find_branch(name, git2::BranchType::Remote).ok()
     } else {
-        format!("refs/heads/{}", name)
+        // Short name like "feature" — look for any remote with this branch
+        repo.branches(Some(git2::BranchType::Remote))
+            .ok()
+            .and_then(|mut branches| {
+                branches.find_map(|b| {
+                    let (branch, _) = b.ok()?;
+                    let branch_name = branch.name().ok()??;
+                    // Match "origin/feature" when searching for "feature"
+                    let short = branch_name.split('/').last()?;
+                    if short == name {
+                        Some(branch)
+                    } else {
+                        None
+                    }
+                })
+            })
     };
 
-    let obj = repo
-        .revparse_single(&refname)
-        .map_err(|_| GitError::BranchNotFound(name.to_string()))?;
+    if let Some(remote_branch) = remote_branch {
+        let remote_full = remote_branch
+            .name()?
+            .unwrap_or("")
+            .to_string();
 
-    repo.checkout_tree(&obj, None)?;
-    repo.set_head(&refname)?;
+        // Extract local name: "origin/feature" -> "feature"
+        let local_name = if name.contains('/') {
+            name.splitn(2, '/').last().unwrap_or(name)
+        } else {
+            name
+        };
 
-    Ok(())
+        // If local branch already exists, just checkout it
+        if repo.find_branch(local_name, git2::BranchType::Local).is_ok() {
+            let local_refname = format!("refs/heads/{}", local_name);
+            return do_checkout(repo, &local_refname);
+        }
+
+        // Create local tracking branch from the remote commit
+        let commit = remote_branch.get().peel_to_commit()?;
+        let mut local_branch = repo.branch(local_name, &commit, false)?;
+
+        // Set upstream tracking
+        local_branch.set_upstream(Some(&remote_full))?;
+
+        // Checkout the new local branch
+        let local_refname = format!("refs/heads/{}", local_name);
+        return do_checkout(repo, &local_refname);
+    }
+
+    Err(GitError::BranchNotFound(name.to_string()))
 }
 
 /// Delete a local branch
@@ -330,6 +398,30 @@ pub fn pop_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
 pub fn drop_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
     repo.stash_drop(index)
         .map_err(|e| GitError::Other(format!("Failed to drop stash: {}", e)))
+}
+
+/// Discard all changes: reset index to HEAD, checkout HEAD (overwrite tracked files),
+/// and clean untracked files/dirs via CLI.
+pub fn discard_all_changes(repo: &Repository) -> GitResult<()> {
+    let head = repo.head()?.peel_to_commit()?;
+
+    // Hard reset: resets index and working directory to HEAD
+    repo.reset(
+        head.as_object(),
+        git2::ResetType::Hard,
+        None,
+    )?;
+
+    // Clean untracked files and directories
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?
+        .to_string_lossy()
+        .to_string();
+
+    super::cli::run_git(&workdir, &["clean", "-fd"])?;
+
+    Ok(())
 }
 
 /// Create a commit with the current index

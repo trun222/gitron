@@ -2,7 +2,14 @@
   import { Command } from 'bits-ui';
   import { open } from '@tauri-apps/plugin-dialog';
   import { sortedRecentRepos } from '$lib/stores/settings';
-  import { openRepo, hasRepo, localBranches, remoteBranches, currentBranch, checkoutBranch, createAndCheckoutBranch } from '$lib/stores/repo';
+  import {
+    openRepo, hasRepo, localBranches, remoteBranches, currentBranch,
+    checkoutBranch, createAndCheckoutBranch,
+    remotes, networkOperation,
+    fetchFromRemote, pushToRemote, pullFromRemote,
+    addRemote, removeRemote,
+    discardConfirmOpen,
+  } from '$lib/stores/repo';
 
   let { onShowShortcuts }: { onShowShortcuts?: () => void } = $props();
 
@@ -10,6 +17,7 @@
   let isOpen = $state(false);
   let inputRef = $state<HTMLInputElement | null>(null);
   let blurTimeout: ReturnType<typeof setTimeout> | undefined;
+  let addRemoteMode = $state(false);
 
   export function focus() {
     inputRef?.focus();
@@ -67,25 +75,73 @@
     const name = search.trim();
     if (!name || !$hasRepo) return false;
     const allBranches = [...$localBranches, ...$remoteBranches];
-    return !allBranches.some((b) => b.name === name);
+    return !allBranches.some((b) => b.name.toLowerCase() === name.toLowerCase());
   });
 
   let createBranchName = $derived(search.trim());
 
   async function handleCreateBranch() {
     const name = createBranchName;
-    if (!name) return;
+    if (!name || !showCreateBranch) return;
     isOpen = false;
     search = '';
     inputRef?.blur();
     await createAndCheckoutBranch(name);
   }
 
+  function handleDiscardAll() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    discardConfirmOpen.set(true);
+  }
+
+  async function handleGitAction(action: 'fetch' | 'push' | 'pull') {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    if (action === 'fetch') await fetchFromRemote();
+    else if (action === 'push') await pushToRemote();
+    else if (action === 'pull') await pullFromRemote();
+  }
+
+  function handleEnterAddRemoteMode() {
+    addRemoteMode = true;
+    search = '';
+  }
+
+  async function handleAddRemote() {
+    const parts = search.trim().split(/\s+/);
+    if (parts.length < 2) return;
+    const [name, url] = parts;
+    isOpen = false;
+    search = '';
+    addRemoteMode = false;
+    inputRef?.blur();
+    await addRemote(name, url);
+  }
+
+  async function handleRemoveRemote(name: string) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await removeRemote(name);
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
+      if (addRemoteMode) {
+        addRemoteMode = false;
+        search = '';
+        return;
+      }
       isOpen = false;
       search = '';
       inputRef?.blur();
+    }
+    if (e.key === 'Enter' && addRemoteMode) {
+      e.preventDefault();
+      handleAddRemote();
     }
   }
 </script>
@@ -101,7 +157,7 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder="Search... (Cmd+K)"
+      placeholder={addRemoteMode ? "remote-name https://url.git" : "Search... (Cmd+K)"}
       class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
     />
     {#if isOpen}
@@ -228,6 +284,102 @@
               </Command.GroupItems>
             </Command.Group>
           {/if}
+
+          {#if $hasRepo}
+            <Command.Separator class="my-1 h-px bg-border" />
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Git Actions
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                <Command.Item
+                  value="fetch-all-remotes"
+                  keywords={['fetch', 'download', 'sync', 'remote']}
+                  onSelect={() => handleGitAction('fetch')}
+                  disabled={!!$networkOperation}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent disabled:opacity-50"
+                >
+                  <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v6.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V2.75A.75.75 0 0 1 8 2Z" />
+                    <path fill="currentColor" d="M2.5 13.25a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
+                  </svg>
+                  <span>Fetch All Remotes</span>
+                </Command.Item>
+                <Command.Item
+                  value="pull-from-remote"
+                  keywords={['pull', 'merge', 'update', 'download']}
+                  onSelect={() => handleGitAction('pull')}
+                  disabled={!!$networkOperation}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent disabled:opacity-50"
+                >
+                  <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M4.75 0a.75.75 0 0 1 .75.75v5.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06L3 6.44V.75A.75.75 0 0 1 3.75 0ZM8 12h3.75a.75.75 0 0 0 0-1.5H8.5v-2h3.75a2.25 2.25 0 0 1 0 4.5H8Z" />
+                  </svg>
+                  <span>Pull</span>
+                </Command.Item>
+                <Command.Item
+                  value="push-to-remote"
+                  keywords={['push', 'upload', 'publish']}
+                  onSelect={() => handleGitAction('push')}
+                  disabled={!!$networkOperation}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent disabled:opacity-50"
+                >
+                  <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M8 14a.75.75 0 0 1-.75-.75V6.56L5.53 8.28a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0l3 3a.75.75 0 1 1-1.06 1.06L8.75 6.56v6.69A.75.75 0 0 1 8 14Z" />
+                    <path fill="currentColor" d="M2.5 2.75a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
+                  </svg>
+                  <span>Push</span>
+                </Command.Item>
+                <Command.Item
+                  value="discard-all-changes"
+                  keywords={['discard', 'reset', 'clean', 'revert', 'undo', 'changes']}
+                  onSelect={handleDiscardAll}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent text-destructive"
+                >
+                  <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Discard All Changes</span>
+                </Command.Item>
+              </Command.GroupItems>
+            </Command.Group>
+
+            <Command.Separator class="my-1 h-px bg-border" />
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Remotes
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                {#each $remotes as r (r.name)}
+                  <Command.Item
+                    value={`remote-config:${r.name}`}
+                    keywords={[r.name, r.url, 'remote', 'remove', 'delete']}
+                    onSelect={() => handleRemoveRemote(r.name)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8Z" />
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">{r.name}</span>
+                      <span class="truncate text-xs text-muted-foreground">{r.url}</span>
+                    </div>
+                    <span class="ml-auto text-xs text-muted-foreground">Remove</span>
+                  </Command.Item>
+                {/each}
+                <Command.Item
+                  value="add-remote"
+                  keywords={['add', 'remote', 'new', 'create']}
+                  onSelect={handleEnterAddRemoteMode}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" />
+                  </svg>
+                  <span>Add Remote...</span>
+                </Command.Item>
+              </Command.GroupItems>
+            </Command.Group>
+          {/if}
+
           <Command.Separator class="my-1 h-px bg-border" />
           <Command.Group>
             <Command.GroupItems>

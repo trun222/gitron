@@ -6,13 +6,14 @@
     applyStash, popStash, dropStash,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
+  import { gravatarUrl } from '$lib/utils/gravatar';
   import type { Commit, Branch, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
   const GRAPH_COLOR_COUNT = 14;
   const ROW_HEIGHT = 30;
-  const LANE_WIDTH = 20;
-  const LANE_PADDING = 8;
-  const CIRCLE_RADIUS = 4;
+  const LANE_WIDTH = 24;
+  const LANE_PADDING = 10;
+  const CIRCLE_RADIUS = 5;
   const LINE_WIDTH = 2;
 
   const MIN_WIDTHS: Record<keyof GraphColumnWidths, number> = {
@@ -182,7 +183,10 @@
     const y1 = ROW_HEIGHT / 2;
     const x2 = laneX(edge.to_lane);
     const y2 = ROW_HEIGHT;
-    return `M ${x1} ${y1} C ${x1} ${y1 + ROW_HEIGHT * 0.35}, ${x2} ${y2 - ROW_HEIGHT * 0.35}, ${x2} ${y2}`;
+    // Smooth S-curve: control points stay at their lane's X but shift vertically
+    const cy1 = y1 + (y2 - y1) * 0.6;
+    const cy2 = y2 - (y2 - y1) * 0.6;
+    return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
   }
 
   // Branch color lookup from layout
@@ -260,6 +264,65 @@
       return `border-color: ${color}; background: ${color}; color: var(--primary-foreground)`;
     }
     if (branch.is_remote) {
+      return `border-color: ${color}80; color: ${color}; border-style: dashed; opacity: 0.7`;
+    }
+    return `border-color: ${color}; color: ${color}; background: ${color}1a`;
+  }
+
+  // --- Unified branch grouping (GitKraken-style) ---
+  interface UnifiedBranch {
+    /** Display name (short, no remote prefix) */
+    name: string;
+    local: Branch | null;
+    remote: Branch | null;
+    /** The branch used for color lookup and primary interactions */
+    primary: Branch;
+  }
+
+  function groupBranches(branches: Branch[]): UnifiedBranch[] {
+    const locals = branches.filter((b) => !b.is_remote);
+    const remotes = branches.filter((b) => b.is_remote);
+    const pairedRemotes = new Set<string>();
+    const groups: UnifiedBranch[] = [];
+
+    for (const local of locals) {
+      const tracking = local.upstream
+        ? remotes.find((r) => r.name === local.upstream)
+        : null;
+      if (tracking) pairedRemotes.add(tracking.name);
+      groups.push({
+        name: local.name,
+        local,
+        remote: tracking ?? null,
+        primary: local,
+      });
+    }
+
+    // Standalone remotes (no local counterpart)
+    for (const remote of remotes) {
+      if (pairedRemotes.has(remote.name)) continue;
+      // Strip remote prefix for display (e.g. "origin/dev" → "dev")
+      const shortName = remote.name.replace(/^[^/]+\//, '');
+      groups.push({
+        name: shortName,
+        local: null,
+        remote,
+        primary: remote,
+      });
+    }
+
+    return groups;
+  }
+
+  function getUnifiedBranchStyle(group: UnifiedBranch): string {
+    const colorIdx = branchColorMap.get(group.primary.name);
+    if (colorIdx === undefined) return '';
+    const color = getGraphColor(colorIdx);
+    if (group.primary.is_head) {
+      return `border-color: ${color}; background: ${color}; color: var(--primary-foreground)`;
+    }
+    if (!group.local) {
+      // Remote-only
       return `border-color: ${color}80; color: ${color}; border-style: dashed; opacity: 0.7`;
     }
     return `border-color: ${color}; color: ${color}; background: ${color}1a`;
@@ -352,16 +415,32 @@
   function handleBranchContextMenu(e: MouseEvent, branch: Branch) {
     e.preventDefault();
     e.stopPropagation();
+    const current = $currentBranch;
+    const items: (MenuAction | 'separator')[] = [
+      { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
+      { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head || branch.is_remote, danger: true },
+    ];
+    if (current && branch.target_oid) {
+      items.push({
+        id: 'reset-submenu',
+        label: `Reset ${current} to this commit`,
+        submenu: [
+          { id: 'reset-soft', label: 'Soft \u2013 keep all changes staged' },
+          { id: 'reset-mixed', label: 'Mixed \u2013 keep changes unstaged' },
+          { id: 'reset-hard', label: 'Hard \u2013 discard all changes', danger: true },
+        ],
+      });
+    }
+    items.push(
+      'separator',
+      { id: 'copy-name', label: 'Copy branch name' },
+    );
     contextMenu = {
       x: e.clientX,
       y: e.clientY,
       branchName: branch.name,
-      items: [
-        { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
-        { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head || branch.is_remote, danger: true },
-        'separator',
-        { id: 'copy-name', label: 'Copy branch name' },
-      ],
+      commitOid: branch.target_oid ?? undefined,
+      items,
     };
   }
 
@@ -504,14 +583,14 @@
           role="option"
           aria-selected={isSelected(commit)}
           class="commit-row px-2 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
-          style="height: {ROW_HEIGHT}px"
+          style="height: {ROW_HEIGHT}px; position: relative;"
           onclick={() => selectCommit(commit)}
           oncontextmenu={(e) => handleCommitContextMenu(e, commit)}
         >
-          <!-- Graph column: SVG with branch tags absolutely positioned after commit circle -->
+          <!-- Graph column -->
           <span class="graph-cell" style="height: {ROW_HEIGHT}px">
             {#if node}
-              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block">
+              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" style="overflow: visible;">
                 {#each [...rowLanes] as [lane, activity]}
                   {#if lane !== node.lane}
                     <line
@@ -519,6 +598,7 @@
                       x2={laneX(lane)} y2={ROW_HEIGHT}
                       stroke={getGraphColor(activity.colorIndex)}
                       stroke-width={LINE_WIDTH}
+                      stroke-linecap="round"
                     />
                   {:else}
                     {#if activity.hasTop}
@@ -527,6 +607,7 @@
                         x2={laneX(lane)} y2={ROW_HEIGHT / 2}
                         stroke={getGraphColor(activity.colorIndex)}
                         stroke-width={LINE_WIDTH}
+                        stroke-linecap="round"
                       />
                     {/if}
                     {#if activity.hasBottom}
@@ -535,6 +616,7 @@
                         x2={laneX(lane)} y2={ROW_HEIGHT}
                         stroke={getGraphColor(activity.colorIndex)}
                         stroke-width={LINE_WIDTH}
+                        stroke-linecap="round"
                       />
                     {/if}
                   {/if}
@@ -546,13 +628,13 @@
                       d={getEdgePath(edge)}
                       stroke={getGraphColor(edge.color_index)}
                       stroke-width={LINE_WIDTH}
+                      stroke-linecap="round"
                       fill="none"
                     />
                   {/if}
                 {/each}
 
                 {#if stashMap.has(commit.oid)}
-                  <!-- Treasure chest icon for stash commits -->
                   {@const cx = laneX(node.lane)}
                   {@const cy = ROW_HEIGHT / 2}
                   {@const color = getGraphColor(node.color_index)}
@@ -566,32 +648,11 @@
                     cy={ROW_HEIGHT / 2}
                     r={CIRCLE_RADIUS}
                     fill={getGraphColor(node.color_index)}
-                    stroke={isHead ? '#fff' : 'none'}
-                    stroke-width={isHead ? 2 : 0}
+                    stroke={isHead ? 'var(--foreground)' : 'var(--background)'}
+                    stroke-width={isHead ? 2 : 1.5}
                   />
                 {/if}
               </svg>
-
-              <!-- Branch tags absolutely positioned next to the commit circle -->
-              {#if branches.length > 0}
-                <span
-                  class="branch-tags"
-                  style="left: {laneX(node.lane) + CIRCLE_RADIUS + 6}px"
-                >
-                  {#each branches as branch}
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <span
-                      class="branch-tag"
-                      style={getBranchLabelStyle(branch)}
-                      onclick={(e) => e.stopPropagation()}
-                      ondblclick={(e) => handleBranchClick(e, branch)}
-                      oncontextmenu={(e) => handleBranchContextMenu(e, branch)}
-                    >
-                      {branch.name}
-                    </span>
-                  {/each}
-                </span>
-              {/if}
             {:else}
               <svg width="24" height="24" viewBox="0 0 24 24" class="block">
                 <circle cx="12" cy="12" r="4" fill="#888" />
@@ -599,12 +660,56 @@
             {/if}
           </span>
 
-          <!-- Message column (just the summary now) -->
-          <span class="min-w-0 overflow-hidden truncate">{commit.summary}</span>
+          <!-- Message column -->
+          <span class="min-w-0 overflow-hidden truncate text-left">{commit.summary}</span>
 
-          <span class="text-muted-foreground truncate text-center">{commit.author.name}</span>
+          <span class="author-cell text-muted-foreground text-center">
+            <img
+              class="avatar"
+              src={gravatarUrl(commit.author.email, 40)}
+              alt=""
+              loading="lazy"
+              onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
+            />
+            <!-- Fallback: person silhouette -->
+            <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
+            </svg>
+            <span class="truncate">{commit.author.name}</span>
+          </span>
           <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
           <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
+
+          <!-- Branch tags: positioned absolutely over the row -->
+          {#if node && branches.length > 0}
+            {@const grouped = groupBranches(branches)}
+            <span
+              class="branch-tags"
+              style="left: {laneX(node.lane) + CIRCLE_RADIUS + 6 + 8}px"
+            >
+              {#each grouped as group}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span
+                  class="branch-tag"
+                  style={getUnifiedBranchStyle(group)}
+                  onclick={(e) => e.stopPropagation()}
+                  ondblclick={(e) => handleBranchClick(e, group.primary)}
+                  oncontextmenu={(e) => handleBranchContextMenu(e, group.primary)}
+                >
+                  {#if group.primary.is_head}
+                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
+                  {/if}
+                  {group.name}
+                  {#if group.local}
+                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v7a1.5 1.5 0 0 1-1.5 1.5H10v1h1.5a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1H6v-1H3.5A1.5 1.5 0 0 1 2 10.5v-7Zm1.5-.5a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-9ZM7 12v1h2v-1H7Z"/></svg>
+                  {/if}
+                  {#if group.remote}
+                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                  {/if}
+                </span>
+              {/each}
+            </span>
+          {/if}
         </button>
       {/each}
     </div>
@@ -702,14 +807,7 @@
 
   .graph-cell {
     position: relative;
-    z-index: 1;
     overflow: visible;
-  }
-
-  /* Prevent message column from covering absolutely-positioned branch tags */
-  .commit-row > span:nth-child(2) {
-    position: relative;
-    z-index: 0;
   }
 
   .branch-tags {
@@ -719,12 +817,14 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    z-index: 2;
+    z-index: 10;
     pointer-events: auto;
   }
 
   .branch-tag {
     display: inline-flex;
+    align-items: center;
+    gap: 3px;
     padding: 1px 6px;
     border-radius: 3px;
     font-size: 11px;
@@ -734,6 +834,35 @@
     border-style: solid;
     cursor: pointer;
     transition: filter 150ms ease;
+  }
+
+  .branch-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .author-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+  }
+
+  .avatar-fallback {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.5;
   }
 
   .branch-tag:hover {

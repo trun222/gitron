@@ -13,6 +13,7 @@
     stageUntrackedAndClear,
     unstageAllAndClear,
     commitAndRefresh,
+    discardConfirmOpen,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
   import { sidebarCollapsed, toggleSidebar } from '$lib/stores/settings';
@@ -101,6 +102,14 @@
         <span class="{bubbleColor} text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
           {totalChanges}
         </span>
+        <button
+          class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+          onclick={() => discardConfirmOpen.set(true)}
+          aria-label="Discard all changes"
+          title="Discard all changes"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
       {/if}
       <button
         class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"

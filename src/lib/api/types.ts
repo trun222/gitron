@@ -133,6 +133,37 @@ export interface RepoInfo {
   is_empty: boolean;
 }
 
+export interface Remote {
+  name: string;
+  url: string;
+  push_url: string | null;
+}
+
+export interface TrackingStatus {
+  ahead: number;
+  behind: number;
+  upstream: string | null;
+}
+
+export interface FetchResult {
+  remote: string;
+  updated_refs: string[];
+  summary: string;
+}
+
+export interface PushResult {
+  remote: string;
+  branch: string;
+  summary: string;
+}
+
+export interface PullResult {
+  remote: string;
+  branch: string;
+  summary: string;
+  merge_conflicts: boolean;
+}
+
 // Persistence types (frontend-only, used by tauri-plugin-store)
 
 export interface RecentRepo {
