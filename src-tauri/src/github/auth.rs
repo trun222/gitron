@@ -6,7 +6,7 @@ use super::types::*;
 const CLIENT_ID: &str = "Ov23liwNcg1lTApCIg0j";
 
 /// Scopes requested during authorization
-const SCOPE: &str = "repo read:user read:org";
+const SCOPE: &str = "repo read:user read:org workflow";
 
 /// Request a device code from GitHub to begin the Device Flow.
 pub async fn request_device_code() -> GitHubResult<DeviceCodeResponse> {
