@@ -78,7 +78,9 @@
   }
 
   // Show "Create branch" when search text doesn't match any existing branch
+  // Hide when in addRemoteMode (user is entering "name url", not a branch name)
   let showCreateBranch = $derived.by(() => {
+    if (addRemoteMode) return false;
     const name = search.trim();
     if (!name || !$hasRepo) return false;
     const allBranches = [...$localBranches, ...$remoteBranches];
@@ -119,8 +121,24 @@
 
   async function handleAddRemote() {
     const parts = search.trim().split(/\s+/);
-    if (parts.length < 2) return;
-    const [name, url] = parts;
+    let name: string;
+    let url: string;
+    if (parts.length >= 2) {
+      // "origin https://github.com/user/repo.git"
+      [name, url] = parts;
+    } else if (parts.length === 1 && parts[0].includes('://')) {
+      // Just a URL — derive remote name from the host/path
+      url = parts[0];
+      try {
+        const parsed = new URL(url);
+        const pathParts = parsed.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+        name = pathParts[0] || 'origin';
+      } catch {
+        name = 'origin';
+      }
+    } else {
+      return;
+    }
     isOpen = false;
     search = '';
     addRemoteMode = false;
@@ -164,10 +182,10 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder={addRemoteMode ? "remote-name https://url.git" : "Type a command... (Cmd+K)"}
+      placeholder={addRemoteMode ? "https://url.git or name https://url.git" : "Type a command... (Cmd+K)"}
       class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
     />
-    {#if isOpen}
+    {#if isOpen && !addRemoteMode}
       <Command.List
         class="absolute top-full left-0 right-0 mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50"
       >

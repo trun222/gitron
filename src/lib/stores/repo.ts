@@ -505,8 +505,10 @@ export async function addRemote(name: string, url: string) {
   try {
     const result = await api.addRemote(path, name, url);
     remotes.set(result);
+    addOutput('add-remote', `Added remote '${name}' → ${url}`, '', true);
   } catch (e) {
     error.set(String(e));
+    addOutput('add-remote', '', String(e), false);
   }
 }
 
@@ -516,8 +518,10 @@ export async function removeRemote(name: string) {
   try {
     const result = await api.removeRemote(path, name);
     remotes.set(result);
+    addOutput('remove-remote', `Removed remote '${name}'`, '', true);
   } catch (e) {
     error.set(String(e));
+    addOutput('remove-remote', '', String(e), false);
   }
 }
 
