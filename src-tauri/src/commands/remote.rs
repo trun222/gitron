@@ -82,6 +82,19 @@ pub async fn pull_from_remote(
     remote::pull(&workdir, &remote_name, branch.as_deref()).await
 }
 
+/// Delete a remote branch
+#[tauri::command]
+pub async fn delete_remote_branch(
+    path: String,
+    remote_name: String,
+    branch: String,
+) -> Result<Vec<Branch>, GitError> {
+    let workdir = get_workdir(&path)?;
+    remote::delete_remote_branch(&workdir, &remote_name, &branch).await?;
+    let repo = repository::open(&path)?;
+    repository::list_branches(&repo)
+}
+
 /// Checkout a remote branch, resetting the local branch to match the remote
 #[tauri::command]
 pub fn checkout_remote_branch(

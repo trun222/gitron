@@ -41,6 +41,18 @@ export const networkOperation = writable<string | null>(null);
 // Discard all confirmation
 export const discardConfirmOpen = writable(false);
 
+// Delete branch confirmation
+export interface DeleteBranchConfirmInfo {
+  open: boolean;
+  branchName: string;
+  isRemote: boolean;
+}
+export const deleteBranchConfirm = writable<DeleteBranchConfirmInfo>({
+  open: false,
+  branchName: '',
+  isRemote: false,
+});
+
 // Branch conflict prompt (shown when checking out a remote branch with existing local)
 export interface BranchConflictInfo {
   localName: string;
@@ -429,8 +441,21 @@ export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixe
 export async function deleteBranch(name: string) {
   const path = get(repoPath);
   if (!path) return;
+  deleteBranchConfirm.set({ open: false, branchName: '', isRemote: false });
   try {
     await api.deleteBranch(path, name);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function deleteRemoteBranch(remoteName: string, branch: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  deleteBranchConfirm.set({ open: false, branchName: '', isRemote: false });
+  try {
+    await api.deleteRemoteBranch(path, remoteName, branch);
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));

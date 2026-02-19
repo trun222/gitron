@@ -44,6 +44,7 @@ pub fn run() {
             remote::fetch_all_remotes,
             remote::push_to_remote,
             remote::pull_from_remote,
+            remote::delete_remote_branch,
             remote::checkout_remote_branch,
             github_cmd::github_check_auth,
             github_cmd::github_start_device_flow,

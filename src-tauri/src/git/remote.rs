@@ -247,6 +247,12 @@ pub async fn pull(
     }
 }
 
+/// Delete a remote branch via `git push --delete`
+pub async fn delete_remote_branch(workdir: &str, remote: &str, branch: &str) -> GitResult<()> {
+    cli::run_git_async_with_github_auth(workdir, &["push", remote, "--delete", branch]).await?;
+    Ok(())
+}
+
 /// Reset a local branch to match a remote branch, then checkout it.
 /// If the local branch doesn't exist, creates it as a tracking branch.
 pub fn checkout_remote_branch(repo: &Repository, remote_branch_name: &str) -> GitResult<()> {

@@ -173,6 +173,14 @@ export async function pullFromRemote(
   return invoke('pull_from_remote', { path, remoteName, branch });
 }
 
+export async function deleteRemoteBranch(
+  path: string,
+  remoteName: string,
+  branch: string
+): Promise<Branch[]> {
+  return invoke('delete_remote_branch', { path, remoteName, branch });
+}
+
 export async function cloneRepo(url: string, dest: string): Promise<CloneResult> {
   return invoke('clone_repo', { url, dest });
 }

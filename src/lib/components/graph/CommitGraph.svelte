@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     commitGraph, selectedCommit, selectCommit,
-    checkoutBranch, deleteBranch, createBranchAtCommit,
+    checkoutBranch, deleteBranchConfirm, createBranchAtCommit,
     resetToCommit, currentBranch,
     applyStash, popStash, dropStash,
   } from '$lib/stores/repo';
@@ -353,6 +353,7 @@
     shortOid?: string;
     commitMessage?: string;
     branchName?: string;
+    branchIsRemote?: boolean;
     stashIndex?: number;
   }
 
@@ -425,7 +426,7 @@
     const current = $currentBranch;
     const items: (MenuAction | 'separator')[] = [
       { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
-      { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head || branch.is_remote, danger: true },
+      { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head, danger: true },
     ];
     if (current && branch.target_oid) {
       items.push({
@@ -446,6 +447,7 @@
       x: e.clientX,
       y: e.clientY,
       branchName: branch.name,
+      branchIsRemote: branch.is_remote,
       commitOid: branch.target_oid ?? undefined,
       items,
     };
@@ -454,7 +456,7 @@
   function executeMenuAction(actionId: string) {
     if (!contextMenu) return;
     // Snapshot values before closing
-    const { x, y, commitOid, shortOid, commitMessage, branchName, stashIndex } = contextMenu;
+    const { x, y, commitOid, shortOid, commitMessage, branchName, branchIsRemote, stashIndex } = contextMenu;
     closeContextMenu();
 
     switch (actionId) {
@@ -473,7 +475,13 @@
         if (branchName) checkoutBranch(branchName);
         break;
       case 'delete-branch':
-        if (branchName) deleteBranch(branchName);
+        if (branchName) {
+          deleteBranchConfirm.set({
+            open: true,
+            branchName,
+            isRemote: branchIsRemote ?? false,
+          });
+        }
         break;
       case 'copy-name':
         if (branchName) navigator.clipboard.writeText(branchName);

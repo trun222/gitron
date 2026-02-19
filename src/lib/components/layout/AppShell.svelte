@@ -12,7 +12,7 @@
   } from '$lib/stores/repo';
   import { toggleOutputPanel } from '$lib/stores/output';
   import { get } from 'svelte/store';
-  import { BranchConflictDialog, CloneDialog, DiscardChangesDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
+  import { BranchConflictDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
   import { initAuth } from '$lib/stores/github';
   import type { Snippet } from 'svelte';
 
@@ -150,5 +150,6 @@
 
 <BranchConflictDialog />
 <CloneDialog />
+<DeleteBranchDialog />
 <DiscardChangesDialog />
 <GitHubLoginDialog />
