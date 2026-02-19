@@ -424,19 +424,39 @@ pub fn discard_all_changes(repo: &Repository) -> GitResult<()> {
     Ok(())
 }
 
-/// Create a commit with the current index
-pub fn create_commit(repo: &Repository, message: &str) -> GitResult<String> {
-    let sig = repo.signature()?;
-    let mut index = repo.index()?;
-    let tree_oid = index.write_tree()?;
-    let tree = repo.find_tree(tree_oid)?;
+/// Create a commit with the current index using git CLI (runs hooks)
+pub fn create_commit(workdir: &str, message: &str) -> GitResult<CommitResult> {
+    let output = super::cli::run_git_raw(workdir, &["commit", "-m", message])?;
 
-    let parents = match repo.head() {
-        Ok(head) => vec![head.peel_to_commit()?],
-        Err(_) => vec![], // empty repo — initial commit
-    };
-    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+    if output.exit_code == 0 {
+        // Parse OID from stdout, format: "[branch abc1234] message"
+        let oid = output
+            .stdout
+            .lines()
+            .next()
+            .and_then(|line| {
+                let start = line.find(' ')? + 1;
+                let end = line.find(']')?;
+                Some(line[start..end].to_string())
+            })
+            .unwrap_or_default();
 
-    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)?;
-    Ok(oid.to_string())
+        Ok(CommitResult {
+            oid,
+            success: true,
+            output: OperationOutput {
+                stdout: output.stdout,
+                stderr: output.stderr,
+            },
+        })
+    } else {
+        Ok(CommitResult {
+            oid: String::new(),
+            success: false,
+            output: OperationOutput {
+                stdout: output.stdout,
+                stderr: output.stderr,
+            },
+        })
+    }
 }

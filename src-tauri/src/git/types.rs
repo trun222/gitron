@@ -196,12 +196,28 @@ pub struct TrackingStatus {
     pub upstream: Option<String>,
 }
 
+/// Output captured from a git CLI operation (stdout + stderr)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationOutput {
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// Result of a commit operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitResult {
+    pub oid: String,
+    pub success: bool,
+    pub output: OperationOutput,
+}
+
 /// Result of a fetch operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FetchResult {
     pub remote: String,
     pub updated_refs: Vec<String>,
     pub summary: String,
+    pub output: OperationOutput,
 }
 
 /// Result of a push operation
@@ -210,6 +226,7 @@ pub struct PushResult {
     pub remote: String,
     pub branch: String,
     pub summary: String,
+    pub output: OperationOutput,
 }
 
 /// Result of a pull operation
@@ -219,6 +236,7 @@ pub struct PullResult {
     pub branch: String,
     pub summary: String,
     pub merge_conflicts: bool,
+    pub output: OperationOutput,
 }
 
 /// Options for graph queries

@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote, fetchFromRemote } from '$lib/stores/repo';
+  import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote } from '$lib/stores/repo';
   import { CommandBar } from '$lib/components/ui/command';
   import { ShortcutsModal } from '$lib/components/ui/shortcuts';
+  import { SettingsModal } from '$lib/components/ui/settings';
+  import { GitHubUserMenu } from '$lib/components/ui/dialog';
 
   let commandBar: CommandBar | undefined = $state();
   let shortcutsOpen = $state(false);
+  let settingsOpen = $state(false);
 
   onMount(() => {
     function handleKeydown(e: KeyboardEvent) {
@@ -17,6 +20,10 @@
         e.preventDefault();
         shortcutsOpen = !shortcutsOpen;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        settingsOpen = !settingsOpen;
+      }
     }
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);
@@ -24,31 +31,17 @@
 </script>
 
 <header class="flex items-center justify-between h-12 px-4 bg-card border-b border-border select-none" style="-webkit-app-region: drag;">
-  <div class="flex items-center min-w-[200px]">
+  <div class="flex items-center gap-1.5 min-w-[200px]">
+    <img src="/gitron-logo.png" alt="Gitron" width="20" height="20" class="shrink-0" />
     <span class="font-bold text-sm tracking-wide text-primary">Gitron</span>
   </div>
 
   <div class="flex-1 flex justify-center" style="-webkit-app-region: no-drag;">
-    <CommandBar bind:this={commandBar} onShowShortcuts={() => shortcutsOpen = true} />
+    <CommandBar bind:this={commandBar} onShowShortcuts={() => shortcutsOpen = true} onShowSettings={() => settingsOpen = true} />
   </div>
 
   <div class="flex items-center justify-end min-w-[200px] gap-1">
     {#if $hasRepo && $currentBranch}
-      <button
-        class="toolbar-btn"
-        onclick={() => fetchFromRemote()}
-        disabled={!!$networkOperation}
-        title="Fetch all remotes"
-      >
-        {#if $networkOperation === 'fetching'}
-          <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
-        {:else}
-          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
-            <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v6.69l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V2.75A.75.75 0 0 1 8 2Z" />
-            <path fill="currentColor" d="M2.5 13.25a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
-          </svg>
-        {/if}
-      </button>
       <button
         class="toolbar-btn"
         onclick={() => pullFromRemote()}
@@ -67,15 +60,6 @@
         {/if}
       </button>
       <button
-        class="toolbar-btn !gap-1.5 !px-2.5"
-        onclick={() => commandBar?.focus()}
-      >
-        <svg class="shrink-0" viewBox="0 0 16 16" width="14" height="14">
-          <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
-        </svg>
-        {$currentBranch}
-      </button>
-      <button
         class="toolbar-btn"
         onclick={() => pushToRemote()}
         disabled={!!$networkOperation}
@@ -92,11 +76,22 @@
           <span class="text-[10px] bg-accent rounded px-1">{$aheadCount}</span>
         {/if}
       </button>
+      <button
+        class="toolbar-btn !gap-1.5 !px-2.5"
+        onclick={() => commandBar?.focus()}
+      >
+        <svg class="shrink-0" viewBox="0 0 16 16" width="14" height="14">
+          <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
+        </svg>
+        {$currentBranch}
+      </button>
     {/if}
+    <GitHubUserMenu />
   </div>
 </header>
 
 <ShortcutsModal bind:open={shortcutsOpen} />
+<SettingsModal bind:open={settingsOpen} />
 
 <style>
   .toolbar-btn {

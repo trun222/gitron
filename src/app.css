@@ -127,6 +127,119 @@
   --color-graph-13: #4fc3f7;
 }
 
+/*
+ * Tron Theme
+ *
+ * Neon cyan-on-dark inspired by the Tron aesthetic.
+ * Always layered on top of .dark (applied via settings.ts).
+ * Overrides dark theme variables with blue-black backgrounds and electric cyan accents.
+ */
+.tron {
+  --background: oklch(0.13 0.02 250);
+  --foreground: oklch(0.88 0.04 200);
+  --card: oklch(0.11 0.02 250);
+  --card-foreground: oklch(0.88 0.04 200);
+  --popover: oklch(0.13 0.02 250);
+  --popover-foreground: oklch(0.88 0.04 200);
+  --primary: oklch(0.78 0.15 195);
+  --primary-foreground: oklch(0.13 0.02 250);
+  --secondary: oklch(0.20 0.025 250);
+  --secondary-foreground: oklch(0.88 0.04 200);
+  --muted: oklch(0.20 0.025 250);
+  --muted-foreground: oklch(0.50 0.04 200);
+  --accent: oklch(0.28 0.03 250);
+  --accent-foreground: oklch(0.88 0.04 200);
+  --destructive: oklch(0.70 0.20 40);
+  --border: oklch(0.25 0.04 200);
+  --input: oklch(0.22 0.03 250);
+  --ring: oklch(0.78 0.15 195);
+  --sidebar: oklch(0.11 0.02 250);
+  --sidebar-foreground: oklch(0.88 0.04 200);
+  --sidebar-primary: oklch(0.78 0.15 195);
+  --sidebar-primary-foreground: oklch(0.13 0.02 250);
+  --sidebar-accent: oklch(0.20 0.025 250);
+  --sidebar-accent-foreground: oklch(0.88 0.04 200);
+  --sidebar-border: oklch(0.25 0.04 200);
+  --sidebar-ring: oklch(0.78 0.15 195);
+
+  /* Git status colors — same hues, slightly more saturated/neon */
+  --color-git-added: #39FF14;
+  --color-git-added-bg: rgba(57, 255, 20, 0.12);
+  --color-git-modified: #FFD600;
+  --color-git-modified-bg: rgba(255, 214, 0, 0.12);
+  --color-git-deleted: #FF2E63;
+  --color-git-deleted-bg: rgba(255, 46, 99, 0.12);
+  --color-git-modified-foreground: oklch(0.13 0.02 250);
+  --color-git-added-foreground: oklch(0.13 0.02 250);
+
+  /* Graph lane colors — full neon set */
+  --color-graph-0: #00FFFF;
+  --color-graph-1: #39FF14;
+  --color-graph-2: #FF2E63;
+  --color-graph-3: #FF6B00;
+  --color-graph-4: #BF00FF;
+  --color-graph-5: #00E5FF;
+  --color-graph-6: #FF00FF;
+  --color-graph-7: #FFD600;
+  --color-graph-8: #2979FF;
+  --color-graph-9: #00FFAB;
+  --color-graph-10: #FF4081;
+  --color-graph-11: #FF1744;
+  --color-graph-12: #7C4DFF;
+  --color-graph-13: #40C4FF;
+}
+
+/* Tron glow effects */
+.tron *:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring), 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+.tron footer {
+  border-top-color: rgba(0, 255, 255, 0.4);
+  box-shadow: 0 -1px 6px rgba(0, 255, 255, 0.15);
+}
+
+.tron ::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.2);
+}
+
+.tron ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.4);
+}
+
+/* Tron Enhanced: Toolbar bottom glow */
+.tron-enhanced header {
+  border-bottom-color: rgba(0, 255, 255, 0.4);
+  box-shadow: 0 1px 6px rgba(0, 255, 255, 0.15);
+}
+
+/* Tron Enhanced: Selected row accent */
+.tron-enhanced [role="option"][aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Tron Enhanced: Branch tag neon glow */
+.tron-enhanced .branch-tag {
+  box-shadow: 0 0 6px currentColor;
+  border-radius: 2px;
+}
+
+/* Tron Enhanced: CRT scan lines */
+.tron-enhanced body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
 /* Map CSS variables to Tailwind theme */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

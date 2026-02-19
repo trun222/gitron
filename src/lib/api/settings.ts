@@ -1,5 +1,5 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
-import type { AppSettings, GraphColumnWidths, RecentRepo } from './types';
+import type { AppSettings, AutoFetchInterval, GraphColumnWidths, RecentRepo, ThemeMode } from './types';
 
 const store = new LazyStore('settings.json');
 
@@ -81,5 +81,17 @@ export async function saveColumnWidths(widths: GraphColumnWidths): Promise<void>
 export async function saveSidebarCollapsed(collapsed: boolean): Promise<void> {
   const settings = await getSettings();
   settings.sidebarCollapsed = collapsed;
+  await saveSettings(settings);
+}
+
+export async function saveTheme(theme: ThemeMode): Promise<void> {
+  const settings = await getSettings();
+  settings.theme = theme;
+  await saveSettings(settings);
+}
+
+export async function saveAutoFetchInterval(interval: AutoFetchInterval): Promise<void> {
+  const settings = await getSettings();
+  settings.autoFetchInterval = interval;
   await saveSettings(settings);
 }

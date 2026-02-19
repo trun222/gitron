@@ -1,9 +1,19 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
-  import { error } from '$lib/stores/repo';
-  import { BranchConflictDialog, DiscardChangesDialog } from '$lib/components/ui/dialog';
+  import OutputPanel from './OutputPanel.svelte';
+  import {
+    error, repoPath, hasRepo,
+    pullFromRemote, pushToRemote, fetchFromRemote,
+    stageAllAndClear, unstageAllAndClear, discardAllChanges,
+    refreshAll,
+  } from '$lib/stores/repo';
+  import { toggleOutputPanel } from '$lib/stores/output';
+  import { get } from 'svelte/store';
+  import { BranchConflictDialog, DiscardChangesDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
+  import { initAuth } from '$lib/stores/github';
   import type { Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -12,6 +22,79 @@
 
   let errorFirstLine = $derived($error?.split('\n')[0] ?? '');
   let errorIsMultiline = $derived(($error?.split('\n').length ?? 0) > 1);
+
+  onMount(() => {
+    initAuth();
+
+    function handleKeydown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      if (isInput) return;
+      if (!get(hasRepo)) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+
+      // Cmd+Shift+P — Push
+      if (mod && e.shiftKey && e.key === 'p') {
+        e.preventDefault();
+        pushToRemote();
+        return;
+      }
+
+      // Cmd+Shift+L — Pull
+      if (mod && e.shiftKey && e.key === 'l') {
+        e.preventDefault();
+        pullFromRemote();
+        return;
+      }
+
+      // Cmd+Shift+F — Fetch
+      if (mod && e.shiftKey && e.key === 'f') {
+        e.preventDefault();
+        fetchFromRemote();
+        return;
+      }
+
+      // Cmd+Shift+A — Stage all
+      if (mod && e.shiftKey && e.key === 'a') {
+        e.preventDefault();
+        stageAllAndClear();
+        return;
+      }
+
+      // Cmd+Shift+U — Unstage all
+      if (mod && e.shiftKey && e.key === 'u') {
+        e.preventDefault();
+        unstageAllAndClear();
+        return;
+      }
+
+      // Cmd+Shift+D — Discard all changes
+      if (mod && e.shiftKey && e.key === 'd') {
+        e.preventDefault();
+        discardAllChanges();
+        return;
+      }
+
+      // Cmd+R — Refresh
+      if (mod && !e.shiftKey && e.key === 'r') {
+        e.preventDefault();
+        const p = get(repoPath);
+        if (p) refreshAll(p);
+        return;
+      }
+
+      // Cmd+` — Toggle output panel
+      if (mod && e.key === '`') {
+        e.preventDefault();
+        toggleOutputPanel();
+        return;
+      }
+    }
+
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
+  });
 </script>
 
 <div class="flex flex-col h-screen overflow-hidden bg-background text-foreground">
@@ -61,8 +144,10 @@
       {@render children()}
     </main>
   </div>
+  <OutputPanel />
   <StatusBar />
 </div>
 
 <BranchConflictDialog />
 <DiscardChangesDialog />
+<GitHubLoginDialog />

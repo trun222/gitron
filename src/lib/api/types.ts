@@ -145,16 +145,29 @@ export interface TrackingStatus {
   upstream: string | null;
 }
 
+export interface OperationOutput {
+  stdout: string;
+  stderr: string;
+}
+
+export interface CommitResult {
+  oid: string;
+  success: boolean;
+  output: OperationOutput;
+}
+
 export interface FetchResult {
   remote: string;
   updated_refs: string[];
   summary: string;
+  output: OperationOutput;
 }
 
 export interface PushResult {
   remote: string;
   branch: string;
   summary: string;
+  output: OperationOutput;
 }
 
 export interface PullResult {
@@ -162,7 +175,41 @@ export interface PullResult {
   branch: string;
   summary: string;
   merge_conflicts: boolean;
+  output: OperationOutput;
 }
+
+// GitHub OAuth types (matching src-tauri/src/github/types.rs)
+
+export interface GitHubUser {
+  login: string;
+  id: number;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+}
+
+export type GitHubAuthStatus =
+  | { type: 'NotAuthenticated' }
+  | { type: 'AwaitingUserCode' }
+  | { type: 'Authenticated'; user: GitHubUser }
+  | { type: 'TokenExpired' }
+  | { type: 'Failed'; message: string };
+
+export interface GitHubAuthInfo {
+  status: GitHubAuthStatus;
+}
+
+export interface DeviceCodeResponse {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+}
+
+// Settings types
+export type ThemeMode = 'dark' | 'light' | 'system' | 'tron' | 'tron-enhanced';
+export type AutoFetchInterval = 0 | 60 | 300 | 900; // seconds; 0 = off
 
 // Persistence types (frontend-only, used by tauri-plugin-store)
 
@@ -185,4 +232,6 @@ export interface AppSettings {
   recentRepos: RecentRepo[];
   graphColumnWidths?: GraphColumnWidths;
   sidebarCollapsed?: boolean;
+  theme?: ThemeMode;
+  autoFetchInterval?: AutoFetchInterval;
 }

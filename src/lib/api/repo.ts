@@ -10,6 +10,7 @@ import type {
   FetchResult,
   PushResult,
   PullResult,
+  CommitResult,
 } from './types';
 
 export async function openRepo(path: string): Promise<RepoInfo> {
@@ -104,7 +105,7 @@ export async function resetToCommit(
   return invoke('reset_to_commit', { path, commitOid, resetType });
 }
 
-export async function createCommit(path: string, message: string): Promise<string> {
+export async function createCommit(path: string, message: string): Promise<CommitResult> {
   return invoke('create_commit', { path, message });
 }
 

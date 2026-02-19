@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
-import type { GraphColumnWidths, RecentRepo } from '$lib/api/types';
+import type { AutoFetchInterval, GraphColumnWidths, RecentRepo, ThemeMode } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
+import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
 
 // Core settings state
 export const recentRepos = writable<RecentRepo[]>([]);
@@ -13,6 +14,8 @@ export const graphColumnWidths = writable<GraphColumnWidths>({
   sha: 70,
 });
 export const sidebarCollapsed = writable(false);
+export const theme = writable<ThemeMode>('tron');
+export const autoFetchInterval = writable<AutoFetchInterval>(0);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -22,6 +25,59 @@ export const sortedRecentRepos = derived(recentRepos, ($repos) => {
     new Date(b.lastOpened).getTime() - new Date(a.lastOpened).getTime();
   return [...pinned.sort(byDate), ...unpinned.sort(byDate)];
 });
+
+// Theme management
+let systemThemeQuery: MediaQueryList | null = null;
+let systemThemeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+
+export function applyTheme(mode: ThemeMode): void {
+  // Clean up previous system listener
+  if (systemThemeQuery && systemThemeHandler) {
+    systemThemeQuery.removeEventListener('change', systemThemeHandler);
+    systemThemeHandler = null;
+  }
+
+  // Always remove tron classes first, then re-add if needed
+  document.documentElement.classList.remove('tron', 'tron-enhanced');
+
+  if (mode === 'system') {
+    systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = () => {
+      if (systemThemeQuery!.matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    applySystemTheme();
+    systemThemeHandler = () => applySystemTheme();
+    systemThemeQuery.addEventListener('change', systemThemeHandler);
+  } else if (mode === 'tron-enhanced') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('tron');
+    document.documentElement.classList.add('tron-enhanced');
+  } else if (mode === 'tron') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('tron');
+  } else if (mode === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+
+export async function setTheme(mode: ThemeMode): Promise<void> {
+  theme.set(mode);
+  applyTheme(mode);
+  await settingsApi.saveTheme(mode);
+}
+
+export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise<void> {
+  autoFetchInterval.set(interval);
+  stopAutoFetch();
+  startAutoFetch(interval);
+  await settingsApi.saveAutoFetchInterval(interval);
+}
 
 // Actions
 export async function loadSettings(): Promise<void> {
@@ -34,6 +90,17 @@ export async function loadSettings(): Promise<void> {
   if (settings.sidebarCollapsed != null) {
     sidebarCollapsed.set(settings.sidebarCollapsed);
   }
+
+  // Theme
+  const savedTheme = settings.theme ?? 'tron';
+  theme.set(savedTheme);
+  applyTheme(savedTheme);
+
+  // Auto-fetch
+  const savedInterval = settings.autoFetchInterval ?? 0;
+  autoFetchInterval.set(savedInterval);
+  startAutoFetch(savedInterval);
+
   settingsLoaded.set(true);
 }
 

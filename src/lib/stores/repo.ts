@@ -12,6 +12,7 @@ import type {
 } from '$lib/api/types';
 import * as api from '$lib/api/repo';
 import { trackRepoOpen } from '$lib/stores/settings';
+import { addOutput } from '$lib/stores/output';
 
 // File selection types
 export type FileSection = 'staged' | 'unstaged' | 'untracked';
@@ -314,10 +315,16 @@ export async function commitAndRefresh(message: string): Promise<string | null> 
   const path = get(repoPath);
   if (!path) return null;
   try {
-    const oid = await api.createCommit(path, message);
+    const result = await api.createCommit(path, message);
+    addOutput('commit', result.output.stdout, result.output.stderr, result.success);
+    if (!result.success) {
+      const hookOutput = result.output.stderr || result.output.stdout;
+      error.set(`Commit failed (hook or validation):\n${hookOutput}`);
+      return null;
+    }
     await refreshAll(path);
     clearFileSelection();
-    return oid;
+    return result.oid;
   } catch (e) {
     error.set(String(e));
     return null;
@@ -520,11 +527,10 @@ export async function fetchFromRemote(remoteName?: string) {
   if (get(networkOperation)) return;
   networkOperation.set('fetching');
   try {
-    if (remoteName) {
-      await api.fetchRemote(path, remoteName);
-    } else {
-      await api.fetchAllRemotes(path);
-    }
+    const result = remoteName
+      ? await api.fetchRemote(path, remoteName)
+      : await api.fetchAllRemotes(path);
+    addOutput('fetch', result.output.stdout, result.output.stderr, true);
     await refreshAll(path);
     await refreshRemotes(path);
   } catch (e) {
@@ -549,7 +555,8 @@ export async function pushToRemote(remoteName?: string, force?: boolean) {
   const setUpstream = !ts?.upstream;
   networkOperation.set('pushing');
   try {
-    await api.pushToRemote(path, remote, branch, force, setUpstream);
+    const result = await api.pushToRemote(path, remote, branch, force, setUpstream);
+    addOutput('push', result.output.stdout, result.output.stderr, true);
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));
@@ -572,6 +579,7 @@ export async function pullFromRemote(remoteName?: string) {
   networkOperation.set('pulling');
   try {
     const result = await api.pullFromRemote(path, remote, branch);
+    addOutput('pull', result.output.stdout, result.output.stderr, !result.merge_conflicts);
     if (result.merge_conflicts) {
       error.set('Pull completed with merge conflicts. Resolve conflicts and commit.');
     }

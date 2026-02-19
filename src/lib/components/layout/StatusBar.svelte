@@ -1,5 +1,6 @@
 <script lang="ts">
   import { repoInfo, currentBranch, stagedCount, unstagedCount, hasRepo, trackingStatus } from '$lib/stores/repo';
+  import { hasEntries, toggleOutputPanel, outputPanelOpen } from '$lib/stores/output';
 </script>
 
 <footer class="flex items-center justify-between h-6 px-3 bg-card border-t border-border text-muted-foreground text-[11px]">
@@ -32,6 +33,18 @@
       {/if}
       {#if $unstagedCount > 0}
         <span>{$unstagedCount} changed</span>
+      {/if}
+      {#if $hasEntries}
+        <button
+          class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer {$outputPanelOpen ? 'text-foreground' : ''}"
+          onclick={toggleOutputPanel}
+          title="Toggle output panel (Cmd+`)"
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25Zm7.47 3.97a.75.75 0 0 1 1.06 0l2 2a.75.75 0 0 1 0 1.06l-2 2a.75.75 0 1 1-1.06-1.06L10.69 9l-1.47-1.47a.75.75 0 0 1 0-1.06ZM6.78 6.47a.75.75 0 0 1 0 1.06L5.31 9l1.47 1.47a.75.75 0 0 1-1.06 1.06l-2-2a.75.75 0 0 1 0-1.06l2-2a.75.75 0 0 1 1.06 0Z" />
+          </svg>
+          Output
+        </button>
       {/if}
     </div>
   {:else}

@@ -11,7 +11,7 @@
     discardConfirmOpen,
   } from '$lib/stores/repo';
 
-  let { onShowShortcuts }: { onShowShortcuts?: () => void } = $props();
+  let { onShowShortcuts, onShowSettings }: { onShowShortcuts?: () => void; onShowSettings?: () => void } = $props();
 
   let search = $state('');
   let isOpen = $state(false);
@@ -54,6 +54,13 @@
     search = '';
     inputRef?.blur();
     onShowShortcuts?.();
+  }
+
+  function handleShowSettings() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    onShowSettings?.();
   }
 
   async function handleOpenFolder() {
@@ -157,7 +164,7 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder={addRemoteMode ? "remote-name https://url.git" : "Search... (Cmd+K)"}
+      placeholder={addRemoteMode ? "remote-name https://url.git" : "Type a command... (Cmd+K)"}
       class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
     />
     {#if isOpen}
@@ -394,6 +401,18 @@
                 </svg>
                 <span>Keyboard Shortcuts</span>
                 <kbd class="ml-auto text-xs text-muted-foreground border border-border rounded px-1 py-0.5 font-mono">?</kbd>
+              </Command.Item>
+              <Command.Item
+                value="settings"
+                keywords={['settings', 'preferences', 'options', 'config', 'theme']}
+                onSelect={handleShowSettings}
+                class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+              >
+                <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.3.071L12.727 2.8c.63-.186 1.345.018 1.737.631A8 8 0 0 1 15.63 5.57c.174.647-.134 1.318-.683 1.637l-.97.567a.4.4 0 0 0-.177.288 6.8 6.8 0 0 1 0 .776c.005.09.076.186.177.288l.97.567c.549.319.857.99.683 1.637a8 8 0 0 1-1.166 2.14c-.392.612-1.108.816-1.737.63l-1.1-.278c-.066-.018-.177-.011-.3.071a5.7 5.7 0 0 1-.668.386c-.133.066-.194.158-.212.224l-.288 1.107c-.17.645-.716 1.195-1.459 1.26a8.1 8.1 0 0 1-1.402 0c-.743-.065-1.289-.615-1.459-1.26l-.288-1.107a.37.37 0 0 0-.212-.224 5.7 5.7 0 0 1-.668-.386c-.123-.082-.233-.09-.3-.071l-1.1.278c-.63.186-1.345-.018-1.737-.631A8 8 0 0 1 .37 10.43c-.174-.647.134-1.318.683-1.637l.97-.567c.1-.102.171-.198.177-.288a6.8 6.8 0 0 1 0-.776.4.4 0 0 0-.177-.288l-.97-.567C.504 5.988.196 5.317.37 4.67a8 8 0 0 1 1.166-2.14c.392-.612 1.108-.816 1.737-.63l1.1.278c.066.018.177.011.3-.071.214-.143.437-.272.668-.386a.37.37 0 0 0 .212-.224l.288-1.107C6.01.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.56-.55.967-.997 1.189a4.2 4.2 0 0 0-.488.282c-.4.266-.881.395-1.437.223l-1.1-.278c-.11-.03-.175.016-.195.046a6.5 6.5 0 0 0-.9 1.652c-.03.11.004.186.077.228l.97.567c.477.278.79.754.816 1.297.015.315.015.635 0 .95-.027.543-.34 1.019-.816 1.297l-.97.567c-.073.042-.107.118-.077.228.203.724.508 1.305.9 1.652.02.03.085.076.195.046l1.1-.278c.556-.172 1.037-.043 1.437.223.155.104.318.197.488.283.448.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.56.55-.967.997-1.189.17-.086.333-.179.488-.283.4-.266.881-.395 1.437-.223l1.1.278c.11.03.175-.016.195-.046.392-.347.697-.928.9-1.652.03-.11-.004-.186-.077-.228l-.97-.567c-.477-.278-.79-.754-.816-1.297a5.3 5.3 0 0 1 0-.95c.027-.543.34-1.019.816-1.297l.97-.567c.073-.042.107-.118.077-.228a6.5 6.5 0 0 0-.9-1.652c-.02-.03-.085-.076-.195-.046l-1.1.278c-.556.172-1.037.043-1.437-.223a4.2 4.2 0 0 0-.488-.282c-.448-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z" />
+                </svg>
+                <span>Settings</span>
+                <kbd class="ml-auto text-xs text-muted-foreground border border-border rounded px-1 py-0.5 font-mono">Cmd+,</kbd>
               </Command.Item>
             </Command.GroupItems>
           </Command.Group>

@@ -1,9 +1,10 @@
 pub mod commands;
 pub mod git;
+pub mod github;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, commit, diff, graph, remote, repo, staging, stash};
+use commands::{branch, commit, diff, github as github_cmd, graph, remote, repo, staging, stash};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -44,6 +45,11 @@ pub fn run() {
             remote::push_to_remote,
             remote::pull_from_remote,
             remote::checkout_remote_branch,
+            github_cmd::github_check_auth,
+            github_cmd::github_start_device_flow,
+            github_cmd::github_poll_device_flow,
+            github_cmd::github_logout,
+            github_cmd::github_get_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

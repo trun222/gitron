@@ -5,7 +5,7 @@
     resetToCommit, currentBranch,
     applyStash, popStash, dropStash,
   } from '$lib/stores/repo';
-  import { graphColumnWidths, saveGraphColumnWidths } from '$lib/stores/settings';
+  import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import type { Commit, Branch, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
@@ -33,16 +33,23 @@
     colWidths = { ...storeVal };
   });
 
-  // Cache graph colors from CSS custom properties
+  // Cache graph colors from CSS custom properties (re-reads on theme change)
   let graphColors: string[] = $state([]);
   $effect(() => {
-    const style = getComputedStyle(document.documentElement);
-    const colors: string[] = [];
-    for (let i = 0; i < GRAPH_COLOR_COUNT; i++) {
-      colors.push(style.getPropertyValue(`--color-graph-${i}`).trim() || '#888');
-    }
-    graphColors = colors;
+    // Reference $theme so this effect re-runs when the theme changes
+    void $theme;
+    // Defer read to next frame so CSS variables have been applied
+    requestAnimationFrame(() => {
+      const style = getComputedStyle(document.documentElement);
+      const colors: string[] = [];
+      for (let i = 0; i < GRAPH_COLOR_COUNT; i++) {
+        colors.push(style.getPropertyValue(`--color-graph-${i}`).trim() || '#888');
+      }
+      graphColors = colors;
+    });
   });
+
+  let isTronEnhanced = $derived($theme === 'tron-enhanced');
 
   function getGraphColor(colorIndex: number): string {
     if (graphColors.length === 0) return '#888';
@@ -555,6 +562,19 @@
 <div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
     {@const layout = $commitGraph.layout}
+    {#if isTronEnhanced}
+      <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;">
+        <defs>
+          <filter id="tron-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
+    {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
       <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
@@ -590,7 +610,7 @@
           <!-- Graph column -->
           <span class="graph-cell" style="height: {ROW_HEIGHT}px">
             {#if node}
-              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" style="overflow: visible;">
+              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" style="overflow: visible;" filter={isTronEnhanced ? 'url(#tron-glow)' : null}>
                 {#each [...rowLanes] as [lane, activity]}
                   {#if lane !== node.lane}
                     <line
@@ -643,6 +663,16 @@
                   <rect x={cx - 0.5} y={cy - 6} width="1" height="13" fill="var(--background)" opacity="0.5" />
                   <circle cx={cx} cy={cy + 2} r="1.8" fill="var(--background)" />
                 {:else}
+                  {#if isTronEnhanced && isHead}
+                    <circle
+                      class="tron-head-pulse"
+                      cx={laneX(node.lane)}
+                      cy={ROW_HEIGHT / 2}
+                      r={CIRCLE_RADIUS}
+                      fill={getGraphColor(node.color_index)}
+                      stroke="none"
+                    />
+                  {/if}
                   <circle
                     cx={laneX(node.lane)}
                     cy={ROW_HEIGHT / 2}
@@ -845,6 +875,7 @@
   .author-cell {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     min-width: 0;
     overflow: hidden;
@@ -904,5 +935,23 @@
 
   .context-menu-item:disabled {
     pointer-events: none;
+  }
+
+  /* Tron: HEAD commit pulse ring */
+  :global(.tron-enhanced) .tron-head-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: tron-head-ring 2s ease-out infinite;
+  }
+
+  @keyframes tron-head-ring {
+    0% {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(3);
+      opacity: 0;
+    }
   }
 </style>

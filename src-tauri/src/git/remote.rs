@@ -87,7 +87,7 @@ pub async fn fetch(workdir: &str, remote: &str, branch: Option<&str>) -> GitResu
     }
     args.push("--prune");
 
-    let output = cli::run_git_async(workdir, &args).await?;
+    let output = cli::run_git_async_with_github_auth(workdir, &args).await?;
 
     let updated_refs: Vec<String> = output
         .stderr
@@ -106,12 +106,16 @@ pub async fn fetch(workdir: &str, remote: &str, branch: Option<&str>) -> GitResu
         remote: remote.to_string(),
         updated_refs,
         summary,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
     })
 }
 
 /// Fetch from all remotes
 pub async fn fetch_all(workdir: &str) -> GitResult<FetchResult> {
-    let output = cli::run_git_async(workdir, &["fetch", "--all", "--prune"]).await?;
+    let output = cli::run_git_async_with_github_auth(workdir, &["fetch", "--all", "--prune"]).await?;
 
     let updated_refs: Vec<String> = output
         .stderr
@@ -130,6 +134,10 @@ pub async fn fetch_all(workdir: &str) -> GitResult<FetchResult> {
         remote: "--all".to_string(),
         updated_refs,
         summary,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
     })
 }
 
@@ -155,7 +163,7 @@ pub async fn push(
         args.push("--set-upstream");
     }
 
-    let output = cli::run_git_async(workdir, &args).await?;
+    let output = cli::run_git_async_with_github_auth(workdir, &args).await?;
 
     let summary = if output.stderr.contains("Everything up-to-date") {
         "Everything up-to-date".to_string()
@@ -173,6 +181,10 @@ pub async fn push(
         remote: remote.to_string(),
         branch: branch.unwrap_or("HEAD").to_string(),
         summary,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
     })
 }
 
@@ -189,7 +201,7 @@ pub async fn pull(
         args.push(&branch_name);
     }
 
-    let result = cli::run_git_async(workdir, &args).await;
+    let result = cli::run_git_async_with_github_auth(workdir, &args).await;
 
     match result {
         Ok(output) => {
@@ -213,6 +225,10 @@ pub async fn pull(
                 branch: branch.unwrap_or("HEAD").to_string(),
                 summary,
                 merge_conflicts,
+                output: OperationOutput {
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                },
             })
         }
         Err(GitError::CliError { stderr, .. }) if stderr.contains("CONFLICT") => {
@@ -221,6 +237,10 @@ pub async fn pull(
                 branch: branch.unwrap_or("HEAD").to_string(),
                 summary: "Pull completed with merge conflicts".to_string(),
                 merge_conflicts: true,
+                output: OperationOutput {
+                    stdout: String::new(),
+                    stderr,
+                },
             })
         }
         Err(e) => Err(e),
