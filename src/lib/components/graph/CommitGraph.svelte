@@ -5,10 +5,12 @@
     resetToCommit, currentBranch,
     applyStash, popStash, dropStash,
     rebaseOnto, mergeInto,
+    createTagAtCommit, deleteTag, pushTag,
+    scrollToCommitOid,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
   import { gravatarUrl } from '$lib/utils/gravatar';
-  import type { Commit, Branch, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
+  import type { Commit, Branch, Tag, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
 
   const GRAPH_COLOR_COUNT = 14;
   const ROW_HEIGHT = 30;
@@ -48,6 +50,17 @@
       }
       graphColors = colors;
     });
+  });
+
+  // Watch for scroll-to-commit requests (e.g. from tags list)
+  $effect(() => {
+    const oid = $scrollToCommitOid;
+    if (!oid || !$commitGraph) return;
+    const idx = $commitGraph.commits.findIndex((c) => c.oid === oid);
+    if (idx >= 0) {
+      scrollToIndex(idx);
+    }
+    scrollToCommitOid.set(null);
   });
 
   let isTronEnhanced = $derived($theme === 'tron-enhanced');
@@ -231,6 +244,11 @@
     return $commitGraph.branches.filter((b) => b.target_oid === oid);
   }
 
+  function getTagsForCommit(oid: string): Tag[] {
+    if (!$commitGraph) return [];
+    return $commitGraph.tags.filter((t) => t.target_oid === oid);
+  }
+
   function isSelected(commit: Commit): boolean {
     return $selectedCommit?.oid === commit.oid;
   }
@@ -356,6 +374,7 @@
     branchName?: string;
     branchIsRemote?: boolean;
     stashIndex?: number;
+    tagName?: string;
   }
 
   let contextMenu: ContextMenuState | null = $state(null);
@@ -394,6 +413,7 @@
     const branch = $currentBranch;
     const items: (MenuAction | 'separator')[] = [
       { id: 'create-branch', label: 'Create branch here' },
+      { id: 'create-tag', label: 'Create tag here' },
     ];
     if (branch) {
       items.push({
@@ -462,10 +482,28 @@
     };
   }
 
+  function handleTagContextMenu(e: MouseEvent, tag: Tag) {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = {
+      x: e.clientX,
+      y: e.clientY,
+      tagName: tag.name,
+      commitOid: tag.target_oid,
+      items: [
+        { id: 'push-tag', label: 'Push tag to remote' },
+        'separator',
+        { id: 'copy-tag-name', label: 'Copy tag name' },
+        'separator',
+        { id: 'delete-tag', label: 'Delete tag', danger: true },
+      ],
+    };
+  }
+
   function executeMenuAction(actionId: string) {
     if (!contextMenu) return;
     // Snapshot values before closing
-    const { x, y, commitOid, shortOid, commitMessage, branchName, branchIsRemote, stashIndex } = contextMenu;
+    const { x, y, commitOid, shortOid, commitMessage, branchName, branchIsRemote, stashIndex, tagName } = contextMenu;
     closeContextMenu();
 
     switch (actionId) {
@@ -496,10 +534,7 @@
         if (branchName) rebaseOnto(branchName);
         break;
       case 'merge-into':
-        if (branchName) {
-          const current = $currentBranch;
-          if (current) mergeInto(current, branchName);
-        }
+        if (branchName) mergeInto(branchName);
         break;
       case 'copy-name':
         if (branchName) navigator.clipboard.writeText(branchName);
@@ -521,6 +556,20 @@
         break;
       case 'drop-stash':
         if (stashIndex !== undefined) dropStash(stashIndex);
+        break;
+      case 'create-tag':
+        if (commitOid && shortOid) {
+          tagPrompt = { x, y, commitOid, shortOid };
+        }
+        break;
+      case 'push-tag':
+        if (tagName) pushTag(tagName);
+        break;
+      case 'delete-tag':
+        if (tagName) deleteTag(tagName);
+        break;
+      case 'copy-tag-name':
+        if (tagName) navigator.clipboard.writeText(tagName);
         break;
     }
   }
@@ -560,6 +609,35 @@
     }
   }
 
+  // --- Tag creation prompt ---
+  let tagPrompt = $state<{
+    x: number;
+    y: number;
+    commitOid: string;
+    shortOid: string;
+  } | null>(null);
+
+  let newTagName = $state('');
+
+  function closeTagPrompt() {
+    tagPrompt = null;
+    newTagName = '';
+  }
+
+  function handleTagPromptKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      closeTagPrompt();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const name = newTagName.trim();
+      if (name && tagPrompt) {
+        const oid = tagPrompt.commitOid;
+        closeTagPrompt();
+        createTagAtCommit(name, oid);
+      }
+    }
+  }
+
   function autoFocusAction(node: HTMLInputElement) {
     requestAnimationFrame(() => node.focus());
   }
@@ -568,15 +646,17 @@
   function handleListScroll() {
     closeContextMenu();
     closeBranchPrompt();
+    closeTagPrompt();
   }
 
   // Close overlays on Escape
   $effect(() => {
-    if (contextMenu || branchPrompt) {
+    if (contextMenu || branchPrompt || tagPrompt) {
       const handler = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           closeContextMenu();
           closeBranchPrompt();
+          closeTagPrompt();
         }
       };
       document.addEventListener('keydown', handler);
@@ -623,6 +703,7 @@
       {#each $commitGraph.commits as commit, i}
         {@const node = layout?.nodes[i]}
         {@const branches = getBranchesForCommit(commit.oid)}
+        {@const tags = getTagsForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
         {@const rowLanes = laneActivities[i] ?? new Map()}
         <button
@@ -736,8 +817,8 @@
           <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
           <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
 
-          <!-- Branch tags: positioned absolutely over the row -->
-          {#if node && branches.length > 0}
+          <!-- Branch & tag labels: positioned absolutely over the row -->
+          {#if node && (branches.length > 0 || tags.length > 0)}
             {@const grouped = groupBranches(branches)}
             <span
               class="branch-tags"
@@ -762,6 +843,17 @@
                   {#if group.remote}
                     <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
                   {/if}
+                </span>
+              {/each}
+              {#each tags as tag}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span
+                  class="tag-pill"
+                  onclick={(e) => e.stopPropagation()}
+                  oncontextmenu={(e) => handleTagContextMenu(e, tag)}
+                >
+                  <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
+                  {tag.name}
                 </span>
               {/each}
             </span>
@@ -853,6 +945,27 @@
   </div>
 {/if}
 
+<!-- Tag creation prompt -->
+{#if tagPrompt}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" onclick={closeTagPrompt}></div>
+  <div
+    class="fixed z-50 min-w-[240px] rounded-lg border border-border bg-popover shadow-lg p-3"
+    style="left: {tagPrompt.x}px; top: {tagPrompt.y}px"
+  >
+    <div class="text-xs text-muted-foreground mb-2">
+      Create tag at <span class="font-mono">{tagPrompt.shortOid}</span>
+    </div>
+    <input
+      class="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md outline-none focus:border-primary transition-colors"
+      placeholder="Tag name..."
+      bind:value={newTagName}
+      onkeydown={handleTagPromptKeydown}
+      use:autoFocusAction
+    />
+  </div>
+{/if}
+
 <style>
   .commit-row {
     display: grid;
@@ -920,6 +1033,28 @@
     height: 18px;
     flex-shrink: 0;
     opacity: 0.5;
+  }
+
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-width: 1px;
+    border-style: solid;
+    cursor: pointer;
+    transition: filter 150ms ease;
+    border-color: var(--muted-foreground);
+    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+  }
+
+  .tag-pill:hover {
+    filter: brightness(1.25);
   }
 
   .branch-tag:hover {

@@ -106,7 +106,7 @@ gitron/
 │   │   │   ├── repo.rs, graph.rs, diff.rs, staging.rs, branch.rs, commit.rs, ai.rs
 │   │   │   └── mod.rs       # Module declarations + AppState struct
 │   │   ├── git/             # Core git operations (ALL git logic here)
-│   │   │   ├── types.rs, error.rs, repository.rs, graph.rs, diff.rs
+│   │   │   ├── types.rs, error.rs, repository.rs, graph.rs, diff.rs, cli.rs
 │   │   │   └── mod.rs       # Re-exports
 │   │   ├── ai/              # AI commit generation (providers, credentials, generation)
 │   │   │   ├── error.rs, credential.rs, types.rs, providers.rs, generate.rs

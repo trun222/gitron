@@ -7,6 +7,7 @@ pub mod branch;
 pub mod commit;
 pub mod stash;
 pub mod remote;
+pub mod tag;
 pub mod github;
 pub mod clone;
 

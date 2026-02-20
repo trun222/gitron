@@ -39,6 +39,9 @@ export const remotes = writable<Remote[]>([]);
 export const trackingStatus = writable<TrackingStatus | null>(null);
 export const networkOperation = writable<string | null>(null);
 
+// Scroll-to-commit (used by tags list to jump to a commit in the graph)
+export const scrollToCommitOid = writable<string | null>(null);
+
 // Discard all confirmation
 export const discardConfirmOpen = writable(false);
 
@@ -481,11 +484,11 @@ export async function rebaseOnto(ontoBranch: string) {
   }
 }
 
-export async function mergeInto(sourceBranch: string, targetBranch: string) {
+export async function mergeInto(branchName: string) {
   const path = get(repoPath);
   if (!path) return;
   try {
-    const result = await api.mergeInto(path, sourceBranch, targetBranch);
+    const result = await api.mergeInto(path, branchName);
     addOutput('merge', result.output.stdout, result.output.stderr, result.success);
     if (result.conflicted) {
       error.set(`Merge resulted in conflicts. Resolve conflicts and commit.`);
@@ -497,6 +500,75 @@ export async function mergeInto(sourceBranch: string, targetBranch: string) {
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));
+  }
+}
+
+// Jump to a tag's commit in the graph
+export function jumpToTag(targetOid: string) {
+  const graph = get(commitGraph);
+  if (!graph) return;
+  const commit = graph.commits.find((c) => c.oid === targetOid);
+  if (commit) {
+    selectCommit(commit);
+  }
+  scrollToCommitOid.set(targetOid);
+}
+
+// Tag actions
+
+export async function createTagAtCommit(name: string, targetOid: string, message?: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.createTag(path, name, targetOid, message);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function deleteTag(name: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.deleteTag(path, name);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function pushTag(tagName: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  const remote = get(defaultRemote);
+  if (!remote) {
+    error.set('No remote configured');
+    return;
+  }
+  try {
+    const result = await api.pushTag(path, remote.name, tagName);
+    addOutput('push-tag', result.output.stdout, result.output.stderr, true);
+  } catch (e) {
+    error.set(String(e));
+    addOutput('push-tag', '', String(e), false);
+  }
+}
+
+export async function deleteRemoteTag(tagName: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  const remote = get(defaultRemote);
+  if (!remote) {
+    error.set('No remote configured');
+    return;
+  }
+  try {
+    await api.deleteRemoteTag(path, remote.name, tagName);
+    addOutput('delete-remote-tag', `Deleted remote tag '${tagName}'`, '', true);
+  } catch (e) {
+    error.set(String(e));
+    addOutput('delete-remote-tag', '', String(e), false);
   }
 }
 

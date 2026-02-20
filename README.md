@@ -43,7 +43,7 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 - **Commit authoring** — message input with Cmd/Ctrl+Enter to commit
 - **AI commit messages** — generate commit titles and descriptions from staged diffs using OpenAI, Anthropic, Gemini, or OpenRouter
 - **Inline diff viewer** — syntax-highlighted diffs powered by Shiki (Catppuccin Mocha theme)
-- **Branch management** — create, checkout, and delete branches
+- **Branch management** — create, checkout, delete, merge, and rebase branches
 - **Command palette** — Cmd/Ctrl+K to search repos, branches, and actions
 - **Settings persistence** — recent repositories, column widths saved between sessions
 - **Keyboard shortcuts** — graph navigation, staging shortcuts, command palette
@@ -52,7 +52,7 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 
 - Side-by-side diffs, hunk-level staging
 - Fetch, pull, push
-- Merge with conflict resolution, interactive rebase, cherry-pick
+- Merge conflict resolution editor, interactive rebase, cherry-pick
 - Stash management, tags, git blame, file history
 - **Plugin system** — extend Gitron with Rust backend plugins and Svelte frontend plugins
 - **Agent Gateway** — MCP server exposing repo state to AI agents with permissioned access

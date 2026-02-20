@@ -146,6 +146,9 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 | `create_branch` | `path: String`, `name: String`, `target: Option<String>` | `Branch` | Creates a new branch (defaults to HEAD) |
 | `checkout_branch` | `path: String`, `name: String` | `RepoInfo` | Checks out a branch and returns updated repo info |
 | `delete_branch` | `path: String`, `name: String` | `Vec<Branch>` | Deletes a local branch and returns updated list |
+| `reset_to_commit` | `path: String`, `commit_oid: String`, `reset_type: String` | `RepoInfo` | Resets current branch to the given commit (soft/mixed/hard) |
+| `rebase_onto` | `path: String`, `onto_branch: String` | `RebaseResult` | Rebases current branch onto the given branch (uses git CLI) |
+| `merge_into` | `path: String`, `branch_name: String` | `MergeResult` | Merges the given branch into the current branch (uses git CLI) |
 
 ### Commit Commands (`commands/commit.rs`)
 
@@ -401,6 +404,24 @@ When a type is added or modified in Rust, the TypeScript mirror MUST be updated.
 }
 ```
 
+#### RebaseResult
+```
+{
+  success: boolean         — true if rebase completed without errors
+  conflicted: boolean      — true if rebase stopped due to conflicts
+  output: OperationOutput  — stdout + stderr from git CLI
+}
+```
+
+#### MergeResult
+```
+{
+  success: boolean         — true if merge completed without errors
+  conflicted: boolean      — true if merge stopped due to conflicts
+  output: OperationOutput  — stdout + stderr from git CLI
+}
+```
+
 #### RepoInfo
 ```
 {
@@ -470,7 +491,7 @@ commands/repo.rs     →  git/repository.rs  (open, status, stage, branch)
 commands/graph.rs    →  git/graph.rs       (commit graph, commit detail)
 commands/diff.rs     →  git/diff.rs        (workdir diff, file diff)
 commands/staging.rs  →  git/repository.rs  (stage_file, unstage_file)
-commands/branch.rs   →  git/repository.rs  (list, create, checkout, delete)
+commands/branch.rs   →  git/repository.rs  (list, create, checkout, delete, reset, rebase, merge)
 ```
 
 ### git2-rs Usage Patterns
@@ -487,30 +508,31 @@ commands/branch.rs   →  git/repository.rs  (list, create, checkout, delete)
 
 **Branch operations**: Uses `repo.branches()` for listing, `repo.branch()` for creation, `branch.delete()` for deletion, `repo.checkout_tree()` + `repo.set_head()` for checkout.
 
-### Git CLI Bridge (Future)
+### Git CLI Bridge
 
-For operations not supported by git2-rs, a CLI bridge will shell out to the `git` binary:
+For operations not well-supported by git2-rs, a CLI bridge (`src-tauri/src/git/cli.rs`) shells out to the `git` binary. Two variants exist:
+
+- **`run_git_raw`** — returns output regardless of exit code (for operations like rebase/merge that need to detect conflicts from stderr)
+- **`run_git`** — returns `Err` on non-zero exit code (for simple operations like `git clean`)
+- **`run_git_async` / `run_git_async_with_github_auth`** — async variants for network operations (fetch, push, pull, clone)
+
+**Important**: Command handlers should drop the git2 `Repository` object before running CLI commands to avoid file handle interference. Extract the workdir in a scoped block:
 
 ```rust
-// Future: src-tauri/src/git/cli_backend.rs
-use std::process::Command;
-
-fn interactive_rebase(repo_path: &Path, onto: &str) -> GitResult<()> {
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(["rebase", "-i", onto])
-        .output()?;
-    // Parse output...
-}
+let workdir = {
+    let repo = repository::open(&path)?;
+    repo.workdir().ok_or(...)?.to_string_lossy().to_string()
+}; // repo dropped here
+repository::some_cli_operation(&workdir, ...);
 ```
 
-Operations designated for CLI bridge:
-- Interactive rebase
-- Advanced merge strategies
-- Submodule operations
-- Git-flow commands
-- Bisect
-- Reflog manipulation
+Operations using CLI bridge:
+- **Rebase** (`rebase_onto`) — `git rebase <branch>`, detects conflicts from stderr
+- **Merge** (`merge_branch`) — `git merge <branch>`, detects conflicts from stderr
+- **Commit** (`create_commit`) — `git commit -m`, runs hooks
+- **Clone** (`clone_repo`) — `git clone` with optional GitHub OAuth
+- **Fetch / Push / Pull** — async network operations with GitHub auth injection
+- Submodule operations, bisect, reflog manipulation (future)
 
 ---
 

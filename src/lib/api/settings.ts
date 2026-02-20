@@ -131,3 +131,9 @@ export async function saveMonoFont(font: MonoFont): Promise<void> {
   settings.monoFont = font;
   await saveSettings(settings);
 }
+
+export async function saveShowTagsList(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.showTagsList = enabled;
+  await saveSettings(settings);
+}

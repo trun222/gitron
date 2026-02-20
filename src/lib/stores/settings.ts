@@ -23,6 +23,7 @@ export const zoomLevel = writable<ZoomLevel>(1.0);
 export const highContrast = writable(false);
 export const editorFontSize = writable<EditorFontSize>(12);
 export const monoFont = writable<MonoFont>('default');
+export const showTagsList = writable(true);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -135,6 +136,11 @@ export async function setMonoFont(font: MonoFont): Promise<void> {
   await settingsApi.saveMonoFont(font);
 }
 
+export async function setShowTagsList(enabled: boolean): Promise<void> {
+  showTagsList.set(enabled);
+  await settingsApi.saveShowTagsList(enabled);
+}
+
 export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise<void> {
   autoFetchInterval.set(interval);
   stopAutoFetch();
@@ -208,6 +214,9 @@ export async function loadSettings(): Promise<void> {
   if (savedMonoFont !== 'default') {
     applyMonoFont(savedMonoFont);
   }
+
+  // Show tags list
+  showTagsList.set(settings.showTagsList ?? true);
 
   settingsLoaded.set(true);
 }

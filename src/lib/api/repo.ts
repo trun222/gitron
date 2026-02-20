@@ -4,6 +4,7 @@ import type {
   RepoStatus,
   CommitGraph,
   Branch,
+  Tag,
   FileDiff,
   Remote,
   TrackingStatus,
@@ -199,8 +200,8 @@ export async function rebaseOnto(path: string, ontoBranch: string): Promise<Reba
   return invoke('rebase_onto', { path, ontoBranch });
 }
 
-export async function mergeInto(path: string, sourceBranch: string, targetBranch: string): Promise<MergeResult> {
-  return invoke('merge_into', { path, sourceBranch, targetBranch });
+export async function mergeInto(path: string, branchName: string): Promise<MergeResult> {
+  return invoke('merge_into', { path, branchName });
 }
 
 export async function checkoutRemoteBranch(
@@ -208,4 +209,35 @@ export async function checkoutRemoteBranch(
   remoteBranchName: string
 ): Promise<RepoInfo> {
   return invoke('checkout_remote_branch', { path, remoteBranchName });
+}
+
+// Tag operations
+
+export async function createTag(
+  path: string,
+  name: string,
+  targetOid: string,
+  message?: string
+): Promise<Tag> {
+  return invoke('create_tag', { path, name, targetOid, message });
+}
+
+export async function deleteTag(path: string, name: string): Promise<void> {
+  return invoke('delete_tag', { path, name });
+}
+
+export async function pushTag(
+  path: string,
+  remoteName: string,
+  tagName: string
+): Promise<PushResult> {
+  return invoke('push_tag', { path, remoteName, tagName });
+}
+
+export async function deleteRemoteTag(
+  path: string,
+  remoteName: string,
+  tagName: string
+): Promise<void> {
+  return invoke('delete_remote_tag', { path, remoteName, tagName });
 }

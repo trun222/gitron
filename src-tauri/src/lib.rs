@@ -6,7 +6,7 @@ pub mod github;
 pub mod cache;
 pub mod watcher;
 
-use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, AppState};
+use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, AppState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -63,6 +63,10 @@ pub fn run() {
             github_cmd::github_logout,
             github_cmd::github_get_user,
             github_cmd::github_list_repos,
+            tag::create_tag,
+            tag::delete_tag,
+            tag::push_tag,
+            tag::delete_remote_tag,
             clone::clone_repo,
             ai_cmd::ai_get_providers,
             ai_cmd::ai_save_key,

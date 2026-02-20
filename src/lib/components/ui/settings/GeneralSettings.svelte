@@ -7,6 +7,7 @@
     highContrast, setHighContrast,
     editorFontSize, setEditorFontSize,
     monoFont, setMonoFont,
+    showTagsList, setShowTagsList,
   } from '$lib/stores/settings';
   import type { ThemeMode, ZoomLevel, EditorFontSize, MonoFont } from '$lib/api/types';
 
@@ -158,6 +159,22 @@
       role="switch"
       aria-checked={$autoShowOutput}
       aria-label="Toggle auto-show output panel"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Show tags list</span>
+      <span class="label-description">Show a tags section at the bottom of the changes panel</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$showTagsList}
+      onclick={() => setShowTagsList(!$showTagsList)}
+      role="switch"
+      aria-checked={$showTagsList}
+      aria-label="Toggle show tags list"
     >
       <span class="toggle-thumb"></span>
     </button>

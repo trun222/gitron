@@ -46,21 +46,25 @@ pub fn reset_to_commit(path: String, commit_oid: String, reset_type: String) -> 
 /// Rebase current branch onto a target branch
 #[tauri::command]
 pub fn rebase_onto(path: String, onto_branch: String) -> Result<RebaseResult, GitError> {
-    let repo = repository::open(&path)?;
-    let workdir = repo.workdir()
-        .ok_or_else(|| GitError::Other("Bare repository".into()))?
-        .to_string_lossy()
-        .to_string();
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    }; // repo dropped here before CLI calls
     repository::rebase_onto(&workdir, &onto_branch)
 }
 
-/// Merge source branch into target branch
+/// Merge a branch into the current branch
 #[tauri::command]
-pub fn merge_into(path: String, source_branch: String, target_branch: String) -> Result<MergeResult, GitError> {
-    let repo = repository::open(&path)?;
-    let workdir = repo.workdir()
-        .ok_or_else(|| GitError::Other("Bare repository".into()))?
-        .to_string_lossy()
-        .to_string();
-    repository::merge_branch_into(&workdir, &source_branch, &target_branch)
+pub fn merge_into(path: String, branch_name: String) -> Result<MergeResult, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    }; // repo dropped here before CLI calls
+    repository::merge_branch(&workdir, &branch_name)
 }

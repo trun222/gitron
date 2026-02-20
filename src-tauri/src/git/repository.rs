@@ -424,6 +424,43 @@ pub fn discard_all_changes(repo: &Repository) -> GitResult<()> {
     Ok(())
 }
 
+/// Create a tag at a specific commit
+pub fn create_tag(repo: &Repository, name: &str, target_oid: &str, message: Option<&str>) -> GitResult<Tag> {
+    let oid = git2::Oid::from_str(target_oid)
+        .map_err(|_| GitError::CommitNotFound(target_oid.to_string()))?;
+    let commit = repo
+        .find_commit(oid)
+        .map_err(|_| GitError::CommitNotFound(target_oid.to_string()))?;
+
+    if let Some(msg) = message {
+        // Annotated tag
+        let sig = repo.signature()?;
+        repo.tag(name, commit.as_object(), &sig, msg, false)?;
+        Ok(Tag {
+            name: name.to_string(),
+            target_oid: target_oid.to_string(),
+            is_annotated: true,
+            message: Some(msg.to_string()),
+        })
+    } else {
+        // Lightweight tag
+        repo.tag_lightweight(name, commit.as_object(), false)?;
+        Ok(Tag {
+            name: name.to_string(),
+            target_oid: target_oid.to_string(),
+            is_annotated: false,
+            message: None,
+        })
+    }
+}
+
+/// Delete a local tag
+pub fn delete_tag(repo: &Repository, name: &str) -> GitResult<()> {
+    repo.tag_delete(name)
+        .map_err(|e| GitError::Other(format!("Failed to delete tag '{}': {}", name, e)))?;
+    Ok(())
+}
+
 /// Clone a repository from a URL to a destination path (uses CLI for network ops)
 pub async fn clone_repo(url: &str, dest: &str) -> GitResult<CloneResult> {
     let dest_path = std::path::Path::new(dest);
@@ -477,33 +514,19 @@ pub fn rebase_onto(workdir: &str, onto_branch: &str) -> GitResult<RebaseResult> 
     })
 }
 
-/// Merge source_branch into target_branch (checks out target, merges source, uses CLI)
-pub fn merge_branch_into(workdir: &str, source_branch: &str, target_branch: &str) -> GitResult<MergeResult> {
-    // First checkout the target branch
-    let checkout_output = super::cli::run_git_raw(workdir, &["checkout", target_branch])?;
-    if checkout_output.exit_code != 0 {
-        return Ok(MergeResult {
-            success: false,
-            conflicted: false,
-            output: OperationOutput {
-                stdout: checkout_output.stdout,
-                stderr: checkout_output.stderr,
-            },
-        });
-    }
+/// Merge a branch into the current branch (uses CLI)
+pub fn merge_branch(workdir: &str, branch: &str) -> GitResult<MergeResult> {
+    let output = super::cli::run_git_raw(workdir, &["merge", branch])?;
 
-    // Then merge the source branch
-    let merge_output = super::cli::run_git_raw(workdir, &["merge", source_branch])?;
-
-    let conflicted = merge_output.exit_code != 0
-        && (merge_output.stderr.contains("CONFLICT") || merge_output.stdout.contains("CONFLICT"));
+    let conflicted = output.exit_code != 0
+        && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
 
     Ok(MergeResult {
-        success: merge_output.exit_code == 0,
+        success: output.exit_code == 0,
         conflicted,
         output: OperationOutput {
-            stdout: merge_output.stdout,
-            stderr: merge_output.stderr,
+            stdout: output.stdout,
+            stderr: output.stderr,
         },
     })
 }

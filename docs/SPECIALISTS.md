@@ -17,9 +17,10 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 |------|---------------|
 | `src-tauri/src/git/types.rs` | All data types (Commit, Branch, FileDiff, RepoStatus, etc.) |
 | `src-tauri/src/git/error.rs` | GitError enum and GitResult type alias |
-| `src-tauri/src/git/repository.rs` | Repo open, status, staging, branch CRUD, checkout |
+| `src-tauri/src/git/repository.rs` | Repo open, status, staging, branch CRUD, checkout, rebase, merge |
 | `src-tauri/src/git/graph.rs` | Commit graph building (revwalk, branch/tag collection) |
 | `src-tauri/src/git/diff.rs` | Diff computation (workdir, staged, per-file) |
+| `src-tauri/src/git/cli.rs` | Git CLI bridge: `run_git_raw`, `run_git`, `run_git_async`, `run_git_async_with_github_auth` |
 | `src-tauri/src/git/mod.rs` | Module declarations |
 
 **Key dependencies**: `git2` crate (v0.19), `chrono`, `serde`
@@ -28,7 +29,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 - All git logic lives in `src-tauri/src/git/`. Never in `commands/`.
 - Functions return `GitResult<T>`.
 - Use `Repository::discover()` to open repos (walks up to find `.git`).
-- Hot path (graph, diff, status) uses git2-rs. Complex ops (rebase, advanced merge) will use git CLI.
+- Hot path (graph, diff, status) uses git2-rs. Complex ops (rebase, merge) use git CLI via `cli::run_git_raw`.
 
 ---
 
@@ -43,13 +44,13 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` (26 commands) |
+| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` |
 | `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct (not yet wired) |
 | `src-tauri/src/commands/repo.rs` | open_repo, get_status, get_repo_info |
 | `src-tauri/src/commands/graph.rs` | get_commit_graph, get_commit_detail |
 | `src-tauri/src/commands/diff.rs` | get_workdir_diff, get_file_diff, get_staged_file_diff |
 | `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_files, stage_all, unstage_all |
-| `src-tauri/src/commands/branch.rs` | list_branches, create_branch, checkout_branch, delete_branch |
+| `src-tauri/src/commands/branch.rs` | list_branches, create_branch, checkout_branch, delete_branch, reset_to_commit, rebase_onto, merge_into |
 | `src-tauri/src/commands/commit.rs` | create_commit |
 | `src-tauri/src/commands/ai.rs` | AI commands: get_providers, save/delete key, fetch_models, generate, settings |
 
@@ -131,7 +132,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 | `graphColumnWidths` | `Writable<GraphColumnWidths>` | Persisted column widths |
 | `sortedRecentRepos` | `Derived<RecentRepo[]>` | Pinned-first, then sorted by lastOpened |
 
-**Repository Actions**: `openRepo`, `refreshAll`, `refreshStatus`, `stageFile`, `unstageFile`, `stageFiles`, `stageAllFiles`, `unstageAllFiles`, `stageAllAndClear`, `stageUnstagedAndClear`, `stageUntrackedAndClear`, `unstageAllAndClear`, `selectFile`, `clearFileSelection`, `selectNextFile`, `selectPrevFile`, `stageSelectedFile`, `unstageSelectedFile`, `viewFileDiff`, `viewStagedFileDiff`, `selectCommit`, `commitAndRefresh`, `checkoutBranch`
+**Repository Actions**: `openRepo`, `refreshAll`, `refreshStatus`, `stageFile`, `unstageFile`, `stageFiles`, `stageAllFiles`, `unstageAllFiles`, `stageAllAndClear`, `stageUnstagedAndClear`, `stageUntrackedAndClear`, `unstageAllAndClear`, `selectFile`, `clearFileSelection`, `selectNextFile`, `selectPrevFile`, `stageSelectedFile`, `unstageSelectedFile`, `viewFileDiff`, `viewStagedFileDiff`, `selectCommit`, `commitAndRefresh`, `checkoutBranch`, `rebaseOnto`, `mergeInto`
 
 **AI Stores** (`stores/ai.ts`):
 | Store | Type | Purpose |

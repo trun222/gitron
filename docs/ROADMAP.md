@@ -50,9 +50,10 @@
 
 **Goal:** Reach GitKraken feature parity for power users.
 
-- [ ] Merge with conflict detection
+- [x] Merge via context menu (right-click branch → "Merge {branch} into {current}", uses git CLI, conflict detection)
 - [ ] Merge conflict editor (3-way)
-- [ ] Interactive rebase (via git CLI bridge)
+- [x] Rebase via context menu (right-click branch → "Rebase {current} onto {branch}", uses git CLI, conflict detection)
+- [ ] Interactive rebase
 - [ ] Cherry-pick
 - [ ] Stash management (create, pop, apply, drop)
 - [ ] Tag management

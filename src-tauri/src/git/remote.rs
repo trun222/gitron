@@ -247,6 +247,41 @@ pub async fn pull(
     }
 }
 
+/// Push a tag to a remote
+pub async fn push_tag(workdir: &str, remote: &str, tag_name: &str) -> GitResult<PushResult> {
+    let refspec = format!("refs/tags/{}", tag_name);
+    let output = cli::run_git_async_with_github_auth(workdir, &["push", remote, &refspec]).await?;
+
+    let summary = if output.stderr.contains("Everything up-to-date") {
+        "Tag already up-to-date".to_string()
+    } else {
+        output
+            .stderr
+            .lines()
+            .find(|line| line.contains("->"))
+            .unwrap_or("Tag pushed")
+            .trim()
+            .to_string()
+    };
+
+    Ok(PushResult {
+        remote: remote.to_string(),
+        branch: refspec,
+        summary,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
+/// Delete a remote tag via `git push --delete`
+pub async fn delete_remote_tag(workdir: &str, remote: &str, tag_name: &str) -> GitResult<()> {
+    let refspec = format!("refs/tags/{}", tag_name);
+    cli::run_git_async_with_github_auth(workdir, &["push", remote, "--delete", &refspec]).await?;
+    Ok(())
+}
+
 /// Delete a remote branch via `git push --delete`
 pub async fn delete_remote_branch(workdir: &str, remote: &str, branch: &str) -> GitResult<()> {
     cli::run_git_async_with_github_auth(workdir, &["push", remote, "--delete", branch]).await?;

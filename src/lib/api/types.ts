@@ -319,4 +319,5 @@ export interface AppSettings {
   highContrast?: boolean;
   editorFontSize?: EditorFontSize;
   monoFont?: MonoFont;
+  showTagsList?: boolean;
 }
