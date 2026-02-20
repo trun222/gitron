@@ -153,6 +153,18 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 |---------|-----------|---------|-------------|
 | `create_commit` | `path: String`, `message: String` | `String` | Creates a commit with the given message. Returns the new commit OID. Uses the repo's git config for author/committer signature. Handles initial (parentless) commits. |
 
+### AI Commands (`commands/ai.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `ai_get_providers` | — | `Vec<AIProvider>` | Returns all configured providers with `has_key` status and fallback models |
+| `ai_save_key` | `provider: String`, `key: String` | `()` | Stores an API key in the OS keychain |
+| `ai_delete_key` | `provider: String` | `()` | Removes an API key from the OS keychain |
+| `ai_fetch_models` | `provider: String`, `base_url: Option<String>` | `Vec<AIModel>` | Fetches available models from a provider's API (requires API key) |
+| `ai_generate_commit_message` | `path: String`, `provider: String`, `model: String`, `base_url: Option<String>`, `max_tokens: Option<u32>` | `GenerateResult` | Generates a commit message from staged diffs using the specified AI provider/model |
+| `ai_get_settings` | `app: AppHandle` | `AISettings` | Reads AI settings from `tauri-plugin-store` |
+| `ai_save_settings` | `app: AppHandle`, `settings: AISettings` | `()` | Writes AI settings to `tauri-plugin-store` |
+
 ### Command Design Principles
 
 1. **Stateless**: Each command opens the repository fresh. No shared mutable state between calls. This simplifies concurrency and error recovery at the cost of a small overhead per call (mitigated by OS filesystem caching).
@@ -398,6 +410,38 @@ When a type is added or modified in Rust, the TypeScript mirror MUST be updated.
   head_oid: string | null  — OID of HEAD commit
   is_bare: boolean         — true if bare repository
   is_empty: boolean        — true if no commits
+}
+```
+
+#### AI Types
+
+AI types are defined in `src-tauri/src/ai/types.rs` and mirrored in `src/lib/api/types.ts`.
+
+```
+AIProvider {
+  id: string              — provider identifier ("openai", "anthropic", "gemini", "openrouter")
+  name: string            — display name
+  has_key: boolean        — whether an API key exists in the keychain
+  models: AIModel[]       — available models (fallback or fetched from API)
+  base_url: string | null — default API endpoint URL
+}
+
+AIModel {
+  id: string              — model identifier (e.g., "gpt-4.1-nano", "claude-haiku-4-5-20251001")
+  name: string            — display name
+}
+
+GenerateResult {
+  title: string           — commit title line (first line of response)
+  body: string            — commit body (remaining lines after blank line separator)
+}
+
+AISettings {
+  selected_provider: string | null  — active provider ID
+  selected_model: string | null     — active model ID
+  selected_models: Record<string, string>  — per-provider model memory (restores when switching)
+  custom_base_urls: Record<string, string> — per-provider custom endpoint overrides
+  max_tokens: number      — max output tokens for generation (default: 1500)
 }
 ```
 

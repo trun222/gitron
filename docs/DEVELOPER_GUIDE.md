@@ -79,10 +79,12 @@ gitron/
 │   │   ├── highlight.ts     # Shiki syntax highlighter (Catppuccin Mocha)
 │   │   ├── api/             # Tauri IPC bindings
 │   │   │   ├── types.ts     # TypeScript types mirroring Rust types + frontend-only types
-│   │   │   ├── repo.ts      # All invoke() calls (the ONLY file importing @tauri-apps/api/core)
+│   │   │   ├── repo.ts      # Git invoke() calls
+│   │   │   ├── ai.ts        # AI invoke() calls (providers, keys, generation, settings)
 │   │   │   └── settings.ts  # Persistent settings via tauri-plugin-store
 │   │   ├── stores/          # Svelte stores (state management)
 │   │   │   ├── repo.ts      # All repo state (writable + derived) and actions
+│   │   │   ├── ai.ts        # AI state (providers, settings, generation) and actions
 │   │   │   └── settings.ts  # Settings state (recent repos, column widths) and actions
 │   │   └── components/      # UI components
 │   │       ├── layout/      # App shell (toolbar, sidebar, status bar)
@@ -100,12 +102,15 @@ gitron/
 │   ├── src/
 │   │   ├── main.rs          # Entry point (calls lib::run)
 │   │   ├── lib.rs           # Tauri builder, plugin + command registration
-│   │   ├── commands/        # IPC command handlers (thin, no git logic)
-│   │   │   ├── repo.rs, graph.rs, diff.rs, staging.rs, branch.rs, commit.rs
+│   │   ├── commands/        # IPC command handlers (thin, no git/ai logic)
+│   │   │   ├── repo.rs, graph.rs, diff.rs, staging.rs, branch.rs, commit.rs, ai.rs
 │   │   │   └── mod.rs       # Module declarations + AppState struct
 │   │   ├── git/             # Core git operations (ALL git logic here)
 │   │   │   ├── types.rs, error.rs, repository.rs, graph.rs, diff.rs
 │   │   │   └── mod.rs       # Re-exports
+│   │   ├── ai/              # AI commit generation (providers, credentials, generation)
+│   │   │   ├── error.rs, credential.rs, types.rs, providers.rs, generate.rs
+│   │   │   └── mod.rs
 │   │   ├── cache/           # In-memory repo state cache (implemented, not wired)
 │   │   └── watcher/         # File system change watcher (implemented, not wired)
 │   └── icons/               # App icons for all platforms

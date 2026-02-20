@@ -43,7 +43,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` (19 commands) |
+| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` (26 commands) |
 | `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct (not yet wired) |
 | `src-tauri/src/commands/repo.rs` | open_repo, get_status, get_repo_info |
 | `src-tauri/src/commands/graph.rs` | get_commit_graph, get_commit_detail |
@@ -51,6 +51,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 | `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_files, stage_all, unstage_all |
 | `src-tauri/src/commands/branch.rs` | list_branches, create_branch, checkout_branch, delete_branch |
 | `src-tauri/src/commands/commit.rs` | create_commit |
+| `src-tauri/src/commands/ai.rs` | AI commands: get_providers, save/delete key, fetch_models, generate, settings |
 
 **Rules**:
 - Commands are thin — delegate ALL logic to `git/` module.
@@ -72,15 +73,16 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types + frontend-only types (RecentRepo, GraphColumnWidths, AppSettings) |
-| `src/lib/api/repo.ts` | All `invoke()` calls — the ONLY file that imports from `@tauri-apps/api/core` |
+| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types + frontend-only types (RecentRepo, GraphColumnWidths, AppSettings, AI types) |
+| `src/lib/api/repo.ts` | Git `invoke()` calls |
+| `src/lib/api/ai.ts` | AI `invoke()` calls (providers, keys, model fetching, generation, settings) |
 | `src/lib/api/settings.ts` | Persistent settings via `tauri-plugin-store` (recent repos, column widths, last active repo) |
 
 **Rules**:
-- Types in `types.ts` MUST match `src-tauri/src/git/types.rs`. Manual sync.
+- Types in `types.ts` MUST match their Rust counterparts (`git/types.rs` and `ai/types.rs`). Manual sync.
 - Rust `Option<T>` → TypeScript `T | null`
 - Rust enums → TypeScript string literal unions (e.g., `'Added' | 'Modified' | ...`)
-- Only `repo.ts` calls `invoke()`. Components and stores NEVER import from `@tauri-apps/api/core`.
+- Only `repo.ts` and `ai.ts` call `invoke()`. Components and stores NEVER import from `@tauri-apps/api/core`.
 - Settings persistence uses `@tauri-apps/plugin-store` (LazyStore), NOT `invoke()`.
 
 ---
@@ -97,6 +99,7 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 | File | Responsibility |
 |------|---------------|
 | `src/lib/stores/repo.ts` | All repo state (writable + derived stores), all repo actions |
+| `src/lib/stores/ai.ts` | AI state (providers, settings, generating, fetching models), AI actions |
 | `src/lib/stores/settings.ts` | Settings state (recent repos, column widths), persistence actions |
 
 **Repository Stores** (`stores/repo.ts`):
@@ -129,6 +132,19 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 | `sortedRecentRepos` | `Derived<RecentRepo[]>` | Pinned-first, then sorted by lastOpened |
 
 **Repository Actions**: `openRepo`, `refreshAll`, `refreshStatus`, `stageFile`, `unstageFile`, `stageFiles`, `stageAllFiles`, `unstageAllFiles`, `stageAllAndClear`, `stageUnstagedAndClear`, `stageUntrackedAndClear`, `unstageAllAndClear`, `selectFile`, `clearFileSelection`, `selectNextFile`, `selectPrevFile`, `stageSelectedFile`, `unstageSelectedFile`, `viewFileDiff`, `viewStagedFileDiff`, `selectCommit`, `commitAndRefresh`, `checkoutBranch`
+
+**AI Stores** (`stores/ai.ts`):
+| Store | Type | Purpose |
+|-------|------|---------|
+| `aiProviders` | `Writable<AIProvider[]>` | All configured providers with has_key status |
+| `aiSettings` | `Writable<AISettings>` | Selected provider, model, custom URLs, max tokens |
+| `aiGenerating` | `Writable<boolean>` | Whether generation is in progress |
+| `aiError` | `Writable<string \| null>` | Config pre-check errors (shown inline in sidebar) |
+| `aiFetchingModels` | `Writable<boolean>` | Whether model list is being fetched |
+| `hasConfiguredProvider` | `Derived<boolean>` | Whether a provider with an API key is selected |
+| `selectedProviderModels` | `Derived<AIModel[]>` | Models for the selected provider |
+
+**AI Actions**: `initAI`, `loadAIProviders`, `loadAISettings`, `fetchModelsForProvider`, `saveAIKey`, `deleteAIKey`, `setSelectedProvider`, `setSelectedModel`, `setCustomBaseUrl`, `setMaxTokens`, `generateCommitMessage`
 
 **Settings Actions**: `loadSettings`, `trackRepoOpen`, `removeRepo`, `togglePin`, `saveGraphColumnWidths`
 
@@ -254,9 +270,51 @@ Git status: --color-git-added, --color-git-modified, --color-git-deleted (+ -bg,
 
 ---
 
-## Specialist: Agent Gateway / AI Integration
+## Specialist: AI Commit Generation
 
-**Trigger keywords**: agent, AI, MCP, Model Context Protocol, autonomous, action queue, approve, reject, permission, agent visualization, smart commit, AI workflow
+**Trigger keywords**: AI, commit message, generate, LLM, provider, API key, keychain, OpenAI, Anthropic, Gemini, OpenRouter, model selection, max tokens
+
+**Read first**:
+- This section (file map and rules below)
+- `docs/TECHNICAL_SPEC.md` — Section 3 (AI Commands in IPC Reference)
+
+**Core files**:
+| File | Responsibility |
+|------|---------------|
+| `src-tauri/src/ai/mod.rs` | Module declarations |
+| `src-tauri/src/ai/error.rs` | `AIError` enum (thiserror, Serialize) and `AIResult<T>` type alias |
+| `src-tauri/src/ai/credential.rs` | API key storage via `crate::credential_store` (OS keychain). Functions: `store_key`, `get_key`, `delete_key`, `has_key` |
+| `src-tauri/src/ai/types.rs` | `AIProvider`, `AIModel`, `GenerateResult`, `AISettings` structs |
+| `src-tauri/src/ai/providers.rs` | Provider definitions (OpenAI, Anthropic, Gemini, OpenRouter), fallback models, default base URLs, dynamic model fetching from provider APIs |
+| `src-tauri/src/ai/generate.rs` | Builds prompt from staged diffs, calls provider APIs (OpenAI, Anthropic, Gemini, OpenRouter), parses response into title + body |
+| `src-tauri/src/commands/ai.rs` | 7 Tauri commands: `ai_get_providers`, `ai_save_key`, `ai_delete_key`, `ai_fetch_models`, `ai_generate_commit_message`, `ai_get_settings`, `ai_save_settings` |
+| `src/lib/api/ai.ts` | Tauri invoke wrappers for all AI commands |
+| `src/lib/api/types.ts` | TypeScript mirrors: `AIProvider`, `AIModel`, `GenerateResult`, `AISettings` |
+| `src/lib/stores/ai.ts` | AI state stores + actions: providers, settings, generating state, model fetching, commit generation |
+| `src/lib/components/ui/settings/AISettings.svelte` | Settings UI: provider cards, API key management, model dropdown, custom base URL, max tokens |
+| `src/lib/components/layout/Sidebar.svelte` | Sparkle button next to commit title for AI generation |
+
+**Key dependencies**: `reqwest` (HTTP client), `keyring` (via `credential_store`), `serde_json`
+
+**Architecture**:
+- API keys stored in OS keychain via `credential_store` module (same pattern as GitHub OAuth)
+- Non-sensitive config (`AISettings`: selected provider/model, custom URLs, max tokens) persisted in `tauri-plugin-store`
+- Provider-specific API calls: OpenAI uses `max_completion_tokens`, OpenRouter uses `max_tokens`, Anthropic uses `max_tokens`, Gemini uses `maxOutputTokens`
+- Dynamic model fetching from each provider's API with filtering (OpenAI: chat models only; OpenRouter: affordable models; Gemini: text generation models)
+- Per-provider model selection remembered via `selected_models` map in `AISettings`
+- Generation errors display in the top-level error banner (same as git push/pull failures)
+
+**Rules**:
+- AI logic lives in `src-tauri/src/ai/`. Never in `commands/`.
+- Commands are thin — delegate to `ai/` module functions.
+- Provider API key format: `ai-{provider_id}` in keychain (e.g., `ai-openai`).
+- Adding a new provider: add to `PROVIDERS` array in `providers.rs`, add `fetch_*_models()` function, add match arm in `generate.rs`, add match arm in `providers::fetch_models()`.
+
+---
+
+## Specialist: Agent Gateway / MCP (Future)
+
+**Trigger keywords**: agent, MCP, Model Context Protocol, autonomous, action queue, approve, reject, permission, agent visualization, AI workflow
 
 **Read first**:
 - `docs/AGENT_GATEWAY.md` — Full design document
@@ -311,6 +369,11 @@ npm run check         # Type-check frontend only
 ### When adding a new domain (e.g., stash, remote, tag management):
 1. Read `docs/DEVELOPER_GUIDE.md` Section 6 — full walkthrough
 2. Touch files in this order: `git/types.rs` → `git/*.rs` → `commands/*.rs` → `lib.rs` → `api/types.ts` → `api/repo.ts` → `stores/repo.ts` → `components/*.svelte`
+
+### When working on AI / commit generation:
+1. Read the "Specialist: AI Commit Generation" section above
+2. Provider-specific logic lives in `ai/providers.rs` (model fetching) and `ai/generate.rs` (API calls)
+3. Adding a new provider: `providers.rs` PROVIDERS array → `providers.rs` fetch function → `generate.rs` match arm → frontend will auto-discover via `ai_get_providers`
 
 ### When debugging IPC issues:
 1. Read `docs/TECHNICAL_SPEC.md` Section 3 — command reference

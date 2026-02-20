@@ -41,6 +41,7 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 - **Commit graph** — resizable, multi-column commit list with keyboard navigation
 - **Staging panel** — interactive stage/unstage per file with bulk actions
 - **Commit authoring** — message input with Cmd/Ctrl+Enter to commit
+- **AI commit messages** — generate commit titles and descriptions from staged diffs using OpenAI, Anthropic, Gemini, or OpenRouter
 - **Inline diff viewer** — syntax-highlighted diffs powered by Shiki (Catppuccin Mocha theme)
 - **Branch management** — create, checkout, and delete branches
 - **Command palette** — Cmd/Ctrl+K to search repos, branches, and actions
@@ -57,6 +58,47 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 - **Agent Gateway** — MCP server exposing repo state to AI agents with permissioned access
 
 See the full [Roadmap](#roadmap) below.
+
+## AI Commit Messages
+
+Gitron can generate conventional commit messages from your staged diffs using LLM providers. Stage your files, click the sparkle button next to the commit title, and Gitron will produce a title and description.
+
+### Setup
+
+1. Open **Settings** (gear icon in the toolbar) and go to the **AI** tab
+2. Choose a provider (OpenAI, Anthropic, Gemini, or OpenRouter)
+3. Paste your API key — it's stored securely in your OS keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service)
+4. Select a model from the dropdown (models are fetched live from the provider's API)
+5. Click the radio button to make it your active provider
+
+### Usage
+
+1. Stage one or more files in the sidebar
+2. Click the **sparkle button** next to the commit title input
+3. Gitron reads your staged diffs, sends them to the selected AI model, and fills in both the commit title and description
+4. Edit the generated message if needed, then commit
+
+### Supported Providers
+
+| Provider | Models | Notes |
+|----------|--------|-------|
+| **OpenAI** | GPT-4.1 Nano, GPT-4.1 Mini, GPT-4o Mini, and more | Models fetched dynamically; filtered to chat-capable models |
+| **Anthropic** | Claude 4.5 Haiku, Claude Sonnet, etc. | Models fetched dynamically; sorted by cost tier |
+| **Gemini** | Gemini 2.0 Flash Lite, Gemini 2.0 Flash, and more | Models fetched dynamically; filtered to text generation |
+| **OpenRouter** | Auto (best available) + affordable models | Filtered to models under $2/M input tokens |
+
+### Advanced Settings
+
+Under the **Advanced** section for each provider:
+
+- **Custom Base URL** — override the default API endpoint (useful for proxies or self-hosted models)
+- **Max Output Tokens** — control how many tokens the model can use for the response (default: 1,500). Options: 500, 1,000, 1,500, 2,000, 4,000
+
+### Privacy
+
+- Your API keys are stored in the OS keychain, not in plain text
+- Diffs are sent directly to the provider you select — Gitron does not proxy or store your code
+- Only staged diffs are sent (truncated to ~8,000 characters for large changesets)
 
 ## Installation
 

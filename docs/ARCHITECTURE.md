@@ -77,7 +77,8 @@ gitron/
 │       │   ├── diff.rs          # get_workdir_diff, get_file_diff, get_staged_file_diff
 │       │   ├── staging.rs       # stage_file, unstage_file, stage_files, stage_all, unstage_all
 │       │   ├── branch.rs        # list_branches, create_branch, checkout_branch, delete_branch
-│       │   └── commit.rs        # create_commit
+│       │   ├── commit.rs        # create_commit
+│       │   └── ai.rs            # AI commands: get_providers, save/delete key, fetch_models, generate, settings
 │       ├── git/                 # Core git logic (all git2-rs calls live here)
 │       │   ├── mod.rs           # Re-exports: types, error, repository, graph, diff
 │       │   ├── types.rs         # All data types (Commit, Branch, FileDiff, RepoStatus, etc.)
@@ -85,6 +86,13 @@ gitron/
 │       │   ├── repository.rs    # Repo open, status, staging, branch CRUD, checkout, commit
 │       │   ├── graph.rs         # Commit graph building (revwalk, branch/tag collection)
 │       │   └── diff.rs          # Diff computation (workdir, staged, per-file)
+│       ├── ai/                  # AI commit message generation
+│       │   ├── mod.rs           # Module declarations
+│       │   ├── error.rs         # AIError enum + AIResult type alias
+│       │   ├── credential.rs    # API key storage via credential_store (OS keychain)
+│       │   ├── types.rs         # AIProvider, AIModel, GenerateResult, AISettings
+│       │   ├── providers.rs     # Provider defs, default models, dynamic model fetching
+│       │   └── generate.rs      # Prompt building, provider-specific API calls, response parsing
 │       ├── cache/               # Repo state cache (implemented, not yet wired)
 │       │   ├── mod.rs
 │       │   └── repo_state.rs    # RepoStateCache with Arc<RwLock<Option<CachedState>>>
@@ -99,10 +107,12 @@ gitron/
 │   │   ├── highlight.ts         # Shiki syntax highlighter (Catppuccin Mocha, singleton)
 │   │   ├── api/                 # Tauri IPC bindings
 │   │   │   ├── types.ts         # TypeScript mirrors of all Rust types + frontend-only types
-│   │   │   ├── repo.ts          # All invoke() calls (the ONLY file that imports from @tauri-apps/api/core)
+│   │   │   ├── repo.ts          # Git invoke() calls
+│   │   │   ├── ai.ts            # AI invoke() calls (providers, keys, generation, settings)
 │   │   │   └── settings.ts      # Persistent settings via tauri-plugin-store
 │   │   ├── stores/              # Svelte stores (state management)
 │   │   │   ├── repo.ts          # All repo state (writable + derived) and actions
+│   │   │   ├── ai.ts            # AI state (providers, settings, generation) and actions
 │   │   │   └── settings.ts      # Settings state (recent repos, column widths) and actions
 │   │   └── components/          # UI components
 │   │       ├── layout/          # App layout shell
@@ -180,6 +190,27 @@ git/
 
 - **git2-rs** (current): Used for all implemented operations — graph traversal, diffs, status, staging, commits, branch CRUD. This is the hot path.
 - **git CLI** (future): Will be added for operations not well-supported by git2-rs — interactive rebase, advanced merge strategies, submodule operations, git-flow commands.
+
+### AI Module (`src-tauri/src/ai/`)
+
+Provides AI-powered commit message generation using external LLM providers. API keys are stored securely in the OS keychain; non-sensitive settings are persisted via `tauri-plugin-store`.
+
+```
+ai/
+├── mod.rs          — Module declarations
+├── error.rs        — AIError enum (Http, Keychain, ApiError, NoApiKey, InvalidResponse, NoStagedFiles)
+├── credential.rs   — API key CRUD via crate::credential_store (OS keychain)
+├── types.rs        — AIProvider, AIModel, GenerateResult, AISettings
+├── providers.rs    — Provider registry, default models, dynamic model fetching from APIs
+└── generate.rs     — Staged diff → prompt → provider API call → title + body parsing
+```
+
+**Supported providers**: OpenAI, Anthropic, Gemini, OpenRouter (plus any OpenAI-compatible endpoint via custom base URL).
+
+**Key flows**:
+- `generate_commit_message()`: opens repo → reads staged diffs → builds prompt (truncated at 8k chars) → calls provider API → parses response into title + body
+- `fetch_models()`: calls provider's model listing API, filters to relevant models, sorts by cost tier
+- Provider-specific API differences: OpenAI uses `max_completion_tokens`, Anthropic/OpenRouter use `max_tokens`, Gemini uses `maxOutputTokens` and `systemInstruction`
 
 ### Repo State Cache (`src-tauri/src/cache/`)
 

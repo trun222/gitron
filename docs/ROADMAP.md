@@ -105,7 +105,7 @@ See [AGENT_GATEWAY.md](./AGENT_GATEWAY.md) for full design.
 - [ ] Agent activity visualization on commit graph
 - [ ] Human vs agent commit distinction in graph
 - [ ] Built-in AI workflows:
-  - [ ] Smart commit message generation
+  - [x] Smart commit message generation (OpenAI, Anthropic, Gemini, OpenRouter — with dynamic model fetching, per-provider settings, customizable max tokens)
   - [ ] PR description generation
   - [ ] Conflict resolution suggestions
   - [ ] Code review in diff viewer
