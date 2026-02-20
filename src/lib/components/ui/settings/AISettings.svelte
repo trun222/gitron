@@ -9,6 +9,7 @@
     setSelectedProvider,
     setSelectedModel,
     setCustomBaseUrl,
+    setMaxTokens,
     fetchModelsForProvider,
   } from '$lib/stores/ai';
 
@@ -174,6 +175,21 @@
                   onchange={(e) => setCustomBaseUrl(provider.id, (e.target as HTMLInputElement).value)}
                 />
                 <span class="hint">Leave empty to use default endpoint</span>
+
+                <!-- svelte-ignore a11y_label_has_associated_control -->
+                <label class="model-label mt">Max Output Tokens</label>
+                <select
+                  class="select-input"
+                  value={String($aiSettings.max_tokens)}
+                  onchange={(e) => setMaxTokens(Number((e.target as HTMLSelectElement).value))}
+                >
+                  <option value="500">500</option>
+                  <option value="1000">1,000</option>
+                  <option value="1500">1,500 (default)</option>
+                  <option value="2000">2,000</option>
+                  <option value="4000">4,000</option>
+                </select>
+                <span class="hint">Max tokens the model can use for generated output</span>
               </div>
             {/if}
           {/if}
@@ -406,6 +422,10 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .mt {
+    margin-top: 8px;
   }
 
   .hint {

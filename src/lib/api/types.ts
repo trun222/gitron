@@ -267,6 +267,8 @@ export interface AISettings {
   /** Remembers the last selected model per provider so switching back restores it. */
   selected_models: Record<string, string>;
   custom_base_urls: Record<string, string>;
+  /** Max output tokens for AI generation. Default: 1500. */
+  max_tokens: number;
 }
 
 // Watcher event payloads (matching Rust event structs)

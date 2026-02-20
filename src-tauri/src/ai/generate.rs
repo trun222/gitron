@@ -10,18 +10,26 @@ use crate::git::diff;
 const MAX_DIFF_CHARS: usize = 8000;
 
 const SYSTEM_PROMPT: &str = "\
-You are a commit message generator. Given a git diff, write a concise conventional commit message.
+You are a commit message generator. Given a git diff, write a conventional commit message.
 
-Format:
-- First line: type(scope): description (max 72 chars)
-- Types: feat, fix, refactor, docs, chore, test, style
-- Blank line, then a short body explaining what changed and why (2-4 lines max)
+You MUST return exactly two parts separated by a blank line:
+1. A title line: type(scope): description (max 72 chars)
+2. A body: 2-4 lines explaining what changed and why
+
+Types: feat, fix, refactor, docs, chore, test, style
+
+Example output:
+feat(auth): Add OAuth2 login flow
+
+Add Google and GitHub OAuth2 providers with token refresh.
+Update the login page to show provider buttons and handle
+the redirect callback.
 
 Rules:
 - Be specific about what changed
 - Focus on the \"why\" not just the \"what\"
 - Use imperative mood (\"Add feature\" not \"Added feature\")
-- If the diff is too large to summarize, focus on the most significant changes
+- Always include a body, never return only a title
 - Return ONLY the commit message, no markdown formatting or code blocks";
 
 /// Generate a commit message from staged diffs.
@@ -30,6 +38,7 @@ pub async fn generate_commit_message(
     provider_id: &str,
     model_id: &str,
     base_url: Option<&str>,
+    max_tokens: u32,
 ) -> AIResult<GenerateResult> {
     let repo = Repository::open(path)
         .map_err(|e| AIError::ApiError(format!("Failed to open repo: {}", e)))?;
@@ -79,10 +88,10 @@ pub async fn generate_commit_message(
     let effective_base_url = base_url.unwrap_or(default_url);
 
     let response_text = match provider_id {
-        "anthropic" => call_anthropic(effective_base_url, &api_key, model_id, &user_prompt).await?,
-        "gemini" => call_gemini(effective_base_url, &api_key, model_id, &user_prompt).await?,
-        "openai" => call_openai(effective_base_url, &api_key, model_id, &user_prompt).await?,
-        _ => call_openai_compatible(effective_base_url, &api_key, model_id, &user_prompt).await?,
+        "anthropic" => call_anthropic(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
+        "gemini" => call_gemini(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
+        "openai" => call_openai(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
+        _ => call_openai_compatible(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
     };
 
     parse_commit_message(&response_text)
@@ -94,6 +103,7 @@ async fn call_openai(
     api_key: &str,
     model: &str,
     user_prompt: &str,
+    max_tokens: u32,
 ) -> AIResult<String> {
     let client = reqwest::Client::new();
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
@@ -105,7 +115,7 @@ async fn call_openai(
             { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.3,
-        "max_completion_tokens": 300,
+        "max_completion_tokens": max_tokens,
     });
 
     let resp = client
@@ -149,6 +159,7 @@ async fn call_openai_compatible(
     api_key: &str,
     model: &str,
     user_prompt: &str,
+    max_tokens: u32,
 ) -> AIResult<String> {
     let client = reqwest::Client::new();
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
@@ -160,7 +171,7 @@ async fn call_openai_compatible(
             { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.3,
-        "max_tokens": 300,
+        "max_tokens": max_tokens,
     });
 
     let resp = client
@@ -204,13 +215,14 @@ async fn call_anthropic(
     api_key: &str,
     model: &str,
     user_prompt: &str,
+    max_tokens: u32,
 ) -> AIResult<String> {
     let client = reqwest::Client::new();
     let url = format!("{}/messages", base_url.trim_end_matches('/'));
 
     let body = serde_json::json!({
         "model": model,
-        "max_tokens": 300,
+        "max_tokens": max_tokens,
         "system": SYSTEM_PROMPT,
         "messages": [
             { "role": "user", "content": user_prompt }
@@ -254,6 +266,7 @@ async fn call_gemini(
     api_key: &str,
     model: &str,
     user_prompt: &str,
+    max_tokens: u32,
 ) -> AIResult<String> {
     let client = reqwest::Client::new();
     let url = format!(
@@ -263,15 +276,16 @@ async fn call_gemini(
         api_key
     );
 
-    let full_prompt = format!("{}\n\n{}", SYSTEM_PROMPT, user_prompt);
-
     let body = serde_json::json!({
+        "systemInstruction": {
+            "parts": [{ "text": SYSTEM_PROMPT }]
+        },
         "contents": [{
-            "parts": [{ "text": full_prompt }]
+            "parts": [{ "text": user_prompt }]
         }],
         "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 300,
+            "temperature": 0.4,
+            "maxOutputTokens": max_tokens,
         }
     });
 

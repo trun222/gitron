@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { AIProvider, AISettings, GenerateResult } from '$lib/api/types';
 import * as aiApi from '$lib/api/ai';
-import { repoPath } from '$lib/stores/repo';
+import { repoPath, error as repoError } from '$lib/stores/repo';
 
 // State
 export const aiProviders = writable<AIProvider[]>([]);
@@ -10,6 +10,7 @@ export const aiSettings = writable<AISettings>({
   selected_model: null,
   selected_models: {},
   custom_base_urls: {},
+  max_tokens: 1500,
 });
 export const aiGenerating = writable(false);
 export const aiError = writable<string | null>(null);
@@ -183,6 +184,13 @@ export async function setCustomBaseUrl(providerId: string, url: string) {
   await aiApi.saveSettings(updated);
 }
 
+export async function setMaxTokens(tokens: number) {
+  const settings = get(aiSettings);
+  const updated: AISettings = { ...settings, max_tokens: tokens };
+  aiSettings.set(updated);
+  await aiApi.saveSettings(updated);
+}
+
 export async function generateCommitMessage(): Promise<GenerateResult | null> {
   const path = get(repoPath);
   const settings = get(aiSettings);
@@ -209,11 +217,12 @@ export async function generateCommitMessage(): Promise<GenerateResult | null> {
       path,
       settings.selected_provider,
       settings.selected_model,
-      baseUrl
+      baseUrl,
+      settings.max_tokens
     );
     return result;
   } catch (e) {
-    aiError.set(String(e));
+    repoError.set(`AI generation failed: ${String(e)}`);
     return null;
   } finally {
     aiGenerating.set(false);

@@ -27,13 +27,15 @@ export async function generateCommitMessage(
   path: string,
   provider: string,
   model: string,
-  baseUrl?: string | null
+  baseUrl?: string | null,
+  maxTokens?: number
 ): Promise<GenerateResult> {
   return invoke('ai_generate_commit_message', {
     path,
     provider,
     model,
     baseUrl: baseUrl ?? null,
+    maxTokens: maxTokens ?? null,
   });
 }
 
