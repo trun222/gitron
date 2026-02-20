@@ -94,6 +94,18 @@
 
   const bubbleColor = 'bg-primary text-primary-foreground';
   const totalChanges = $derived($stagedCount + $unstagedCount);
+
+  // Tags sorted by commit position in graph (newest first)
+  let sortedTags = $derived.by(() => {
+    const graph = $commitGraph;
+    if (!graph || graph.tags.length === 0) return [];
+    const oidIndex = new Map(graph.commits.map((c, i) => [c.oid, i]));
+    return [...graph.tags].sort((a, b) => {
+      const ai = oidIndex.get(a.target_oid) ?? Infinity;
+      const bi = oidIndex.get(b.target_oid) ?? Infinity;
+      return ai - bi;
+    });
+  });
 </script>
 
 <aside
@@ -297,8 +309,8 @@
           </svg>
         </button>
         {#if tagsExpanded}
-          <ul class="list-none overflow-y-auto">
-            {#each $commitGraph.tags as tag}
+          <ul class="list-none overflow-y-auto max-h-[40vh]">
+            {#each sortedTags as tag}
               <li>
                 <button
                   class="flex items-center gap-2 w-full px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors text-left"
