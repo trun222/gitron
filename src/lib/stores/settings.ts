@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { AutoFetchInterval, FileWatcherInterval, GraphColumnWidths, RecentRepo, ThemeMode } from '$lib/api/types';
+import type { AutoFetchInterval, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
 import * as repoApi from '$lib/api/repo';
 import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
@@ -19,6 +19,10 @@ export const theme = writable<ThemeMode>('tron');
 export const autoFetchInterval = writable<AutoFetchInterval>(0);
 export const autoShowOutput = writable(true);
 export const fileWatcherInterval = writable<FileWatcherInterval>(0);
+export const zoomLevel = writable<ZoomLevel>(1.0);
+export const highContrast = writable(false);
+export const editorFontSize = writable<EditorFontSize>(12);
+export const monoFont = writable<MonoFont>('default');
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -75,6 +79,62 @@ export async function setTheme(mode: ThemeMode): Promise<void> {
   await settingsApi.saveTheme(mode);
 }
 
+// Zoom management
+const MONO_FONT_STACKS: Record<MonoFont, string> = {
+  'default': '"SF Mono", "Fira Code", "Cascadia Code", monospace',
+  'fira-code': '"Fira Code", "SF Mono", monospace',
+  'jetbrains-mono': '"JetBrains Mono", "SF Mono", monospace',
+  'cascadia-code': '"Cascadia Code", "SF Mono", monospace',
+  'sf-mono': '"SF Mono", monospace',
+  'menlo': 'Menlo, "SF Mono", monospace',
+};
+
+async function applyZoom(level: ZoomLevel): Promise<void> {
+  const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+  await getCurrentWebviewWindow().setZoom(level);
+}
+
+function applyHighContrast(enabled: boolean): void {
+  if (enabled) {
+    document.documentElement.classList.add('high-contrast');
+  } else {
+    document.documentElement.classList.remove('high-contrast');
+  }
+}
+
+function applyEditorFontSize(size: EditorFontSize): void {
+  document.documentElement.style.setProperty('--editor-font-size', `${size}px`);
+}
+
+function applyMonoFont(font: MonoFont): void {
+  const stack = MONO_FONT_STACKS[font];
+  document.documentElement.style.setProperty('--font-mono', stack);
+}
+
+export async function setZoomLevel(level: ZoomLevel): Promise<void> {
+  zoomLevel.set(level);
+  await applyZoom(level);
+  await settingsApi.saveZoomLevel(level);
+}
+
+export async function setHighContrast(enabled: boolean): Promise<void> {
+  highContrast.set(enabled);
+  applyHighContrast(enabled);
+  await settingsApi.saveHighContrast(enabled);
+}
+
+export async function setEditorFontSize(size: EditorFontSize): Promise<void> {
+  editorFontSize.set(size);
+  applyEditorFontSize(size);
+  await settingsApi.saveEditorFontSize(size);
+}
+
+export async function setMonoFont(font: MonoFont): Promise<void> {
+  monoFont.set(font);
+  applyMonoFont(font);
+  await settingsApi.saveMonoFont(font);
+}
+
 export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise<void> {
   autoFetchInterval.set(interval);
   stopAutoFetch();
@@ -123,6 +183,30 @@ export async function loadSettings(): Promise<void> {
   fileWatcherInterval.set(savedWatcherInterval);
   if (savedWatcherInterval > 0) {
     repoApi.setWatcherInterval(savedWatcherInterval);
+  }
+
+  // Zoom level
+  const savedZoom = settings.zoomLevel ?? 1.0;
+  zoomLevel.set(savedZoom);
+  if (savedZoom !== 1.0) {
+    applyZoom(savedZoom);
+  }
+
+  // High contrast
+  const savedHighContrast = settings.highContrast ?? false;
+  highContrast.set(savedHighContrast);
+  applyHighContrast(savedHighContrast);
+
+  // Editor font size
+  const savedFontSize = settings.editorFontSize ?? 12;
+  editorFontSize.set(savedFontSize);
+  applyEditorFontSize(savedFontSize);
+
+  // Monospace font
+  const savedMonoFont = settings.monoFont ?? 'default';
+  monoFont.set(savedMonoFont);
+  if (savedMonoFont !== 'default') {
+    applyMonoFont(savedMonoFont);
   }
 
   settingsLoaded.set(true);

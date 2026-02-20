@@ -9,6 +9,7 @@
     fetchFromRemote, pushToRemote, pullFromRemote,
     addRemote, removeRemote,
     discardConfirmOpen,
+    forcePushConfirmOpen,
   } from '$lib/stores/repo';
   import { openCloneDialog } from '$lib/stores/clone';
 
@@ -111,6 +112,13 @@
     search = '';
     inputRef?.blur();
     discardConfirmOpen.set(true);
+  }
+
+  function handleForcePush() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    forcePushConfirmOpen.set(true);
   }
 
   async function handleGitAction(action: 'fetch' | 'push' | 'pull') {
@@ -373,6 +381,19 @@
                     <path fill="currentColor" d="M2.5 2.75a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
                   </svg>
                   <span>Push</span>
+                </Command.Item>
+                <Command.Item
+                  value="force-push-to-remote"
+                  keywords={['force push', 'force', 'push force', 'force-with-lease']}
+                  onSelect={handleForcePush}
+                  disabled={!!$networkOperation}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent text-destructive disabled:opacity-50"
+                >
+                  <svg class="shrink-0" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M8 14a.75.75 0 0 1-.75-.75V6.56L5.53 8.28a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0l3 3a.75.75 0 1 1-1.06 1.06L8.75 6.56v6.69A.75.75 0 0 1 8 14Z" />
+                    <path fill="currentColor" d="M2.5 2.75a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
+                  </svg>
+                  <span>Force Push</span>
                 </Command.Item>
                 <Command.Item
                   value="discard-all-changes"

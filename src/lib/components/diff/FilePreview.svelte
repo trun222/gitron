@@ -142,7 +142,7 @@
     </div>
 
     <!-- Diff content -->
-    <div class="flex-1 overflow-auto min-h-0 font-mono text-xs leading-5">
+    <div class="flex-1 overflow-auto min-h-0 font-mono leading-5" style="font-size: var(--editor-font-size)">
       {#if $selectedFileDiff.is_binary}
         <p class="text-muted-foreground text-sm text-center p-8">Binary file — cannot display diff</p>
       {:else if $selectedFileDiff.hunks.length === 0}

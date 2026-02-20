@@ -1,5 +1,5 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
-import type { AppSettings, AutoFetchInterval, FileWatcherInterval, GraphColumnWidths, RecentRepo, ThemeMode } from './types';
+import type { AppSettings, AutoFetchInterval, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from './types';
 
 const store = new LazyStore('settings.json');
 
@@ -105,5 +105,29 @@ export async function saveAutoShowOutput(enabled: boolean): Promise<void> {
 export async function saveFileWatcherInterval(interval: FileWatcherInterval): Promise<void> {
   const settings = await getSettings();
   settings.fileWatcherInterval = interval;
+  await saveSettings(settings);
+}
+
+export async function saveZoomLevel(level: ZoomLevel): Promise<void> {
+  const settings = await getSettings();
+  settings.zoomLevel = level;
+  await saveSettings(settings);
+}
+
+export async function saveHighContrast(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.highContrast = enabled;
+  await saveSettings(settings);
+}
+
+export async function saveEditorFontSize(size: EditorFontSize): Promise<void> {
+  const settings = await getSettings();
+  settings.editorFontSize = size;
+  await saveSettings(settings);
+}
+
+export async function saveMonoFont(font: MonoFont): Promise<void> {
+  const settings = await getSettings();
+  settings.monoFont = font;
   await saveSettings(settings);
 }

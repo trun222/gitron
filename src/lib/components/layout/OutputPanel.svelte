@@ -50,7 +50,8 @@
     <!-- Scrollable log area -->
     <div
       bind:this={scrollContainer}
-      class="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-relaxed"
+      class="flex-1 overflow-y-auto px-3 py-2 font-mono leading-relaxed"
+      style="font-size: var(--editor-font-size)"
     >
       {#each $outputEntries as entry (entry.id)}
         <div class="mb-2">

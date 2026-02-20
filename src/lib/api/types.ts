@@ -244,6 +244,9 @@ export interface RefsChangedPayload {
 export type ThemeMode = 'dark' | 'light' | 'system' | 'tron' | 'tron-enhanced';
 export type AutoFetchInterval = 0 | 60 | 300 | 900; // seconds; 0 = off
 export type FileWatcherInterval = 0 | 1000 | 2000 | 3000 | 5000; // ms; 0 = native only
+export type ZoomLevel = 0.8 | 0.9 | 1.0 | 1.1 | 1.25 | 1.5;
+export type EditorFontSize = 12 | 13 | 14 | 16;
+export type MonoFont = 'default' | 'fira-code' | 'jetbrains-mono' | 'cascadia-code' | 'sf-mono' | 'menlo';
 
 // Persistence types (frontend-only, used by tauri-plugin-store)
 
@@ -270,4 +273,8 @@ export interface AppSettings {
   autoFetchInterval?: AutoFetchInterval;
   autoShowOutput?: boolean;
   fileWatcherInterval?: FileWatcherInterval;
+  zoomLevel?: ZoomLevel;
+  highContrast?: boolean;
+  editorFontSize?: EditorFontSize;
+  monoFont?: MonoFont;
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote } from '$lib/stores/repo';
+  import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote, forcePushConfirmOpen } from '$lib/stores/repo';
   import { CommandBar } from '$lib/components/ui/command';
   import { ShortcutsModal } from '$lib/components/ui/shortcuts';
   import { SettingsModal } from '$lib/components/ui/settings';
@@ -9,6 +9,7 @@
   let commandBar: CommandBar | undefined = $state();
   let shortcutsOpen = $state(false);
   let settingsOpen = $state(false);
+  let pushDropdownOpen = $state(false);
 
   onMount(() => {
     function handleKeydown(e: KeyboardEvent) {
@@ -59,23 +60,57 @@
           <span class="text-[10px] bg-accent rounded px-1">{$behindCount}</span>
         {/if}
       </button>
-      <button
-        class="toolbar-btn"
-        onclick={() => pushToRemote()}
-        disabled={!!$networkOperation}
-        title="Push"
-      >
-        {#if $networkOperation === 'pushing'}
-          <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
-        {:else}
-          <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
-            <path fill="currentColor" d="M8 2a.75.75 0 0 1 .53.22l3 3a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69a.75.75 0 0 1-1.5 0V4.56L5.53 6.28a.75.75 0 0 1-1.06-1.06l3-3A.75.75 0 0 1 8 2Z" />
-          </svg>
-        {/if}
-        {#if $aheadCount > 0}
-          <span class="text-[10px] bg-accent rounded px-1">{$aheadCount}</span>
-        {/if}
-      </button>
+      <div class="push-split-btn">
+        <button
+          class="toolbar-btn !rounded-r-none !border-r-0"
+          onclick={() => pushToRemote()}
+          disabled={!!$networkOperation}
+          title="Push"
+        >
+          {#if $networkOperation === 'pushing'}
+            <svg class="spinner" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
+          {:else}
+            <svg class="shrink-0" viewBox="0 0 16 16" width="12" height="12">
+              <path fill="currentColor" d="M8 2a.75.75 0 0 1 .53.22l3 3a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69a.75.75 0 0 1-1.5 0V4.56L5.53 6.28a.75.75 0 0 1-1.06-1.06l3-3A.75.75 0 0 1 8 2Z" />
+            </svg>
+          {/if}
+          {#if $aheadCount > 0}
+            <span class="text-[10px] bg-accent rounded px-1">{$aheadCount}</span>
+          {/if}
+        </button>
+        <div class="relative">
+          <button
+            class="toolbar-btn !rounded-l-none !px-1"
+            onclick={() => pushDropdownOpen = !pushDropdownOpen}
+            disabled={!!$networkOperation}
+            title="Push options"
+          >
+            <svg class="shrink-0" viewBox="0 0 16 16" width="10" height="10">
+              <path fill="currentColor" d="M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z" />
+            </svg>
+          </button>
+          {#if pushDropdownOpen}
+            <button
+              type="button"
+              class="fixed inset-0 z-40"
+              tabindex="-1"
+              onclick={() => pushDropdownOpen = false}
+            ></button>
+            <div class="absolute right-0 top-full mt-1 min-w-[160px] rounded-md border border-border bg-popover shadow-lg z-50 p-1">
+              <button
+                type="button"
+                class="flex items-center gap-2 w-full rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent transition-colors"
+                onclick={() => { pushDropdownOpen = false; forcePushConfirmOpen.set(true); }}
+              >
+                <svg class="shrink-0" viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M8 2a.75.75 0 0 1 .53.22l3 3a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69a.75.75 0 0 1-1.5 0V4.56L5.53 6.28a.75.75 0 0 1-1.06-1.06l3-3A.75.75 0 0 1 8 2Z" />
+                </svg>
+                Force Push
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
       <button
         class="toolbar-btn !gap-1.5 !px-2.5"
         onclick={() => commandBar?.focus()}
@@ -114,6 +149,11 @@
   .toolbar-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .push-split-btn {
+    display: flex;
+    align-items: stretch;
   }
 
   .spinner {

@@ -1,6 +1,14 @@
 <script lang="ts">
-  import { theme, setTheme, sidebarCollapsed, toggleSidebar, autoShowOutput, setAutoShowOutput } from '$lib/stores/settings';
-  import type { ThemeMode } from '$lib/api/types';
+  import {
+    theme, setTheme,
+    sidebarCollapsed, toggleSidebar,
+    autoShowOutput, setAutoShowOutput,
+    zoomLevel, setZoomLevel,
+    highContrast, setHighContrast,
+    editorFontSize, setEditorFontSize,
+    monoFont, setMonoFont,
+  } from '$lib/stores/settings';
+  import type { ThemeMode, ZoomLevel, EditorFontSize, MonoFont } from '$lib/api/types';
 
   const themeOptions: { value: ThemeMode; label: string }[] = [
     { value: 'tron', label: 'Tron' },
@@ -8,6 +16,31 @@
     { value: 'dark', label: 'Dark' },
     { value: 'light', label: 'Light' },
     { value: 'system', label: 'System' },
+  ];
+
+  const zoomOptions: { value: ZoomLevel; label: string }[] = [
+    { value: 0.8, label: '80%' },
+    { value: 0.9, label: '90%' },
+    { value: 1.0, label: '100%' },
+    { value: 1.1, label: '110%' },
+    { value: 1.25, label: '125%' },
+    { value: 1.5, label: '150%' },
+  ];
+
+  const fontSizeOptions: { value: EditorFontSize; label: string }[] = [
+    { value: 12, label: '12px' },
+    { value: 13, label: '13px' },
+    { value: 14, label: '14px' },
+    { value: 16, label: '16px' },
+  ];
+
+  const monoFontOptions: { value: MonoFont; label: string }[] = [
+    { value: 'default', label: 'Default' },
+    { value: 'fira-code', label: 'Fira Code' },
+    { value: 'jetbrains-mono', label: 'JetBrains Mono' },
+    { value: 'cascadia-code', label: 'Cascadia Code' },
+    { value: 'sf-mono', label: 'SF Mono' },
+    { value: 'menlo', label: 'Menlo' },
   ];
 </script>
 
@@ -24,6 +57,71 @@
       onchange={(e) => setTheme((e.target as HTMLSelectElement).value as ThemeMode)}
     >
       {#each themeOptions as opt (opt.value)}
+        <option value={opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">UI Zoom</span>
+      <span class="label-description">Scale the entire interface up or down</span>
+    </div>
+    <select
+      class="select-input"
+      value={$zoomLevel}
+      onchange={(e) => setZoomLevel(Number((e.target as HTMLSelectElement).value) as ZoomLevel)}
+    >
+      {#each zoomOptions as opt (opt.value)}
+        <option value={opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">High Contrast</span>
+      <span class="label-description">Increase contrast for muted text and borders</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$highContrast}
+      onclick={() => setHighContrast(!$highContrast)}
+      role="switch"
+      aria-checked={$highContrast}
+      aria-label="Toggle high contrast"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+</div>
+
+<div class="section">
+  <h3 class="section-title">Editor</h3>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Font Size</span>
+      <span class="label-description">Font size for diff viewer and output panel</span>
+    </div>
+    <select
+      class="select-input"
+      value={$editorFontSize}
+      onchange={(e) => setEditorFontSize(Number((e.target as HTMLSelectElement).value) as EditorFontSize)}
+    >
+      {#each fontSizeOptions as opt (opt.value)}
+        <option value={opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Monospace Font</span>
+      <span class="label-description">Font family for code and diffs</span>
+    </div>
+    <select
+      class="select-input"
+      value={$monoFont}
+      onchange={(e) => setMonoFont((e.target as HTMLSelectElement).value as MonoFont)}
+    >
+      {#each monoFontOptions as opt (opt.value)}
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>

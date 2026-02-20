@@ -42,6 +42,9 @@ export const networkOperation = writable<string | null>(null);
 // Discard all confirmation
 export const discardConfirmOpen = writable(false);
 
+// Force push confirmation
+export const forcePushConfirmOpen = writable(false);
+
 // Delete branch confirmation
 export interface DeleteBranchConfirmInfo {
   open: boolean;
