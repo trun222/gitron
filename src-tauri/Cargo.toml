@@ -46,6 +46,3 @@ tauri-plugin-store = "2.4.2"
 
 # HTTP client for GitHub API
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-
-# OS keychain for secure token storage
-keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }

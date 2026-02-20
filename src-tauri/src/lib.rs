@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod commands;
+pub mod credential_store;
 pub mod git;
 pub mod github;
 pub mod cache;
@@ -14,6 +15,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState::new())
+        .setup(|app| {
+            credential_store::init(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             repo::open_repo,
             repo::close_repo,
@@ -62,6 +67,7 @@ pub fn run() {
             ai_cmd::ai_get_providers,
             ai_cmd::ai_save_key,
             ai_cmd::ai_delete_key,
+            ai_cmd::ai_fetch_models,
             ai_cmd::ai_generate_commit_message,
             ai_cmd::ai_get_settings,
             ai_cmd::ai_save_settings,

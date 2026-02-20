@@ -1,5 +1,5 @@
 use crate::ai::error::AIResult;
-use crate::ai::types::{AIProvider, AISettings, GenerateResult};
+use crate::ai::types::{AIModel, AIProvider, AISettings, GenerateResult};
 use crate::ai::{credential, generate, providers};
 
 #[tauri::command]
@@ -15,6 +15,14 @@ pub async fn ai_save_key(provider: String, key: String) -> AIResult<()> {
 #[tauri::command]
 pub async fn ai_delete_key(provider: String) -> AIResult<()> {
     credential::delete_key(&provider)
+}
+
+#[tauri::command]
+pub async fn ai_fetch_models(
+    provider: String,
+    base_url: Option<String>,
+) -> AIResult<Vec<AIModel>> {
+    providers::fetch_models(&provider, base_url.as_deref()).await
 }
 
 #[tauri::command]

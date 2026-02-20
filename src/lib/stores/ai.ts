@@ -12,6 +12,7 @@ export const aiSettings = writable<AISettings>({
 });
 export const aiGenerating = writable(false);
 export const aiError = writable<string | null>(null);
+export const aiFetchingModels = writable(false);
 
 // Derived
 export const hasConfiguredProvider = derived(
@@ -52,10 +53,29 @@ export async function loadAISettings() {
   }
 }
 
+export async function fetchModelsForProvider(providerId: string) {
+  const settings = get(aiSettings);
+  const baseUrl = settings.custom_base_urls[providerId] ?? null;
+  aiFetchingModels.set(true);
+  try {
+    const models = await aiApi.fetchModels(providerId, baseUrl);
+    // Update the provider's model list in place
+    aiProviders.update((providers) =>
+      providers.map((p) => (p.id === providerId ? { ...p, models } : p))
+    );
+  } catch (e) {
+    console.error('Failed to fetch models for', providerId, e);
+  } finally {
+    aiFetchingModels.set(false);
+  }
+}
+
 export async function saveAIKey(provider: string, key: string) {
   try {
     await aiApi.saveKey(provider, key);
     await loadAIProviders();
+    // Now that we have a key, fetch live models
+    await fetchModelsForProvider(provider);
   } catch (e) {
     throw e;
   }
@@ -79,6 +99,15 @@ export async function setSelectedProvider(providerId: string | null) {
   };
   aiSettings.set(updated);
   await aiApi.saveSettings(updated);
+
+  // Fetch live models if provider has a key
+  if (providerId) {
+    const providers = get(aiProviders);
+    const provider = providers.find((p) => p.id === providerId);
+    if (provider?.has_key) {
+      await fetchModelsForProvider(providerId);
+    }
+  }
 }
 
 export async function setSelectedModel(modelId: string | null) {

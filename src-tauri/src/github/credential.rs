@@ -1,30 +1,20 @@
 use super::error::{GitHubError, GitHubResult};
 
-const SERVICE: &str = "com.thomasunderwoodii.gitron";
-const ACCOUNT: &str = "github-oauth-token";
+const KEY: &str = "github-oauth-token";
 
-/// Store a GitHub OAuth token in the OS keychain.
+/// Store a GitHub OAuth token in the app credential store.
 pub fn store_token(token: &str) -> GitHubResult<()> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|e| GitHubError::Keychain(e.to_string()))?;
-    entry
-        .set_password(token)
-        .map_err(|e| GitHubError::Keychain(e.to_string()))
+    crate::credential_store::set(KEY, token)
+        .map_err(|e| GitHubError::Keychain(e))
 }
 
 /// Retrieve the stored GitHub OAuth token, or None if not found.
 pub fn get_token() -> Option<String> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT).ok()?;
-    entry.get_password().ok()
+    crate::credential_store::get(KEY)
 }
 
 /// Delete the stored GitHub OAuth token.
 pub fn delete_token() -> GitHubResult<()> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|e| GitHubError::Keychain(e.to_string()))?;
-    match entry.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()), // already gone
-        Err(e) => Err(GitHubError::Keychain(e.to_string())),
-    }
+    crate::credential_store::delete(KEY)
+        .map_err(|e| GitHubError::Keychain(e))
 }
