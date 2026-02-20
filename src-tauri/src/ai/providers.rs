@@ -79,7 +79,7 @@ pub fn default_base_url(provider_id: &str) -> Option<&'static str> {
 }
 
 /// Fetch available models from a provider's API.
-/// Returns the live model list, or falls back to hardcoded defaults on error.
+/// Errors propagate to the frontend, which keeps existing models on failure.
 pub async fn fetch_models(
     provider_id: &str,
     base_url: Option<&str>,
@@ -90,37 +90,18 @@ pub async fn fetch_models(
     let default_url = default_base_url(provider_id).unwrap_or("");
     let effective_url = base_url.unwrap_or(default_url);
 
-    let result = match provider_id {
+    match provider_id {
         "openai" => fetch_openai_models(effective_url, &api_key).await,
         "anthropic" => fetch_anthropic_models(effective_url, &api_key).await,
         "gemini" => fetch_gemini_models(effective_url, &api_key).await,
         "openrouter" => fetch_openrouter_models(effective_url).await,
-        _ => return Err(AIError::ApiError(format!("Unknown provider: {}", provider_id))),
-    };
-
-    // On failure, return fallback models instead of propagating error
-    match result {
-        Ok(models) if !models.is_empty() => Ok(models),
-        _ => {
-            let def = PROVIDERS.iter().find(|p| p.id == provider_id);
-            Ok(def
-                .map(|d| {
-                    d.fallback_models
-                        .iter()
-                        .map(|(id, name)| AIModel {
-                            id: id.to_string(),
-                            name: name.to_string(),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default())
-        }
+        _ => Err(AIError::ApiError(format!("Unknown provider: {}", provider_id))),
     }
 }
 
 // --- OpenAI: GET /v1/models ---
 
-/// Fetch models from OpenAI. Filter to chat-capable GPT models, sorted cheapest-first.
+/// Fetch models from OpenAI. Filter to chat-capable models, sorted cheapest-first.
 async fn fetch_openai_models(base_url: &str, api_key: &str) -> AIResult<Vec<AIModel>> {
     #[derive(Deserialize)]
     struct Model {
@@ -133,25 +114,32 @@ async fn fetch_openai_models(base_url: &str, api_key: &str) -> AIResult<Vec<AIMo
 
     let client = reqwest::Client::new();
     let url = format!("{}/models", base_url.trim_end_matches('/'));
-    let resp: Response = client
+    let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", api_key))
         .send()
-        .await?
-        .json()
         .await?;
 
-    // Keep only chat-capable models (gpt-*, o1-mini, o3-mini, chatgpt-*)
-    // Exclude fine-tuned (ft:), instruct-only, audio, realtime, search, embedding
-    let exclude_keywords = ["instruct", "audio", "realtime", "search", "embedding", "tts", "whisper", "dall-e", "davinci", "babbage", "moderation"];
-    let mut models: Vec<AIModel> = resp
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AIError::ApiError(format!("OpenAI {}: {}", status, text)));
+    }
+
+    let data: Response = resp.json().await?;
+
+    // Non-chat model families to exclude
+    let exclude_keywords = [
+        "instruct", "audio", "realtime", "search", "embedding", "tts",
+        "whisper", "dall-e", "davinci", "babbage", "moderation", "omni-moderation",
+    ];
+
+    let mut models: Vec<AIModel> = data
         .data
         .into_iter()
         .filter(|m| {
             let id = m.id.to_lowercase();
-            (id.starts_with("gpt-") || id.starts_with("o1-") || id.starts_with("o3-") || id.starts_with("o4-") || id.starts_with("chatgpt-"))
-                && !id.starts_with("ft:")
-                && !exclude_keywords.iter().any(|kw| id.contains(kw))
+            is_openai_chat_model(&id) && !exclude_keywords.iter().any(|kw| id.contains(kw))
         })
         .map(|m| AIModel {
             name: format_openai_name(&m.id),
@@ -162,6 +150,31 @@ async fn fetch_openai_models(base_url: &str, api_key: &str) -> AIResult<Vec<AIMo
     // Sort: nano < mini < regular, then alphabetically
     models.sort_by(|a, b| model_cost_tier(&a.id).cmp(&model_cost_tier(&b.id)).then(a.id.cmp(&b.id)));
     Ok(models)
+}
+
+/// Check if an OpenAI model ID is a chat-capable model.
+fn is_openai_chat_model(id: &str) -> bool {
+    // Fine-tuned models
+    if id.starts_with("ft:") {
+        return false;
+    }
+    // GPT family
+    if id.starts_with("gpt-") {
+        return true;
+    }
+    // ChatGPT models
+    if id.starts_with("chatgpt-") {
+        return true;
+    }
+    // o-series reasoning models: o1, o1-mini, o1-pro, o3, o3-mini, o4-mini, etc.
+    if id.starts_with('o') {
+        let rest = &id[1..];
+        // Must start with a digit after 'o' (o1, o3, o4, ...)
+        if rest.starts_with(|c: char| c.is_ascii_digit()) {
+            return true;
+        }
+    }
+    false
 }
 
 fn model_cost_tier(id: &str) -> u8 {
@@ -214,14 +227,20 @@ async fn fetch_anthropic_models(base_url: &str, api_key: &str) -> AIResult<Vec<A
 
     let client = reqwest::Client::new();
     let url = format!("{}/models", base_url.trim_end_matches('/'));
-    let resp: Response = client
+    let resp = client
         .get(&url)
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .send()
-        .await?
-        .json()
         .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AIError::ApiError(format!("Anthropic {}: {}", status, text)));
+    }
+
+    let resp: Response = resp.json().await?;
 
     let mut models: Vec<AIModel> = resp
         .data
@@ -263,19 +282,44 @@ async fn fetch_gemini_models(base_url: &str, api_key: &str) -> AIResult<Vec<AIMo
     #[derive(Deserialize)]
     struct Response {
         models: Vec<Model>,
+        #[serde(rename = "nextPageToken")]
+        next_page_token: Option<String>,
     }
 
     let client = reqwest::Client::new();
-    let url = format!("{}/models?key={}", base_url.trim_end_matches('/'), api_key);
-    let resp: Response = client.get(&url).send().await?.json().await?;
+    let base = base_url.trim_end_matches('/');
+    let mut all_models: Vec<Model> = Vec::new();
+    let mut page_token: Option<String> = None;
 
-    let mut models: Vec<AIModel> = resp
-        .models
+    // Paginate through all model pages
+    loop {
+        let mut url = format!("{}/models?key={}&pageSize=100", base, api_key);
+        if let Some(token) = &page_token {
+            url.push_str(&format!("&pageToken={}", token));
+        }
+
+        let resp = client.get(&url).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(AIError::ApiError(format!("Gemini {}: {}", status, text)));
+        }
+
+        let page: Response = resp.json().await?;
+        all_models.extend(page.models);
+
+        match page.next_page_token {
+            Some(token) if !token.is_empty() => page_token = Some(token),
+            _ => break,
+        }
+    }
+
+    let mut models: Vec<AIModel> = all_models
         .into_iter()
         .filter(|m| {
             // Only models that support generateContent (text generation)
             m.supported_methods.iter().any(|s| s == "generateContent")
-                // Skip embedding, AQA, and image-only models
+                // Skip embedding, AQA, and image/video-only models
                 && !m.name.contains("embedding")
                 && !m.name.contains("aqa")
                 && !m.name.contains("imagen")
@@ -333,7 +377,15 @@ async fn fetch_openrouter_models(base_url: &str) -> AIResult<Vec<AIModel>> {
 
     let client = reqwest::Client::new();
     let url = format!("{}/models", base_url.trim_end_matches('/'));
-    let resp: Response = client.get(&url).send().await?.json().await?;
+    let resp = client.get(&url).send().await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AIError::ApiError(format!("OpenRouter {}: {}", status, text)));
+    }
+
+    let resp: Response = resp.json().await?;
 
     let mut models: Vec<AIModel> = resp
         .data

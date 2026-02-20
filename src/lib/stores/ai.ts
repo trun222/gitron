@@ -8,6 +8,7 @@ export const aiProviders = writable<AIProvider[]>([]);
 export const aiSettings = writable<AISettings>({
   selected_provider: null,
   selected_model: null,
+  selected_models: {},
   custom_base_urls: {},
 });
 export const aiGenerating = writable(false);
@@ -113,15 +114,26 @@ export async function deleteAIKey(provider: string) {
 
 export async function setSelectedProvider(providerId: string | null) {
   const settings = get(aiSettings);
+  const models = { ...settings.selected_models };
+
+  // Stash current model selection for the old provider
+  if (settings.selected_provider && settings.selected_model) {
+    models[settings.selected_provider] = settings.selected_model;
+  }
+
+  // Restore previously saved model for the new provider (if any)
+  const restored = providerId ? models[providerId] ?? null : null;
+
   const updated: AISettings = {
     ...settings,
     selected_provider: providerId,
-    selected_model: null,
+    selected_model: restored,
+    selected_models: models,
   };
   aiSettings.set(updated);
   await aiApi.saveSettings(updated);
 
-  // Fetch live models if provider has a key, then auto-select first model
+  // Fetch live models if provider has a key
   if (providerId) {
     const providers = get(aiProviders);
     const provider = providers.find((p) => p.id === providerId);
@@ -129,18 +141,31 @@ export async function setSelectedProvider(providerId: string | null) {
       await fetchModelsForProvider(providerId);
     }
 
-    // Auto-select first model from the (now potentially fetched) list
-    const updatedProviders = get(aiProviders);
-    const updatedProvider = updatedProviders.find((p) => p.id === providerId);
-    if (updatedProvider?.models.length) {
-      await setSelectedModel(updatedProvider.models[0].id);
+    // If no restored model, auto-select first from the (now potentially fetched) list
+    if (!restored) {
+      const updatedProviders = get(aiProviders);
+      const updatedProvider = updatedProviders.find((p) => p.id === providerId);
+      if (updatedProvider?.models.length) {
+        await setSelectedModel(updatedProvider.models[0].id);
+      }
     }
   }
 }
 
 export async function setSelectedModel(modelId: string | null) {
   const settings = get(aiSettings);
-  const updated: AISettings = { ...settings, selected_model: modelId };
+  const models = { ...settings.selected_models };
+
+  // Keep per-provider map in sync
+  if (settings.selected_provider) {
+    if (modelId) {
+      models[settings.selected_provider] = modelId;
+    } else {
+      delete models[settings.selected_provider];
+    }
+  }
+
+  const updated: AISettings = { ...settings, selected_model: modelId, selected_models: models };
   aiSettings.set(updated);
   await aiApi.saveSettings(updated);
 }

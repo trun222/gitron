@@ -26,6 +26,9 @@ pub struct GenerateResult {
 pub struct AISettings {
     pub selected_provider: Option<String>,
     pub selected_model: Option<String>,
+    /// Remembers the last selected model per provider so switching back restores it.
+    #[serde(default)]
+    pub selected_models: HashMap<String, String>,
     pub custom_base_urls: HashMap<String, String>,
 }
 
@@ -34,6 +37,7 @@ impl Default for AISettings {
         Self {
             selected_provider: None,
             selected_model: None,
+            selected_models: HashMap::new(),
             custom_base_urls: HashMap::new(),
         }
     }

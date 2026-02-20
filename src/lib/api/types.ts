@@ -264,6 +264,8 @@ export interface GenerateResult {
 export interface AISettings {
   selected_provider: string | null;
   selected_model: string | null;
+  /** Remembers the last selected model per provider so switching back restores it. */
+  selected_models: Record<string, string>;
   custom_base_urls: Record<string, string>;
 }
 

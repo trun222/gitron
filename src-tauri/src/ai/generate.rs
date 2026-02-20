@@ -81,13 +81,69 @@ pub async fn generate_commit_message(
     let response_text = match provider_id {
         "anthropic" => call_anthropic(effective_base_url, &api_key, model_id, &user_prompt).await?,
         "gemini" => call_gemini(effective_base_url, &api_key, model_id, &user_prompt).await?,
+        "openai" => call_openai(effective_base_url, &api_key, model_id, &user_prompt).await?,
         _ => call_openai_compatible(effective_base_url, &api_key, model_id, &user_prompt).await?,
     };
 
     parse_commit_message(&response_text)
 }
 
-/// Call OpenAI-compatible API (OpenAI, OpenRouter, custom).
+/// Call OpenAI API (uses max_completion_tokens).
+async fn call_openai(
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    user_prompt: &str,
+) -> AIResult<String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": SYSTEM_PROMPT },
+            { "role": "user", "content": user_prompt }
+        ],
+        "temperature": 0.3,
+        "max_completion_tokens": 300,
+    });
+
+    let resp = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AIError::ApiError(format!("{}: {}", status, text)));
+    }
+
+    #[derive(Deserialize)]
+    struct Choice {
+        message: ChoiceMessage,
+    }
+    #[derive(Deserialize)]
+    struct ChoiceMessage {
+        content: String,
+    }
+    #[derive(Deserialize)]
+    struct OpenAIResponse {
+        choices: Vec<Choice>,
+    }
+
+    let data: OpenAIResponse = resp.json().await?;
+    data.choices
+        .into_iter()
+        .next()
+        .map(|c| c.message.content)
+        .ok_or_else(|| AIError::InvalidResponse("No choices in response".into()))
+}
+
+/// Call OpenAI-compatible API (OpenRouter, custom endpoints — uses max_tokens).
 async fn call_openai_compatible(
     base_url: &str,
     api_key: &str,
