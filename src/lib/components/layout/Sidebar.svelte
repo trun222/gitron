@@ -267,59 +267,58 @@
             <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
           {/if}
         {/if}
-
-        <!-- TAGS LIST -->
-        {#if $showTagsList && $commitGraph && $commitGraph.tags.length > 0}
-          <div class="mt-2 border-t border-border pt-1">
-            <button
-              class="flex items-center justify-between w-full px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors"
-              onclick={() => tagsExpanded = !tagsExpanded}
-              aria-expanded={tagsExpanded}
-            >
-              <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Tags ({$commitGraph.tags.length})
-              </span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="text-muted-foreground transition-transform duration-150"
-                style="transform: rotate({tagsExpanded ? '90deg' : '0deg'})"
-              >
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-            {#if tagsExpanded}
-              <ul class="list-none">
-                {#each $commitGraph.tags as tag}
-                  <li>
-                    <button
-                      class="flex items-center gap-2 w-full px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors text-left"
-                      onclick={() => jumpToTag(tag.target_oid)}
-                      title={tag.message ? `${tag.name}\n${tag.message}` : tag.name}
-                    >
-                      <svg class="w-3 h-3 shrink-0 text-muted-foreground" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
-                      <span class="truncate text-foreground flex-1">{tag.name}</span>
-                      {#if $remoteTagNames.has(tag.name)}
-                        <span title="On remote">
-                          <svg class="w-3 h-3 shrink-0 text-muted-foreground/60" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
-                        </span>
-                      {/if}
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
-
     </div>
+
+    <!-- TAGS LIST (bottom-docked) -->
+    {#if $showTagsList && $commitGraph && $commitGraph.tags.length > 0}
+      <div class="border-t border-border">
+        <button
+          class="flex items-center justify-between w-full px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors"
+          onclick={() => tagsExpanded = !tagsExpanded}
+          aria-expanded={tagsExpanded}
+        >
+          <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Tags ({$commitGraph.tags.length})
+          </span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-muted-foreground transition-transform duration-150"
+            style="transform: rotate({tagsExpanded ? '90deg' : '0deg'})"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        {#if tagsExpanded}
+          <ul class="list-none overflow-y-auto">
+            {#each $commitGraph.tags as tag}
+              <li>
+                <button
+                  class="flex items-center gap-2 w-full px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors text-left"
+                  onclick={() => jumpToTag(tag.target_oid)}
+                  title={tag.message ? `${tag.name}\n${tag.message}` : tag.name}
+                >
+                  <svg class="w-3 h-3 shrink-0 text-muted-foreground" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
+                  <span class="truncate text-foreground flex-1">{tag.name}</span>
+                  {#if $remoteTagNames.has(tag.name)}
+                    <span title="On remote">
+                      <svg class="w-3 h-3 shrink-0 text-muted-foreground/60" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                    </span>
+                  {/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Commit Panel -->
     {#if $stagedCount > 0}
