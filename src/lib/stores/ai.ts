@@ -87,22 +87,27 @@ export async function fetchModelsForProvider(providerId: string) {
 }
 
 export async function saveAIKey(provider: string, key: string) {
-  try {
-    await aiApi.saveKey(provider, key);
-    await loadAIProviders();
-    // Now that we have a key, fetch live models
-    await fetchModelsForProvider(provider);
-  } catch (e) {
-    throw e;
-  }
+  await aiApi.saveKey(provider, key);
+  // Only update has_key for this provider, preserving other providers' fetched models
+  aiProviders.update((providers) =>
+    providers.map((p) => (p.id === provider ? { ...p, has_key: true } : p))
+  );
+  // Fetch live models for the provider whose key was just saved
+  await fetchModelsForProvider(provider);
 }
 
 export async function deleteAIKey(provider: string) {
-  try {
-    await aiApi.deleteKey(provider);
-    await loadAIProviders();
-  } catch (e) {
-    throw e;
+  await aiApi.deleteKey(provider);
+  // Reload all providers (resets fallback state for the deleted provider)
+  await loadAIProviders();
+  // Re-fetch live models for the selected provider if it's a different one
+  const settings = get(aiSettings);
+  if (settings.selected_provider && settings.selected_provider !== provider) {
+    const providers = get(aiProviders);
+    const selected = providers.find((p) => p.id === settings.selected_provider);
+    if (selected?.has_key) {
+      await fetchModelsForProvider(settings.selected_provider);
+    }
   }
 }
 
