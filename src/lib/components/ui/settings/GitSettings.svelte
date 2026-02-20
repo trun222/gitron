@@ -1,12 +1,20 @@
 <script lang="ts">
-  import { autoFetchInterval, setAutoFetchInterval } from '$lib/stores/settings';
-  import type { AutoFetchInterval } from '$lib/api/types';
+  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval } from '$lib/stores/settings';
+  import type { AutoFetchInterval, FileWatcherInterval } from '$lib/api/types';
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
     { value: 0, label: 'Off' },
     { value: 60, label: '1 minute' },
     { value: 300, label: '5 minutes' },
     { value: 900, label: '15 minutes' },
+  ];
+
+  const watcherOptions: { value: FileWatcherInterval; label: string }[] = [
+    { value: 0, label: 'Native only' },
+    { value: 1000, label: '1 second' },
+    { value: 2000, label: '2 seconds' },
+    { value: 3000, label: '3 seconds' },
+    { value: 5000, label: '5 seconds' },
   ];
 </script>
 
@@ -23,6 +31,25 @@
       onchange={(e) => setAutoFetchInterval(Number((e.target as HTMLSelectElement).value) as AutoFetchInterval)}
     >
       {#each fetchOptions as opt (opt.value)}
+        <option value={opt.value}>{opt.label}</option>
+      {/each}
+    </select>
+  </div>
+</div>
+
+<div class="section">
+  <h3 class="section-title">File Watcher</h3>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Poll fallback interval</span>
+      <span class="label-description">Use polling if native file watching fails (e.g. Linux inotify limits). "Native only" disables the fallback.</span>
+    </div>
+    <select
+      class="select-input"
+      value={$fileWatcherInterval}
+      onchange={(e) => setFileWatcherInterval(Number((e.target as HTMLSelectElement).value) as FileWatcherInterval)}
+    >
+      {#each watcherOptions as opt (opt.value)}
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>

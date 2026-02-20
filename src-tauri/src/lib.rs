@@ -4,7 +4,7 @@ pub mod github;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash};
+use commands::{branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, AppState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,8 +12,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             repo::open_repo,
+            repo::close_repo,
+            repo::set_watcher_interval,
             repo::get_status,
             repo::get_repo_info,
             graph::get_commit_graph,

@@ -18,6 +18,14 @@ export async function openRepo(path: string): Promise<RepoInfo> {
   return invoke('open_repo', { path });
 }
 
+export async function closeRepo(): Promise<void> {
+  return invoke('close_repo');
+}
+
+export async function setWatcherInterval(intervalMs: number): Promise<void> {
+  return invoke('set_watcher_interval', { intervalMs });
+}
+
 export async function getStatus(path: string): Promise<RepoStatus> {
   return invoke('get_status', { path });
 }

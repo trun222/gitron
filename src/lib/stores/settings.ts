@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
-import type { AutoFetchInterval, GraphColumnWidths, RecentRepo, ThemeMode } from '$lib/api/types';
+import type { AutoFetchInterval, FileWatcherInterval, GraphColumnWidths, RecentRepo, ThemeMode } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
+import * as repoApi from '$lib/api/repo';
 import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
 
 // Core settings state
@@ -17,6 +18,7 @@ export const sidebarCollapsed = writable(false);
 export const theme = writable<ThemeMode>('tron');
 export const autoFetchInterval = writable<AutoFetchInterval>(0);
 export const autoShowOutput = writable(true);
+export const fileWatcherInterval = writable<FileWatcherInterval>(0);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -80,6 +82,12 @@ export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise
   await settingsApi.saveAutoFetchInterval(interval);
 }
 
+export async function setFileWatcherInterval(interval: FileWatcherInterval): Promise<void> {
+  fileWatcherInterval.set(interval);
+  await repoApi.setWatcherInterval(interval);
+  await settingsApi.saveFileWatcherInterval(interval);
+}
+
 export async function setAutoShowOutput(enabled: boolean): Promise<void> {
   autoShowOutput.set(enabled);
   await settingsApi.saveAutoShowOutput(enabled);
@@ -109,6 +117,13 @@ export async function loadSettings(): Promise<void> {
 
   // Auto-show output panel
   autoShowOutput.set(settings.autoShowOutput ?? true);
+
+  // File watcher interval
+  const savedWatcherInterval = settings.fileWatcherInterval ?? 0;
+  fileWatcherInterval.set(savedWatcherInterval);
+  if (savedWatcherInterval > 0) {
+    repoApi.setWatcherInterval(savedWatcherInterval);
+  }
 
   settingsLoaded.set(true);
 }

@@ -5,6 +5,7 @@ use crate::git::types::*;
 
 /// Cached repository state for fast access from the frontend.
 /// Updated incrementally by the file watcher.
+#[derive(Clone)]
 pub struct RepoStateCache {
     inner: Arc<RwLock<Option<CachedState>>>,
 }

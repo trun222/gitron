@@ -247,6 +247,19 @@ pub struct CloneResult {
     pub output: OperationOutput,
 }
 
+/// Payload emitted when file status changes (workdir or staging)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusChangedPayload {
+    pub status: RepoStatus,
+}
+
+/// Payload emitted when refs change (branches, tags, HEAD)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefsChangedPayload {
+    pub graph: CommitGraph,
+    pub status: RepoStatus,
+}
+
 /// Options for graph queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphOptions {

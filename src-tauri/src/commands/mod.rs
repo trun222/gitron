@@ -12,19 +12,24 @@ pub mod clone;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use git2::Repository;
+use crate::cache::repo_state::RepoStateCache;
+use crate::watcher::manager::WatcherManager;
 
-/// Shared application state holding the currently opened repository
+/// Shared application state
 pub struct AppState {
-    pub repo: Mutex<Option<Repository>>,
+    pub watcher: Mutex<Option<WatcherManager>>,
+    pub cache: RepoStateCache,
     pub repo_path: Mutex<Option<PathBuf>>,
+    pub poll_interval_ms: Mutex<u64>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
-            repo: Mutex::new(None),
+            watcher: Mutex::new(None),
+            cache: RepoStateCache::new(),
             repo_path: Mutex::new(None),
+            poll_interval_ms: Mutex::new(0),
         }
     }
 }

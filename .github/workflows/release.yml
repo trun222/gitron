@@ -71,6 +71,16 @@ jobs:
             - **Windows**: `.msi` or `.exe` (NSIS)
             - **macOS**: `.dmg`
             - **Linux**: `.deb` or `.AppImage`
+
+            ## macOS: "Gitron is damaged" warning
+            macOS may show a "damaged and can't be opened" error for unsigned builds. This is a Gatekeeper quarantine issue, not actual damage. To fix it, run the following after installing:
+            ```
+            xattr -c /Applications/Gitron.app
+            find /Applications/Gitron.app -exec xattr -c {} \;
+            ```
+
+            ## Windows: SmartScreen warning
+            Windows may flag the installer as unrecognized. Click **"More info"** → **"Run anyway"** to proceed. This warning will go away once the app is code-signed in a future release.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

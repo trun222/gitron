@@ -1,5 +1,5 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
-import type { AppSettings, AutoFetchInterval, GraphColumnWidths, RecentRepo, ThemeMode } from './types';
+import type { AppSettings, AutoFetchInterval, FileWatcherInterval, GraphColumnWidths, RecentRepo, ThemeMode } from './types';
 
 const store = new LazyStore('settings.json');
 
@@ -99,5 +99,11 @@ export async function saveAutoFetchInterval(interval: AutoFetchInterval): Promis
 export async function saveAutoShowOutput(enabled: boolean): Promise<void> {
   const settings = await getSettings();
   settings.autoShowOutput = enabled;
+  await saveSettings(settings);
+}
+
+export async function saveFileWatcherInterval(interval: FileWatcherInterval): Promise<void> {
+  const settings = await getSettings();
+  settings.fileWatcherInterval = interval;
   await saveSettings(settings);
 }

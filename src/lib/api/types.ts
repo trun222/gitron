@@ -229,9 +229,21 @@ export interface GitHubRepoOwner {
   avatar_url: string;
 }
 
+// Watcher event payloads (matching Rust event structs)
+
+export interface StatusChangedPayload {
+  status: RepoStatus;
+}
+
+export interface RefsChangedPayload {
+  graph: CommitGraph;
+  status: RepoStatus;
+}
+
 // Settings types
 export type ThemeMode = 'dark' | 'light' | 'system' | 'tron' | 'tron-enhanced';
 export type AutoFetchInterval = 0 | 60 | 300 | 900; // seconds; 0 = off
+export type FileWatcherInterval = 0 | 1000 | 2000 | 3000 | 5000; // ms; 0 = native only
 
 // Persistence types (frontend-only, used by tauri-plugin-store)
 
@@ -257,4 +269,5 @@ export interface AppSettings {
   theme?: ThemeMode;
   autoFetchInterval?: AutoFetchInterval;
   autoShowOutput?: boolean;
+  fileWatcherInterval?: FileWatcherInterval;
 }

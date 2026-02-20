@@ -13,6 +13,7 @@ import type {
 import * as api from '$lib/api/repo';
 import { trackRepoOpen } from '$lib/stores/settings';
 import { addOutput } from '$lib/stores/output';
+import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
 
 // File selection types
 export type FileSection = 'staged' | 'unstaged' | 'untracked';
@@ -104,11 +105,31 @@ export async function openRepo(path: string) {
     await refreshRemotes(path);
     await refreshTrackingStatus();
     await trackRepoOpen(path);
+    await startWatcherListeners();
   } catch (e) {
     error.set(String(e));
   } finally {
     loading.set(false);
   }
+}
+
+export async function closeRepo() {
+  await stopWatcherListeners();
+  try {
+    await api.closeRepo();
+  } catch {
+    // Ignore errors on close
+  }
+  repoPath.set(null);
+  repoInfo.set(null);
+  repoStatus.set(null);
+  commitGraph.set(null);
+  selectedCommit.set(null);
+  selectedFileDiff.set(null);
+  selectedFile.set(null);
+  remotes.set([]);
+  trackingStatus.set(null);
+  error.set(null);
 }
 
 export async function refreshAll(path: string) {
