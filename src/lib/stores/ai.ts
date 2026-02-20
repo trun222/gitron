@@ -53,6 +53,22 @@ export async function loadAISettings() {
   }
 }
 
+/// Load providers + settings, then fetch live models for the configured provider.
+/// Call this once on mount to restore full state.
+export async function initAI() {
+  await loadAIProviders();
+  await loadAISettings();
+
+  const settings = get(aiSettings);
+  if (settings.selected_provider) {
+    const providers = get(aiProviders);
+    const provider = providers.find((p) => p.id === settings.selected_provider);
+    if (provider?.has_key) {
+      await fetchModelsForProvider(settings.selected_provider);
+    }
+  }
+}
+
 export async function fetchModelsForProvider(providerId: string) {
   const settings = get(aiSettings);
   const baseUrl = settings.custom_base_urls[providerId] ?? null;
@@ -100,12 +116,19 @@ export async function setSelectedProvider(providerId: string | null) {
   aiSettings.set(updated);
   await aiApi.saveSettings(updated);
 
-  // Fetch live models if provider has a key
+  // Fetch live models if provider has a key, then auto-select first model
   if (providerId) {
     const providers = get(aiProviders);
     const provider = providers.find((p) => p.id === providerId);
     if (provider?.has_key) {
       await fetchModelsForProvider(providerId);
+    }
+
+    // Auto-select first model from the (now potentially fetched) list
+    const updatedProviders = get(aiProviders);
+    const updatedProvider = updatedProviders.find((p) => p.id === providerId);
+    if (updatedProvider?.models.length) {
+      await setSelectedModel(updatedProvider.models[0].id);
     }
   }
 }

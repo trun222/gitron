@@ -3,8 +3,7 @@
     aiProviders,
     aiSettings,
     aiFetchingModels,
-    loadAIProviders,
-    loadAISettings,
+    initAI,
     saveAIKey,
     deleteAIKey,
     setSelectedProvider,
@@ -12,17 +11,15 @@
     setCustomBaseUrl,
     fetchModelsForProvider,
   } from '$lib/stores/ai';
-  import type { AIProvider } from '$lib/api/types';
 
   let keyInputs = $state<Record<string, string>>({});
   let savingKey = $state<string | null>(null);
   let keyError = $state<string | null>(null);
   let showAdvanced = $state<Record<string, boolean>>({});
 
-  // Load on mount
+  // Load providers, settings, and live models on mount
   $effect(() => {
-    loadAIProviders();
-    loadAISettings();
+    initAI();
   });
 
   async function handleSaveKey(providerId: string) {
@@ -49,17 +46,13 @@
     }
   }
 
-  function handleProviderSelect(providerId: string) {
+  async function handleProviderSelect(providerId: string) {
     const current = $aiSettings.selected_provider;
     if (current === providerId) {
-      setSelectedProvider(null);
+      await setSelectedProvider(null);
     } else {
-      setSelectedProvider(providerId);
-      // Auto-select first model
-      const provider = $aiProviders.find((p: AIProvider) => p.id === providerId);
-      if (provider?.models.length) {
-        setSelectedModel(provider.models[0].id);
-      }
+      // setSelectedProvider handles fetch + auto-select sequentially
+      await setSelectedProvider(providerId);
     }
   }
 </script>

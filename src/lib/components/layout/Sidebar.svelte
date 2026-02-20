@@ -22,8 +22,7 @@
     aiError,
     hasConfiguredProvider,
     generateCommitMessage,
-    loadAIProviders,
-    loadAISettings,
+    initAI,
   } from '$lib/stores/ai';
 
   let commitTitle = $state('');
@@ -33,8 +32,7 @@
 
   // Load AI state on mount
   $effect(() => {
-    loadAIProviders();
-    loadAISettings();
+    initAI();
   });
 
   async function handleAIGenerate() {
