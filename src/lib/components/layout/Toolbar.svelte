@@ -62,7 +62,7 @@
       </button>
       <div class="push-split-btn">
         <button
-          class="toolbar-btn !rounded-r-none !border-r-0"
+          class="push-main"
           onclick={() => pushToRemote()}
           disabled={!!$networkOperation}
           title="Push"
@@ -78,9 +78,10 @@
             <span class="text-[10px] bg-accent rounded px-1">{$aheadCount}</span>
           {/if}
         </button>
-        <div class="relative">
+        <span class="push-divider"></span>
+        <div class="relative flex">
           <button
-            class="toolbar-btn !rounded-l-none !px-1"
+            class="push-chevron"
             onclick={() => pushDropdownOpen = !pushDropdownOpen}
             disabled={!!$networkOperation}
             title="Push options"
@@ -154,6 +155,45 @@
   .push-split-btn {
     display: flex;
     align-items: stretch;
+    background: var(--secondary);
+    border-radius: 6px;
+  }
+  .push-split-btn:has(button:disabled) {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .push-main,
+  .push-chevron {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    background: transparent;
+    cursor: pointer;
+    transition: background 150ms, color 150ms;
+  }
+  .push-main {
+    padding: 4px 8px;
+  }
+  .push-chevron {
+    padding: 4px 4px;
+  }
+  .push-main:hover:not(:disabled),
+  .push-chevron:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .push-main:disabled,
+  .push-chevron:disabled {
+    cursor: not-allowed;
+  }
+  .push-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 4px 0;
+    background: var(--border);
   }
 
   .spinner {
