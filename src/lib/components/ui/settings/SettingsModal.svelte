@@ -2,16 +2,18 @@
   import GeneralSettings from './GeneralSettings.svelte';
   import GitSettings from './GitSettings.svelte';
   import GitHubSettings from './GitHubSettings.svelte';
+  import AISettings from './AISettings.svelte';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
 
-  type Section = 'general' | 'git' | 'github';
+  type Section = 'general' | 'git' | 'github' | 'ai';
   let activeSection = $state<Section>('general');
 
   const sections: { id: Section; label: string; icon: string }[] = [
     { id: 'general', label: 'General', icon: 'general' },
     { id: 'git', label: 'Git', icon: 'git' },
     { id: 'github', label: 'GitHub', icon: 'github' },
+    { id: 'ai', label: 'AI', icon: 'ai' },
   ];
 
   function handleBackdropClick(e: MouseEvent) {
@@ -48,9 +50,14 @@
                 <svg viewBox="0 0 16 16" width="14" height="14">
                   <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
                 </svg>
-              {:else}
+              {:else if section.icon === 'github'}
                 <svg viewBox="0 0 16 16" width="14" height="14">
                   <path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" />
+                </svg>
+              {:else}
+                <!-- AI sparkle icon -->
+                <svg viewBox="0 0 16 16" width="14" height="14">
+                  <path fill="currentColor" d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.829l.645-1.936ZM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69a1.73 1.73 0 0 0-1.097-1.097l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31l.387-1.162Z" />
                 </svg>
               {/if}
               {section.label}
@@ -76,6 +83,8 @@
               <GitSettings />
             {:else if activeSection === 'github'}
               <GitHubSettings />
+            {:else if activeSection === 'ai'}
+              <AISettings />
             {/if}
           </div>
         </div>

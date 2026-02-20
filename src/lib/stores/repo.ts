@@ -462,6 +462,44 @@ export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixe
   }
 }
 
+export async function rebaseOnto(ontoBranch: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.rebaseOnto(path, ontoBranch);
+    addOutput('rebase', result.output.stdout, result.output.stderr, result.success);
+    if (result.conflicted) {
+      error.set(`Rebase resulted in conflicts. Resolve conflicts and run \`git rebase --continue\`.`);
+    } else if (!result.success) {
+      error.set(`Rebase failed:\n${result.output.stderr || result.output.stdout}`);
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function mergeInto(sourceBranch: string, targetBranch: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.mergeInto(path, sourceBranch, targetBranch);
+    addOutput('merge', result.output.stdout, result.output.stderr, result.success);
+    if (result.conflicted) {
+      error.set(`Merge resulted in conflicts. Resolve conflicts and commit.`);
+    } else if (!result.success) {
+      error.set(`Merge failed:\n${result.output.stderr || result.output.stdout}`);
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function deleteBranch(name: string) {
   const path = get(repoPath);
   if (!path) return;

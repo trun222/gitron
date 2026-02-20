@@ -17,11 +17,34 @@
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
   import { sidebarCollapsed, toggleSidebar } from '$lib/stores/settings';
+  import {
+    aiGenerating,
+    aiError,
+    hasConfiguredProvider,
+    generateCommitMessage,
+    loadAIProviders,
+    loadAISettings,
+  } from '$lib/stores/ai';
 
   let commitTitle = $state('');
   let commitBody = $state('');
   let commitError = $state<string | null>(null);
   let committing = $state(false);
+
+  // Load AI state on mount
+  $effect(() => {
+    loadAIProviders();
+    loadAISettings();
+  });
+
+  async function handleAIGenerate() {
+    if ($aiGenerating) return;
+    const result = await generateCommitMessage();
+    if (result) {
+      commitTitle = result.title;
+      commitBody = result.body;
+    }
+  }
 
   function handleFileClick(path: string, section: FileSection) {
     selectFile(path, section);
@@ -248,21 +271,40 @@
     <!-- Commit Panel -->
     {#if $stagedCount > 0}
       <div class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
-        <input
-          type="text"
-          class="w-full bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="Commit title"
-          bind:value={commitTitle}
-          onkeydown={handleCommitKeydown}
-          disabled={committing}
-        />
+        <div class="flex items-center gap-1">
+          <input
+            type="text"
+            class="flex-1 min-w-0 bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="Commit title"
+            bind:value={commitTitle}
+            onkeydown={handleCommitKeydown}
+            disabled={committing || $aiGenerating}
+          />
+          {#if $hasConfiguredProvider}
+            <button
+              class="w-7 h-7 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 {$aiGenerating ? 'text-primary animate-pulse' : 'text-muted-foreground hover:text-primary hover:bg-accent'}"
+              onclick={handleAIGenerate}
+              disabled={$aiGenerating || committing}
+              aria-label="Generate commit message with AI"
+              title="Generate commit message with AI"
+            >
+              {#if $aiGenerating}
+                <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M7.657 6.247c.11-.33.576-.33.686 0l.645 1.937a2.89 2.89 0 0 0 1.829 1.828l1.936.645c.33.11.33.576 0 .686l-1.937.645a2.89 2.89 0 0 0-1.828 1.829l-.645 1.936a.361.361 0 0 1-.686 0l-.645-1.937a2.89 2.89 0 0 0-1.828-1.828l-1.937-.645a.361.361 0 0 1 0-.686l1.937-.645a2.89 2.89 0 0 0 1.828-1.829l.645-1.936ZM3.794 1.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387A1.73 1.73 0 0 0 4.593 5.69l-.387 1.162a.217.217 0 0 1-.412 0L3.407 5.69a1.73 1.73 0 0 0-1.097-1.097l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387A1.73 1.73 0 0 0 3.407 2.31l.387-1.162Z" />
+                </svg>
+              {/if}
+            </button>
+          {/if}
+        </div>
         <textarea
           class="w-full bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           rows="3"
           placeholder="Description (optional)"
           bind:value={commitBody}
           onkeydown={handleCommitKeydown}
-          disabled={committing}
+          disabled={committing || $aiGenerating}
         ></textarea>
         <button
           class="w-full text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer {commitTitle.trim() && !committing ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-muted text-muted-foreground cursor-not-allowed'}"
@@ -273,6 +315,9 @@
         </button>
         {#if commitError}
           <p class="text-[11px] text-destructive">{commitError}</p>
+        {/if}
+        {#if $aiError}
+          <p class="text-[11px] text-destructive">{$aiError}</p>
         {/if}
       </div>
     {/if}

@@ -42,3 +42,25 @@ pub fn reset_to_commit(path: String, commit_oid: String, reset_type: String) -> 
     repository::reset_to_commit(&repo, &commit_oid, &reset_type)?;
     repository::get_repo_info(&repo)
 }
+
+/// Rebase current branch onto a target branch
+#[tauri::command]
+pub fn rebase_onto(path: String, onto_branch: String) -> Result<RebaseResult, GitError> {
+    let repo = repository::open(&path)?;
+    let workdir = repo.workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?
+        .to_string_lossy()
+        .to_string();
+    repository::rebase_onto(&workdir, &onto_branch)
+}
+
+/// Merge source branch into target branch
+#[tauri::command]
+pub fn merge_into(path: String, source_branch: String, target_branch: String) -> Result<MergeResult, GitError> {
+    let repo = repository::open(&path)?;
+    let workdir = repo.workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?
+        .to_string_lossy()
+        .to_string();
+    repository::merge_branch_into(&workdir, &source_branch, &target_branch)
+}

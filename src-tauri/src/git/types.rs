@@ -239,6 +239,22 @@ pub struct PullResult {
     pub output: OperationOutput,
 }
 
+/// Result of a rebase operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RebaseResult {
+    pub success: bool,
+    pub conflicted: bool,
+    pub output: OperationOutput,
+}
+
+/// Result of a merge operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeResult {
+    pub success: bool,
+    pub conflicted: bool,
+    pub output: OperationOutput,
+}
+
 /// Result of a clone operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloneResult {

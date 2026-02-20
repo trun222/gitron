@@ -178,6 +178,18 @@ export interface PullResult {
   output: OperationOutput;
 }
 
+export interface RebaseResult {
+  success: boolean;
+  conflicted: boolean;
+  output: OperationOutput;
+}
+
+export interface MergeResult {
+  success: boolean;
+  conflicted: boolean;
+  output: OperationOutput;
+}
+
 // GitHub OAuth types (matching src-tauri/src/github/types.rs)
 
 export interface GitHubUser {
@@ -227,6 +239,32 @@ export interface GitHubRepo {
 export interface GitHubRepoOwner {
   login: string;
   avatar_url: string;
+}
+
+// AI types (matching src-tauri/src/ai/types.rs)
+
+export interface AIProvider {
+  id: string;
+  name: string;
+  has_key: boolean;
+  models: AIModel[];
+  base_url: string | null;
+}
+
+export interface AIModel {
+  id: string;
+  name: string;
+}
+
+export interface GenerateResult {
+  title: string;
+  body: string;
+}
+
+export interface AISettings {
+  selected_provider: string | null;
+  selected_model: string | null;
+  custom_base_urls: Record<string, string>;
 }
 
 // Watcher event payloads (matching Rust event structs)

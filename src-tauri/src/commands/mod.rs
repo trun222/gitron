@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod repo;
 pub mod graph;
 pub mod diff;

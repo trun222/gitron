@@ -4,6 +4,7 @@
     checkoutBranch, deleteBranchConfirm, createBranchAtCommit,
     resetToCommit, currentBranch,
     applyStash, popStash, dropStash,
+    rebaseOnto, mergeInto,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
   import { gravatarUrl } from '$lib/utils/gravatar';
@@ -426,8 +427,16 @@
     const current = $currentBranch;
     const items: (MenuAction | 'separator')[] = [
       { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
-      { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head, danger: true },
     ];
+    if (current && !branch.is_head && !branch.is_remote) {
+      items.push(
+        { id: 'rebase-onto', label: `Rebase ${current} onto ${branch.name}` },
+        { id: 'merge-into', label: `Merge ${current} into ${branch.name}` },
+      );
+    }
+    items.push(
+      { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head, danger: true },
+    );
     if (current && branch.target_oid) {
       items.push({
         id: 'reset-submenu',
@@ -481,6 +490,15 @@
             branchName,
             isRemote: branchIsRemote ?? false,
           });
+        }
+        break;
+      case 'rebase-onto':
+        if (branchName) rebaseOnto(branchName);
+        break;
+      case 'merge-into':
+        if (branchName) {
+          const current = $currentBranch;
+          if (current) mergeInto(current, branchName);
         }
         break;
       case 'copy-name':

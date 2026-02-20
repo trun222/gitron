@@ -460,6 +460,54 @@ pub async fn clone_repo(url: &str, dest: &str) -> GitResult<CloneResult> {
     })
 }
 
+/// Rebase current branch onto the given branch (uses CLI)
+pub fn rebase_onto(workdir: &str, onto_branch: &str) -> GitResult<RebaseResult> {
+    let output = super::cli::run_git_raw(workdir, &["rebase", onto_branch])?;
+
+    let conflicted = output.exit_code != 0
+        && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
+
+    Ok(RebaseResult {
+        success: output.exit_code == 0,
+        conflicted,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
+/// Merge source_branch into target_branch (checks out target, merges source, uses CLI)
+pub fn merge_branch_into(workdir: &str, source_branch: &str, target_branch: &str) -> GitResult<MergeResult> {
+    // First checkout the target branch
+    let checkout_output = super::cli::run_git_raw(workdir, &["checkout", target_branch])?;
+    if checkout_output.exit_code != 0 {
+        return Ok(MergeResult {
+            success: false,
+            conflicted: false,
+            output: OperationOutput {
+                stdout: checkout_output.stdout,
+                stderr: checkout_output.stderr,
+            },
+        });
+    }
+
+    // Then merge the source branch
+    let merge_output = super::cli::run_git_raw(workdir, &["merge", source_branch])?;
+
+    let conflicted = merge_output.exit_code != 0
+        && (merge_output.stderr.contains("CONFLICT") || merge_output.stdout.contains("CONFLICT"));
+
+    Ok(MergeResult {
+        success: merge_output.exit_code == 0,
+        conflicted,
+        output: OperationOutput {
+            stdout: merge_output.stdout,
+            stderr: merge_output.stderr,
+        },
+    })
+}
+
 /// Create a commit with the current index using git CLI (runs hooks)
 pub fn create_commit(workdir: &str, message: &str) -> GitResult<CommitResult> {
     let output = super::cli::run_git_raw(workdir, &["commit", "-m", message])?;

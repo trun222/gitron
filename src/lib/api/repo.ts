@@ -12,6 +12,8 @@ import type {
   PullResult,
   CommitResult,
   CloneResult,
+  RebaseResult,
+  MergeResult,
 } from './types';
 
 export async function openRepo(path: string): Promise<RepoInfo> {
@@ -191,6 +193,14 @@ export async function deleteRemoteBranch(
 
 export async function cloneRepo(url: string, dest: string): Promise<CloneResult> {
   return invoke('clone_repo', { url, dest });
+}
+
+export async function rebaseOnto(path: string, ontoBranch: string): Promise<RebaseResult> {
+  return invoke('rebase_onto', { path, ontoBranch });
+}
+
+export async function mergeInto(path: string, sourceBranch: string, targetBranch: string): Promise<MergeResult> {
+  return invoke('merge_into', { path, sourceBranch, targetBranch });
 }
 
 export async function checkoutRemoteBranch(

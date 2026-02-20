@@ -1,10 +1,11 @@
+pub mod ai;
 pub mod commands;
 pub mod git;
 pub mod github;
 pub mod cache;
 pub mod watcher;
 
-use commands::{branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, AppState};
+use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, AppState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -35,6 +36,8 @@ pub fn run() {
             branch::checkout_branch,
             branch::delete_branch,
             branch::reset_to_commit,
+            branch::rebase_onto,
+            branch::merge_into,
             commit::create_commit,
             stash::apply_stash,
             stash::pop_stash,
@@ -56,6 +59,12 @@ pub fn run() {
             github_cmd::github_get_user,
             github_cmd::github_list_repos,
             clone::clone_repo,
+            ai_cmd::ai_get_providers,
+            ai_cmd::ai_save_key,
+            ai_cmd::ai_delete_key,
+            ai_cmd::ai_generate_commit_message,
+            ai_cmd::ai_get_settings,
+            ai_cmd::ai_save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
