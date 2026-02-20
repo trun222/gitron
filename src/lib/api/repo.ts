@@ -241,3 +241,10 @@ export async function deleteRemoteTag(
 ): Promise<void> {
   return invoke('delete_remote_tag', { path, remoteName, tagName });
 }
+
+export async function listRemoteTags(
+  path: string,
+  remoteName: string
+): Promise<string[]> {
+  return invoke('list_remote_tags', { path, remoteName });
+}

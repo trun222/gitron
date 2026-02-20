@@ -67,6 +67,7 @@ pub fn run() {
             tag::delete_tag,
             tag::push_tag,
             tag::delete_remote_tag,
+            tag::list_remote_tags,
             clone::clone_repo,
             ai_cmd::ai_get_providers,
             ai_cmd::ai_save_key,

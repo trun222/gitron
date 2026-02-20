@@ -41,6 +41,16 @@ pub async fn delete_remote_tag(
     remote::delete_remote_tag(&workdir, &remote_name, &tag_name).await
 }
 
+/// List tag names that exist on a remote
+#[tauri::command]
+pub async fn list_remote_tags(
+    path: String,
+    remote_name: String,
+) -> Result<Vec<String>, GitError> {
+    let workdir = get_workdir(&path)?;
+    remote::list_remote_tags(&workdir, &remote_name).await
+}
+
 /// Helper to get the workdir path from a repo path
 fn get_workdir(path: &str) -> Result<String, GitError> {
     let repo = repository::open(path)?;

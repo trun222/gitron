@@ -282,6 +282,28 @@ pub async fn delete_remote_tag(workdir: &str, remote: &str, tag_name: &str) -> G
     Ok(())
 }
 
+/// List tag names that exist on a remote via `git ls-remote --tags`
+pub async fn list_remote_tags(workdir: &str, remote: &str) -> GitResult<Vec<String>> {
+    let output =
+        cli::run_git_async_with_github_auth(workdir, &["ls-remote", "--tags", remote]).await?;
+
+    let names: Vec<String> = output
+        .stdout
+        .lines()
+        .filter_map(|line| {
+            // Format: "<sha>\trefs/tags/<name>"
+            let refname = line.split('\t').nth(1)?;
+            // Skip dereferenced entries (e.g. refs/tags/v1.0^{})
+            if refname.ends_with("^{}") {
+                return None;
+            }
+            refname.strip_prefix("refs/tags/").map(|s| s.to_string())
+        })
+        .collect();
+
+    Ok(names)
+}
+
 /// Delete a remote branch via `git push --delete`
 pub async fn delete_remote_branch(workdir: &str, remote: &str, branch: &str) -> GitResult<()> {
     cli::run_git_async_with_github_auth(workdir, &["push", remote, "--delete", branch]).await?;

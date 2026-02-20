@@ -39,6 +39,9 @@ export const remotes = writable<Remote[]>([]);
 export const trackingStatus = writable<TrackingStatus | null>(null);
 export const networkOperation = writable<string | null>(null);
 
+// Remote tag tracking
+export const remoteTagNames = writable<Set<string>>(new Set());
+
 // Scroll-to-commit (used by tags list to jump to a commit in the graph)
 export const scrollToCommitOid = writable<string | null>(null);
 
@@ -110,6 +113,7 @@ export async function openRepo(path: string) {
     await refreshAll(path);
     await refreshRemotes(path);
     await refreshTrackingStatus();
+    refreshRemoteTags(); // fire-and-forget (needs defaultRemote populated)
     await trackRepoOpen(path);
     await startWatcherListeners();
   } catch (e) {
@@ -134,6 +138,7 @@ export async function closeRepo() {
   selectedFileDiff.set(null);
   selectedFile.set(null);
   remotes.set([]);
+  remoteTagNames.set(new Set());
   trackingStatus.set(null);
   error.set(null);
 }
@@ -549,6 +554,7 @@ export async function pushTag(tagName: string) {
   try {
     const result = await api.pushTag(path, remote.name, tagName);
     addOutput('push-tag', result.output.stdout, result.output.stderr, true);
+    refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     error.set(String(e));
     addOutput('push-tag', '', String(e), false);
@@ -566,6 +572,7 @@ export async function deleteRemoteTag(tagName: string) {
   try {
     await api.deleteRemoteTag(path, remote.name, tagName);
     addOutput('delete-remote-tag', `Deleted remote tag '${tagName}'`, '', true);
+    refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     error.set(String(e));
     addOutput('delete-remote-tag', '', String(e), false);
@@ -643,6 +650,21 @@ export async function refreshRemotes(path: string) {
   }
 }
 
+export async function refreshRemoteTags() {
+  const path = get(repoPath);
+  const remote = get(defaultRemote);
+  if (!path || !remote) {
+    remoteTagNames.set(new Set());
+    return;
+  }
+  try {
+    const names = await api.listRemoteTags(path, remote.name);
+    remoteTagNames.set(new Set(names));
+  } catch {
+    // Silently ignore — remote may be unreachable
+  }
+}
+
 export async function refreshTrackingStatus() {
   const path = get(repoPath);
   const info = get(repoInfo);
@@ -696,6 +718,7 @@ export async function fetchFromRemote(remoteName?: string) {
     addOutput('fetch', result.output.stdout, result.output.stderr, true);
     await refreshAll(path);
     await refreshRemotes(path);
+    refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     error.set(String(e));
   } finally {
