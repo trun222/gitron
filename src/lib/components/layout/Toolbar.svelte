@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { hasRepo, currentBranch, aheadCount, behindCount, networkOperation, pullFromRemote, pushToRemote, forcePushConfirmOpen } from '$lib/stores/repo';
+  import { base } from '$app/paths';
   import { CommandBar } from '$lib/components/ui/command';
   import { ShortcutsModal } from '$lib/components/ui/shortcuts';
   import { SettingsModal } from '$lib/components/ui/settings';
@@ -33,7 +34,7 @@
 
 <header class="flex items-center justify-between h-12 px-4 bg-card border-b border-border select-none" style="-webkit-app-region: drag;">
   <div class="flex items-center gap-1.5 min-w-[200px]">
-    <img src="/gitron-logo.png" alt="Gitron" width="20" height="20" class="shrink-0" />
+    <img src="{base}/gitron-logo.png" alt="Gitron" width="20" height="20" class="shrink-0" />
     <span class="font-bold text-sm tracking-wide text-primary">Gitron</span>
   </div>
 
