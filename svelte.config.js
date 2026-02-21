@@ -9,6 +9,9 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 const config = {
   preprocess: vitePreprocess(),
   kit: {
+    paths: {
+      base: process.env.VITE_BASE ? process.env.VITE_BASE.replace(/\/$/, '') : '',
+    },
     adapter: adapter({
       fallback: "index.html",
     }),
