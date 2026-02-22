@@ -2,14 +2,9 @@
   import {
     selectedFileDiff,
     selectedFile,
-    selectedCommit,
-    selectedCommitFile,
     clearFileSelection,
-    clearCommitFileSelection,
     selectNextFile,
     selectPrevFile,
-    selectNextCommitFile,
-    selectPrevCommitFile,
     stageSelectedFile,
     unstageSelectedFile,
   } from '$lib/stores/repo';
@@ -23,12 +18,8 @@
     highlighter = h;
   });
 
-  let isCommitView = $derived($selectedCommitFile !== null);
-
   let language = $derived(
-    $selectedFile ? detectLanguage($selectedFile.path)
-    : $selectedCommitFile ? detectLanguage($selectedCommitFile)
-    : 'text',
+    $selectedFile ? detectLanguage($selectedFile.path) : 'text',
   );
 
   function statusColor(status: FileStatusType): string {
@@ -90,20 +81,6 @@
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 
-    if (isCommitView) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        selectNextCommitFile();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        selectPrevCommitFile();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        clearCommitFileSelection();
-      }
-      return;
-    }
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       selectNextFile();
@@ -138,14 +115,12 @@
           {$selectedFileDiff.status[0]}
         </span>
         <span class="text-sm font-mono truncate">{$selectedFileDiff.path}</span>
-        {#if isCommitView && $selectedCommit}
-          <span class="text-[10px] text-muted-foreground/60 uppercase">commit {$selectedCommit.oid.slice(0, 7)}</span>
-        {:else if $selectedFile}
+        {#if $selectedFile}
           <span class="text-[10px] text-muted-foreground/60 uppercase">{$selectedFile.section}</span>
         {/if}
       </div>
       <button
-        onclick={() => isCommitView ? clearCommitFileSelection() : clearFileSelection()}
+        onclick={clearFileSelection}
         class="text-muted-foreground hover:text-foreground p-1 shrink-0 cursor-pointer"
         aria-label="Close file preview"
       >
@@ -208,7 +183,7 @@
         {/each}
       {/if}
     </div>
-  {:else if $selectedFile || isCommitView}
+  {:else if $selectedFile}
     <!-- Loading state -->
     <div class="flex items-center justify-center flex-1">
       <p class="text-muted-foreground text-sm">Loading diff...</p>

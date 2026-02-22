@@ -40,20 +40,6 @@ pub async fn get_staged_file_diff(
     Ok(Json(diff))
 }
 
-#[derive(Deserialize)]
-pub struct CommitDiffRequest {
-    path: String,
-    oid: String,
-}
-
-pub async fn get_commit_diff(
-    Json(req): Json<CommitDiffRequest>,
-) -> Result<Json<Vec<FileDiff>>, (StatusCode, String)> {
-    let repo = repository::open(&req.path).map_err(err)?;
-    let diffs = git_diff::diff_commit(&repo, &req.oid).map_err(err)?;
-    Ok(Json(diffs))
-}
-
 fn err(e: impl std::fmt::Display) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
 }

@@ -20,10 +20,3 @@ pub fn get_staged_file_diff(path: String, file_path: String) -> Result<FileDiff,
     let repo = repository::open(&path)?;
     git_diff::diff_file_staged(&repo, &file_path)
 }
-
-/// Get diff for a commit (vs its first parent)
-#[tauri::command]
-pub fn get_commit_diff(path: String, oid: String) -> Result<Vec<FileDiff>, GitError> {
-    let repo = repository::open(&path)?;
-    git_diff::diff_commit(&repo, &oid)
-}
