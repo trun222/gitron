@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git2::{DiffOptions, Repository, Status};
+use git2::{DiffOptions, Oid, Repository, Status};
 
 use super::error::GitResult;
 use super::types::*;
@@ -124,6 +124,23 @@ pub fn diff_file_staged(repo: &Repository, path: &str) -> GitResult<FileDiff> {
         .into_iter()
         .next()
         .ok_or_else(|| super::error::GitError::Other(format!("No staged diff for file: {}", path)))
+}
+
+/// Get diff of a commit against its first parent (or empty tree for root commits)
+pub fn diff_commit(repo: &Repository, oid_str: &str) -> GitResult<Vec<FileDiff>> {
+    let oid = Oid::from_str(oid_str)
+        .map_err(|e| super::error::GitError::Other(format!("Invalid OID '{}': {}", oid_str, e)))?;
+    let commit = repo.find_commit(oid)?;
+    let commit_tree = commit.tree()?;
+
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(commit.parent(0)?.tree()?)
+    } else {
+        None
+    };
+
+    let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), None)?;
+    parse_diff(&diff)
 }
 
 /// Parse a git2 Diff into our FileDiff types

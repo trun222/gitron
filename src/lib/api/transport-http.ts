@@ -16,6 +16,7 @@ const COMMAND_MAP: Record<string, string> = {
   get_workdir_diff: '/api/diff/workdir',
   get_file_diff: '/api/diff/file',
   get_staged_file_diff: '/api/diff/staged',
+  get_commit_diff: '/api/diff/commit',
   // Staging
   stage_file: '/api/staging/stage',
   unstage_file: '/api/staging/unstage',

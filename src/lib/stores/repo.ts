@@ -42,6 +42,10 @@ export const networkOperation = writable<string | null>(null);
 // Remote tag tracking
 export const remoteTagNames = writable<Set<string>>(new Set());
 
+// Commit file inspection state
+export const commitFiles = writable<FileDiff[] | null>(null);
+export const selectedCommitFile = writable<string | null>(null);
+
 // Scroll-to-commit (used by tags list to jump to a commit in the graph)
 export const scrollToCommitOid = writable<string | null>(null);
 
@@ -73,6 +77,7 @@ export const branchConflictPrompt = writable<BranchConflictInfo | null>(null);
 // Derived stores
 export const hasRepo = derived(repoInfo, ($info) => $info !== null);
 export const isFileSelected = derived(selectedFile, ($f) => $f !== null);
+export const isCommitFileSelected = derived(selectedCommitFile, ($f) => $f !== null);
 export const currentBranch = derived(repoInfo, ($info) => $info?.head_branch ?? null);
 export const localBranches = derived(commitGraph, ($graph) =>
   $graph?.branches.filter((b) => !b.is_remote) ?? []
@@ -137,6 +142,8 @@ export async function closeRepo() {
   selectedCommit.set(null);
   selectedFileDiff.set(null);
   selectedFile.set(null);
+  commitFiles.set(null);
+  selectedCommitFile.set(null);
   remotes.set([]);
   remoteTagNames.set(new Set());
   trackingStatus.set(null);
@@ -214,6 +221,18 @@ export async function unstageAllFiles(path: string) {
 export async function selectCommit(commit: Commit) {
   selectedCommit.set(commit);
   selectedFileDiff.set(null);
+  selectedFile.set(null);
+  selectedCommitFile.set(null);
+  // Fetch files changed in this commit
+  const repoPathVal = get(repoPath);
+  if (repoPathVal) {
+    try {
+      const files = await api.getCommitDiff(repoPathVal, commit.oid);
+      commitFiles.set(files);
+    } catch {
+      commitFiles.set(null);
+    }
+  }
 }
 
 export async function viewFileDiff(path: string, filePath: string) {
@@ -234,6 +253,43 @@ export async function viewStagedFileDiff(path: string, filePath: string) {
   }
 }
 
+// Commit file selection
+export function selectCommitFile(filePath: string) {
+  const files = get(commitFiles);
+  if (!files) return;
+  const diff = files.find((f) => f.path === filePath);
+  if (diff) {
+    selectedCommitFile.set(filePath);
+    selectedFileDiff.set(diff);
+    selectedFile.set(null);
+  }
+}
+
+export function selectNextCommitFile() {
+  const current = get(selectedCommitFile);
+  const files = get(commitFiles);
+  if (!current || !files) return;
+  const idx = files.findIndex((f) => f.path === current);
+  if (idx >= 0 && idx < files.length - 1) {
+    selectCommitFile(files[idx + 1].path);
+  }
+}
+
+export function selectPrevCommitFile() {
+  const current = get(selectedCommitFile);
+  const files = get(commitFiles);
+  if (!current || !files) return;
+  const idx = files.findIndex((f) => f.path === current);
+  if (idx > 0) {
+    selectCommitFile(files[idx - 1].path);
+  }
+}
+
+export function clearCommitFileSelection() {
+  selectedCommitFile.set(null);
+  selectedFileDiff.set(null);
+}
+
 // File selection
 export async function selectFile(path: string, section: FileSection) {
   const repoPathVal = get(repoPath);
@@ -241,6 +297,8 @@ export async function selectFile(path: string, section: FileSection) {
   selectedFile.set({ path, section });
   selectedCommit.set(null);
   selectedFileDiff.set(null);
+  commitFiles.set(null);
+  selectedCommitFile.set(null);
   if (section === 'staged') {
     await viewStagedFileDiff(repoPathVal, path);
   } else {
@@ -251,6 +309,8 @@ export async function selectFile(path: string, section: FileSection) {
 export function clearFileSelection() {
   selectedFile.set(null);
   selectedFileDiff.set(null);
+  commitFiles.set(null);
+  selectedCommitFile.set(null);
 }
 
 export function selectNextFile() {

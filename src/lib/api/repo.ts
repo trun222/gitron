@@ -65,6 +65,10 @@ export async function getStagedFileDiff(path: string, filePath: string): Promise
   return getTransport().invoke('get_staged_file_diff', { path, filePath });
 }
 
+export async function getCommitDiff(path: string, oid: string): Promise<FileDiff[]> {
+  return getTransport().invoke('get_commit_diff', { path, oid });
+}
+
 export async function stageFile(path: string, filePath: string): Promise<RepoStatus> {
   return getTransport().invoke('stage_file', { path, filePath });
 }
