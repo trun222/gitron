@@ -1,6 +1,8 @@
 # Stage 1: Build frontend
 FROM node:22-slim AS frontend
 WORKDIR /app
+ARG VITE_BASE=""
+ENV VITE_BASE=${VITE_BASE}
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY src/ src/
