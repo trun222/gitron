@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+const isRemote = !!process.env.VITE_BASE;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -18,8 +19,8 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    allowedHosts: process.env.VITE_BASE ? true : [],
+    host: isRemote ? '0.0.0.0' : (host || false),
+    allowedHosts: isRemote ? true : [],
     hmr: host
       ? {
           protocol: "ws",

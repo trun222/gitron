@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "build:server": "cargo build --release -p gitron-server",
     "server": "cargo run -p gitron-server --",
-    "server:dev": "npm run build && cargo run -p gitron-server -- --frontend-dir ./build"
+    "server:dev": "vite dev",
+    "server:start": "npm run build && cargo run -p gitron-server -- --frontend-dir ./build"
   },
   "license": "PolyForm-Noncommercial-1.0.0",
   "dependencies": {
