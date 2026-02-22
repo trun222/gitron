@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, repository, types::CloneResult};
+use gitron_core::git::{error::GitError, repository, types::CloneResult};
 
 /// Clone a repository from a URL to a destination path
 #[tauri::command]

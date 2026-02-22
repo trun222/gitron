@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, repository, types::*};
+use gitron_core::git::{error::GitError, repository, types::*};
 
 /// List all branches
 #[tauri::command]

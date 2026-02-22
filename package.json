@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:server": "cargo build --release -p gitron-server",
+    "server": "cargo run -p gitron-server --",
+    "server:dev": "npm run build && cargo run -p gitron-server -- --frontend-dir ./build"
   },
   "license": "PolyForm-Noncommercial-1.0.0",
   "dependencies": {

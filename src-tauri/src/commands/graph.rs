@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, graph as git_graph, repository, types::*};
+use gitron_core::git::{error::GitError, graph as git_graph, repository, types::*};
 
 /// Get the commit graph for a repository
 #[tauri::command]

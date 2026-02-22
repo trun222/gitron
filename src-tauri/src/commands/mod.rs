@@ -14,8 +14,8 @@ pub mod clone;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use crate::cache::repo_state::RepoStateCache;
-use crate::watcher::manager::WatcherManager;
+use gitron_core::cache::repo_state::RepoStateCache;
+use gitron_core::watcher::manager::WatcherManager;
 
 /// Shared application state
 pub struct AppState {

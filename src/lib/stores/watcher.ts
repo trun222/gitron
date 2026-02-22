@@ -1,26 +1,28 @@
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getTransport } from '$lib/api';
 import type { StatusChangedPayload, RefsChangedPayload } from '$lib/api/types';
 import { repoStatus, commitGraph } from '$lib/stores/repo';
 import { refreshTrackingStatus, refreshRemoteTags } from '$lib/stores/repo';
 
-let unlisteners: UnlistenFn[] = [];
+let unlisteners: (() => void)[] = [];
 
 export async function startWatcherListeners(): Promise<void> {
   // Clean up any existing listeners
   await stopWatcherListeners();
 
-  const unlistenStatus = await listen<StatusChangedPayload>(
+  const transport = getTransport();
+
+  const unlistenStatus = await transport.listen<StatusChangedPayload>(
     'repo:status-changed',
-    (event) => {
-      repoStatus.set(event.payload.status);
+    (payload) => {
+      repoStatus.set(payload.status);
     }
   );
 
-  const unlistenRefs = await listen<RefsChangedPayload>(
+  const unlistenRefs = await transport.listen<RefsChangedPayload>(
     'repo:refs-changed',
-    (event) => {
-      commitGraph.set(event.payload.graph);
-      repoStatus.set(event.payload.status);
+    (payload) => {
+      commitGraph.set(payload.graph);
+      repoStatus.set(payload.status);
       refreshTrackingStatus();
       refreshRemoteTags();
     }

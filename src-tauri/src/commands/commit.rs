@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, repository, types::CommitResult};
+use gitron_core::git::{error::GitError, repository, types::CommitResult};
 
 /// Create a commit with staged changes (runs git hooks)
 #[tauri::command]

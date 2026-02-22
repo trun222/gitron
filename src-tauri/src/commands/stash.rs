@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, repository, types::*};
+use gitron_core::git::{error::GitError, repository, types::*};
 
 /// Apply a stash (does not remove it)
 #[tauri::command]

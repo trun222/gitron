@@ -1,0 +1,19 @@
+[package]
+name = "gitron-core"
+version = "0.2.0"
+edition = "2021"
+description = "Core library for Gitron — git, AI, GitHub, caching, and file watching"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+git2 = { workspace = true }
+tokio = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+reqwest = { workspace = true }

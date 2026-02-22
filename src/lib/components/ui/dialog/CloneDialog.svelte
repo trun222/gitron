@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Dialog } from 'bits-ui';
-  import { open } from '@tauri-apps/plugin-dialog';
+  import { getTransport } from '$lib/api';
   import {
     cloneDialogOpen,
     closeCloneDialog,
@@ -33,11 +33,7 @@
   }
 
   async function handleBrowse() {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Choose clone destination',
-    });
+    const selected = await getTransport().pickDirectory('Choose clone destination');
     if (selected) {
       const name = repoNameFromUrl(cloneUrl);
       destPath = name ? `${selected}/${name}` : selected;

@@ -1,6 +1,6 @@
-use crate::ai::error::AIResult;
-use crate::ai::types::{AIModel, AIProvider, AISettings, GenerateResult};
-use crate::ai::{credential, generate, providers};
+use gitron_core::ai::error::AIResult;
+use gitron_core::ai::types::{AIModel, AIProvider, AISettings, GenerateResult};
+use gitron_core::ai::{credential, generate, providers};
 
 #[tauri::command]
 pub async fn ai_get_providers() -> AIResult<Vec<AIProvider>> {
@@ -43,7 +43,7 @@ pub async fn ai_get_settings(
     use tauri_plugin_store::StoreExt;
     let store = app
         .store("settings.json")
-        .map_err(|e| crate::ai::error::AIError::ApiError(format!("Store error: {}", e)))?;
+        .map_err(|e| gitron_core::ai::error::AIError::ApiError(format!("Store error: {}", e)))?;
     let settings: AISettings = store
         .get("aiSettings")
         .and_then(|v| serde_json::from_value(v).ok())
@@ -59,9 +59,9 @@ pub async fn ai_save_settings(
     use tauri_plugin_store::StoreExt;
     let store = app
         .store("settings.json")
-        .map_err(|e| crate::ai::error::AIError::ApiError(format!("Store error: {}", e)))?;
+        .map_err(|e| gitron_core::ai::error::AIError::ApiError(format!("Store error: {}", e)))?;
     let value = serde_json::to_value(&settings)
-        .map_err(|e| crate::ai::error::AIError::ApiError(format!("Serialize error: {}", e)))?;
+        .map_err(|e| gitron_core::ai::error::AIError::ApiError(format!("Serialize error: {}", e)))?;
     store.set("aiSettings", value);
     Ok(())
 }

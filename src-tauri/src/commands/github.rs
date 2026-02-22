@@ -1,6 +1,6 @@
-use crate::github::auth;
-use crate::github::{api, error::GitHubResult};
-use crate::github::types::*;
+use gitron_core::github::auth;
+use gitron_core::github::{api, error::GitHubResult};
+use gitron_core::github::types::*;
 
 #[tauri::command]
 pub async fn github_check_auth() -> GitHubResult<GitHubAuthInfo> {
@@ -28,7 +28,7 @@ pub async fn github_logout() -> GitHubResult<()> {
 
 #[tauri::command]
 pub async fn github_get_user() -> GitHubResult<Option<GitHubUser>> {
-    let token = crate::github::credential::get_token();
+    let token = gitron_core::github::credential::get_token();
     match token {
         Some(t) => {
             let user = auth::get_authenticated_user(&t).await?;

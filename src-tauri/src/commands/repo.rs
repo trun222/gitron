@@ -1,9 +1,12 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use tauri::{AppHandle, State};
 
-use crate::git::{error::GitError, graph, repository, types::*};
-use crate::watcher::manager::WatcherManager;
+use gitron_core::git::{error::GitError, graph, repository, types::*};
+use gitron_core::watcher::manager::WatcherManager;
+
+use crate::tauri_impls::TauriEventEmitter;
 
 use super::AppState;
 
@@ -34,7 +37,8 @@ pub async fn open_repo(
     // Start file watcher (graceful degradation — repo still usable if watcher fails)
     let poll_interval = *state.poll_interval_ms.lock().unwrap();
     let repo_path = PathBuf::from(&path);
-    match WatcherManager::start(&repo_path, poll_interval, app, state.cache.clone()) {
+    let emitter: Arc<dyn gitron_core::event::EventEmitter> = Arc::new(TauriEventEmitter::new(app));
+    match WatcherManager::start(&repo_path, poll_interval, emitter, state.cache.clone()) {
         Ok(manager) => {
             *state.watcher.lock().unwrap() = Some(manager);
             log::info!("File watcher started for {path}");
@@ -77,7 +81,8 @@ pub async fn set_watcher_interval(
         }
 
         // Start new watcher with updated interval
-        match WatcherManager::start(&path, interval_ms, app, state.cache.clone()) {
+        let emitter: Arc<dyn gitron_core::event::EventEmitter> = Arc::new(TauriEventEmitter::new(app));
+        match WatcherManager::start(&path, interval_ms, emitter, state.cache.clone()) {
             Ok(manager) => {
                 *state.watcher.lock().unwrap() = Some(manager);
                 log::info!(

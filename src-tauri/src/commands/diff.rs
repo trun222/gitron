@@ -1,4 +1,4 @@
-use crate::git::{diff as git_diff, error::GitError, repository, types::*};
+use gitron_core::git::{diff as git_diff, error::GitError, repository, types::*};
 
 /// Get working directory diff (unstaged changes)
 #[tauri::command]

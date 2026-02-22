@@ -1,4 +1,4 @@
-use crate::git::{error::GitError, remote, repository, types::*};
+use gitron_core::git::{error::GitError, remote, repository, types::*};
 
 /// List all configured remotes
 #[tauri::command]

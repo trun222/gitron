@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Command } from 'bits-ui';
-  import { open } from '@tauri-apps/plugin-dialog';
+  import { getTransport } from '$lib/api';
   import { sortedRecentRepos } from '$lib/stores/settings';
   import {
     openRepo, hasRepo, localBranches, remoteBranches, currentBranch,
@@ -76,11 +76,7 @@
     isOpen = false;
     search = '';
     inputRef?.blur();
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Open Git Repository',
-    });
+    const selected = await getTransport().pickDirectory('Open Git Repository');
     if (selected) {
       await openRepo(selected);
     }

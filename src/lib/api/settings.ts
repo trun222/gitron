@@ -1,7 +1,5 @@
-import { LazyStore } from '@tauri-apps/plugin-store';
+import { isTauri } from '$lib/api';
 import type { AppSettings, AutoFetchInterval, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from './types';
-
-const store = new LazyStore('settings.json');
 
 const MAX_RECENT_REPOS = 20;
 
@@ -10,13 +8,72 @@ const DEFAULT_SETTINGS: AppSettings = {
   recentRepos: [],
 };
 
+// --- Storage abstraction ---
+
+interface SettingsStore {
+  get<T>(key: string): Promise<T | null>;
+  set(key: string, value: unknown): Promise<void>;
+}
+
+class TauriSettingsStore implements SettingsStore {
+  private storePromise: Promise<InstanceType<typeof import('@tauri-apps/plugin-store').LazyStore>> | null = null;
+
+  private getStore() {
+    if (!this.storePromise) {
+      this.storePromise = import('@tauri-apps/plugin-store').then(
+        ({ LazyStore }) => new LazyStore('settings.json')
+      );
+    }
+    return this.storePromise;
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    const store = await this.getStore();
+    return (await store.get<T>(key)) ?? null;
+  }
+
+  async set(key: string, value: unknown): Promise<void> {
+    const store = await this.getStore();
+    await store.set(key, value);
+  }
+}
+
+class WebSettingsStore implements SettingsStore {
+  private prefix = 'gitron:';
+
+  async get<T>(key: string): Promise<T | null> {
+    const raw = localStorage.getItem(`${this.prefix}${key}`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  async set(key: string, value: unknown): Promise<void> {
+    localStorage.setItem(`${this.prefix}${key}`, JSON.stringify(value));
+  }
+}
+
+let _store: SettingsStore | null = null;
+
+function getStore(): SettingsStore {
+  if (!_store) {
+    _store = isTauri() ? new TauriSettingsStore() : new WebSettingsStore();
+  }
+  return _store;
+}
+
+// --- Public API (unchanged signatures) ---
+
 export async function getSettings(): Promise<AppSettings> {
-  const settings = await store.get<AppSettings>('app');
+  const settings = await getStore().get<AppSettings>('app');
   return settings ?? DEFAULT_SETTINGS;
 }
 
 async function saveSettings(settings: AppSettings): Promise<void> {
-  await store.set('app', settings);
+  await getStore().set('app', settings);
 }
 
 export async function addRecentRepo(path: string): Promise<AppSettings> {

@@ -1,0 +1,21 @@
+[package]
+name = "gitron-server"
+version = "0.2.0"
+edition = "2021"
+description = "Axum HTTP server for Gitron — serves the Svelte frontend over HTTP"
+
+[[bin]]
+name = "gitron-server"
+path = "src/main.rs"
+
+[dependencies]
+gitron-core = { path = "../gitron-core" }
+axum = { version = "0.8", features = ["macros"] }
+tokio = { workspace = true }
+tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+log = { workspace = true }
+env_logger = { workspace = true }
+tokio-stream = { version = "0.1", features = ["sync"] }

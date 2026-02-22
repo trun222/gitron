@@ -91,8 +91,14 @@ const MONO_FONT_STACKS: Record<MonoFont, string> = {
 };
 
 async function applyZoom(level: ZoomLevel): Promise<void> {
-  const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-  await getCurrentWebviewWindow().setZoom(level);
+  const { isTauri } = await import('$lib/api');
+  if (isTauri()) {
+    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+    await getCurrentWebviewWindow().setZoom(level);
+  } else {
+    document.documentElement.style.transform = level === 1 ? '' : `scale(${level})`;
+    document.documentElement.style.transformOrigin = 'top left';
+  }
 }
 
 function applyHighContrast(enabled: boolean): void {

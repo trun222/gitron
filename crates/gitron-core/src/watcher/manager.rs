@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::cache::repo_state::RepoStateCache;
+use crate::event::EventEmitter;
 use crate::git::{graph, repository, types::*};
 
 use super::handler::{self, RepoChangeEvent, WatcherHandle};
@@ -21,7 +22,7 @@ impl WatcherManager {
     pub fn start(
         repo_path: &Path,
         poll_interval_ms: u64,
-        app_handle: AppHandle,
+        emitter: Arc<dyn EventEmitter>,
         cache: RepoStateCache,
     ) -> anyhow::Result<Self> {
         let (watcher_handle, rx) = handler::watch_repo(repo_path, poll_interval_ms)?;
@@ -29,7 +30,7 @@ impl WatcherManager {
         let path_for_task = path.clone();
 
         let task = tokio::spawn(async move {
-            event_consumer(rx, path_for_task, app_handle, cache).await;
+            event_consumer(rx, path_for_task, emitter, cache).await;
         });
 
         Ok(Self {
@@ -46,11 +47,11 @@ impl WatcherManager {
     }
 }
 
-/// Background task that consumes repo change events and emits Tauri events.
+/// Background task that consumes repo change events and emits events via the emitter.
 async fn event_consumer(
     mut rx: mpsc::Receiver<RepoChangeEvent>,
     repo_path: PathBuf,
-    app_handle: AppHandle,
+    emitter: Arc<dyn EventEmitter>,
     cache: RepoStateCache,
 ) {
     let path_str = repo_path.to_string_lossy().to_string();
@@ -61,7 +62,7 @@ async fn event_consumer(
                 if let Some(status) = refresh_status(&path_str) {
                     cache.update_status(status.clone());
                     let payload = StatusChangedPayload { status };
-                    app_handle.emit("repo:status-changed", &payload).ok();
+                    emitter.emit_status_changed(&payload);
                 }
             }
             RepoChangeEvent::HeadChanged | RepoChangeEvent::RefsChanged => {
@@ -72,8 +73,8 @@ async fn event_consumer(
                         status: status.clone(),
                     };
                     let refs_payload = RefsChangedPayload { graph, status };
-                    app_handle.emit("repo:status-changed", &status_payload).ok();
-                    app_handle.emit("repo:refs-changed", &refs_payload).ok();
+                    emitter.emit_status_changed(&status_payload);
+                    emitter.emit_refs_changed(&refs_payload);
                 }
             }
         }

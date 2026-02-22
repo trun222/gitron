@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { GitHubAuthInfo, DeviceCodeResponse } from '$lib/api/types';
 import * as githubApi from '$lib/api/github';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { getTransport } from '$lib/api';
 
 // Core state
 export const authInfo = writable<GitHubAuthInfo | null>(null);
@@ -45,7 +45,7 @@ export async function startLogin() {
     loginDialogOpen.set(true);
 
     // Open the verification URL in the user's browser
-    await openUrl(dc.verification_uri);
+    await getTransport().openUrl(dc.verification_uri);
 
     // Poll for token (blocks until authorized or expired)
     const info = await githubApi.pollDeviceFlow(

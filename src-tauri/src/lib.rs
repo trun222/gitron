@@ -1,10 +1,7 @@
-pub mod ai;
 pub mod commands;
-pub mod credential_store;
-pub mod git;
-pub mod github;
-pub mod cache;
-pub mod watcher;
+pub mod tauri_impls;
+
+use std::sync::Arc;
 
 use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, AppState};
 
@@ -16,7 +13,9 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState::new())
         .setup(|app| {
-            credential_store::init(app.handle().clone());
+            // Initialize credential store with Tauri implementation
+            tauri_impls::TauriCredentialStore::init(app.handle().clone());
+            gitron_core::credential::init(Arc::new(tauri_impls::TauriCredentialStore));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

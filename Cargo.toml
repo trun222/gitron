@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["src-tauri", "crates/gitron-core", "crates/gitron-server"]
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Git operations
+git2 = { version = "0.19", features = ["vendored-openssl"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# File system watching
+notify = "7"
+notify-debouncer-mini = "0.5"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Unique IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
