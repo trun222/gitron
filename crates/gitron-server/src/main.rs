@@ -59,6 +59,13 @@ async fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .init();
 
+    // Disable libgit2 ownership validation so we can open repos owned by
+    // different users (e.g. terminal container volumes mounted into the
+    // gitron container).
+    unsafe {
+        let _ = git2::opts::set_verify_owner_validation(false);
+    }
+
     let cli = Cli::parse();
 
     // Warn if binding to non-localhost without a token

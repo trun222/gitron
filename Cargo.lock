@@ -1523,6 +1523,7 @@ dependencies = [
  "axum",
  "clap",
  "env_logger",
+ "git2",
  "gitron-core",
  "log",
  "serde",
