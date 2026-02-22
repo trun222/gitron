@@ -18,6 +18,7 @@
     jumpToTag,
     remoteTagNames,
     addToGitignore,
+    discardFiles,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
   import { sidebarCollapsed, toggleSidebar, showTagsList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
@@ -42,11 +43,12 @@
   interface ContextMenuItem {
     id: string;
     label: string;
+    danger?: boolean;
   }
   interface ContextMenuState {
     x: number;
     y: number;
-    items: ContextMenuItem[];
+    items: (ContextMenuItem | 'separator')[];
   }
 
   let contextMenu: ContextMenuState | null = $state(null);
@@ -55,9 +57,9 @@
     contextMenu = null;
   }
 
-  function buildFileMenuItems(filePath: string): ContextMenuItem[] {
+  function buildFileMenuItems(filePath: string, section: FileSection): (ContextMenuItem | 'separator')[] {
     const fileName = filePath.split('/').pop() ?? filePath;
-    const items: ContextMenuItem[] = [
+    const items: (ContextMenuItem | 'separator')[] = [
       { id: `ignore-file:${filePath}`, label: `Add ${fileName} to .gitignore` },
     ];
     const dotIdx = fileName.lastIndexOf('.');
@@ -65,20 +67,22 @@
       const ext = fileName.slice(dotIdx + 1);
       items.push({ id: `ignore-ext:*.${ext}`, label: `Add *.${ext} to .gitignore` });
     }
+    items.push('separator');
+    items.push({ id: `discard-file:${section}:${filePath}`, label: `Discard changes`, danger: true });
     return items;
   }
 
-  function handleFileContextMenu(e: MouseEvent, filePath: string) {
+  function handleFileContextMenu(e: MouseEvent, filePath: string, section: FileSection) {
     e.preventDefault();
     e.stopPropagation();
     contextMenu = {
       x: e.clientX,
       y: e.clientY,
-      items: buildFileMenuItems(filePath),
+      items: buildFileMenuItems(filePath, section),
     };
   }
 
-  function handleDirContextMenu(e: MouseEvent, dirPath: string) {
+  function handleDirContextMenu(e: MouseEvent, dirPath: string, section: FileSection) {
     e.preventDefault();
     e.stopPropagation();
     const dirName = dirPath.endsWith('/') ? dirPath : dirPath + '/';
@@ -87,12 +91,46 @@
       y: e.clientY,
       items: [
         { id: `ignore-dir:${dirName}`, label: `Add ${dirName} to .gitignore` },
+        'separator',
+        { id: `discard-dir:${section}:${dirPath}`, label: `Discard changes in ${dirPath}/`, danger: true },
       ],
     };
   }
 
+  function collectFilesUnderDir(dirPath: string, section: FileSection): string[] {
+    const status = $repoStatus;
+    if (!status) return [];
+    const prefix = dirPath.endsWith('/') ? dirPath : dirPath + '/';
+    if (section === 'staged') return status.staged.filter(f => f.path.startsWith(prefix)).map(f => f.path);
+    if (section === 'unstaged') return status.unstaged.filter(f => f.path.startsWith(prefix)).map(f => f.path);
+    return status.untracked.filter(p => p.startsWith(prefix));
+  }
+
   function executeMenuAction(actionId: string) {
     closeContextMenu();
+    if (actionId.startsWith('discard-file:')) {
+      const rest = actionId.slice('discard-file:'.length);
+      const sepIdx = rest.indexOf(':');
+      const section = rest.slice(0, sepIdx) as FileSection;
+      const filePath = rest.slice(sepIdx + 1);
+      const staged = section === 'staged' ? [filePath] : [];
+      const unstaged = section === 'unstaged' ? [filePath] : [];
+      const untracked = section === 'untracked' ? [filePath] : [];
+      discardFiles(staged, unstaged, untracked);
+      return;
+    }
+    if (actionId.startsWith('discard-dir:')) {
+      const rest = actionId.slice('discard-dir:'.length);
+      const sepIdx = rest.indexOf(':');
+      const section = rest.slice(0, sepIdx) as FileSection;
+      const dirPath = rest.slice(sepIdx + 1);
+      const files = collectFilesUnderDir(dirPath, section);
+      const staged = section === 'staged' ? files : [];
+      const unstaged = section === 'unstaged' ? files : [];
+      const untracked = section === 'untracked' ? files : [];
+      discardFiles(staged, unstaged, untracked);
+      return;
+    }
     const colonIdx = actionId.indexOf(':');
     if (colonIdx < 0) return;
     const pattern = actionId.slice(colonIdx + 1);
@@ -328,7 +366,7 @@
                       class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
                       style="padding-left: {12 + entry.depth * 12}px"
                       onclick={() => toggleDir(entry.path)}
-                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path, 'staged')}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -339,7 +377,7 @@
                       class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                       style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
                       onclick={() => handleFileClick(entry.path, 'staged')}
-                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path, 'staged')}
                       role="option"
                       aria-selected={isSelected(entry.path, 'staged')}
                     >
@@ -380,7 +418,7 @@
                       class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
                       style="padding-left: {12 + entry.depth * 12}px"
                       onclick={() => toggleDir(entry.path)}
-                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path, 'unstaged')}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -391,7 +429,7 @@
                       class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                       style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
                       onclick={() => handleFileClick(entry.path, 'unstaged')}
-                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path, 'unstaged')}
                       role="option"
                       aria-selected={isSelected(entry.path, 'unstaged')}
                     >
@@ -432,7 +470,7 @@
                       class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
                       style="padding-left: {12 + entry.depth * 12}px"
                       onclick={() => toggleDir(entry.path)}
-                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleDirContextMenu(e, entry.path, 'untracked')}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -443,7 +481,7 @@
                       class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                       style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
                       onclick={() => handleFileClick(entry.path, 'untracked')}
-                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path)}
+                      oncontextmenu={(e) => handleFileContextMenu(e, entry.path, 'untracked')}
                       role="option"
                       aria-selected={isSelected(entry.path, 'untracked')}
                     >
@@ -487,7 +525,7 @@
                   <li
                     class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                     onclick={() => handleFileClick(file.path, 'staged')}
-                    oncontextmenu={(e) => handleFileContextMenu(e, file.path)}
+                    oncontextmenu={(e) => handleFileContextMenu(e, file.path, 'staged')}
                     role="option"
                     aria-selected={isSelected(file.path, 'staged')}
                   >
@@ -525,7 +563,7 @@
                   <li
                     class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                     onclick={() => handleFileClick(file.path, 'unstaged')}
-                    oncontextmenu={(e) => handleFileContextMenu(e, file.path)}
+                    oncontextmenu={(e) => handleFileContextMenu(e, file.path, 'unstaged')}
                     role="option"
                     aria-selected={isSelected(file.path, 'unstaged')}
                   >
@@ -563,7 +601,7 @@
                   <li
                     class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
                     onclick={() => handleFileClick(file, 'untracked')}
-                    oncontextmenu={(e) => handleFileContextMenu(e, file)}
+                    oncontextmenu={(e) => handleFileContextMenu(e, file, 'untracked')}
                     role="option"
                     aria-selected={isSelected(file, 'untracked')}
                   >
@@ -712,13 +750,18 @@
     onclick={(e) => e.stopPropagation()}
   >
     {#each contextMenu.items as item}
-      <button
-        type="button"
-        class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors text-popover-foreground hover:bg-accent cursor-pointer"
-        onclick={() => executeMenuAction(item.id)}
-      >
-        {item.label}
-      </button>
+      {#if item === 'separator'}
+        <div class="my-1 h-px bg-border"></div>
+      {:else}
+        <button
+          type="button"
+          class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors cursor-pointer
+            {item.danger ? 'text-destructive hover:bg-destructive/10' : 'text-popover-foreground hover:bg-accent'}"
+          onclick={() => executeMenuAction(item.id)}
+        >
+          {item.label}
+        </button>
+      {/if}
     {/each}
   </div>
 {/if}

@@ -41,6 +41,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/staging/stage-all", post(staging::stage_all))
         .route("/staging/unstage-all", post(staging::unstage_all))
         .route("/staging/discard-all", post(staging::discard_all))
+        .route("/staging/discard-files", post(staging::discard_files))
         .route("/staging/gitignore", post(staging::add_to_gitignore))
         // Branch
         .route("/branch/list", post(branch::list_branches))

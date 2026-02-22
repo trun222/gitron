@@ -353,6 +353,22 @@ export async function addToGitignore(pattern: string) {
   }
 }
 
+export async function discardFiles(
+  staged: string[],
+  unstaged: string[],
+  untracked: string[],
+) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.discardFiles(path, staged, unstaged, untracked);
+    repoStatus.set(status);
+    clearFileSelection();
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function discardAllChanges() {
   const path = get(repoPath);
   if (!path) return;

@@ -23,6 +23,7 @@ const COMMAND_MAP: Record<string, string> = {
   stage_all: '/api/staging/stage-all',
   unstage_all: '/api/staging/unstage-all',
   discard_all_changes: '/api/staging/discard-all',
+  discard_files: '/api/staging/discard-files',
   add_to_gitignore: '/api/staging/gitignore',
   // Branch
   list_branches: '/api/branch/list',

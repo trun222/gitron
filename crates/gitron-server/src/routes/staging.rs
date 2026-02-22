@@ -78,6 +78,26 @@ pub async fn discard_all(
 }
 
 #[derive(Deserialize)]
+pub struct DiscardFilesRequest {
+    path: String,
+    #[serde(default)]
+    staged: Vec<String>,
+    #[serde(default)]
+    unstaged: Vec<String>,
+    #[serde(default)]
+    untracked: Vec<String>,
+}
+
+pub async fn discard_files(
+    Json(req): Json<DiscardFilesRequest>,
+) -> Result<Json<RepoStatus>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    repository::discard_files(&repo, &req.staged, &req.unstaged, &req.untracked).map_err(err)?;
+    let status = repository::get_status(&repo).map_err(err)?;
+    Ok(Json(status))
+}
+
+#[derive(Deserialize)]
 pub struct GitignoreRequest {
     path: String,
     pattern: String,

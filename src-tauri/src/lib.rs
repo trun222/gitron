@@ -35,6 +35,7 @@ pub fn run() {
             staging::stage_all,
             staging::unstage_all,
             staging::discard_all_changes,
+            staging::discard_files,
             staging::add_to_gitignore,
             branch::list_branches,
             branch::create_branch,

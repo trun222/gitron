@@ -424,6 +424,57 @@ pub fn discard_all_changes(repo: &Repository) -> GitResult<()> {
     Ok(())
 }
 
+/// Discard changes for specific files.
+///
+/// - `staged`: files to unstage and restore to HEAD
+/// - `unstaged`: tracked files to restore from index (git checkout --)
+/// - `untracked`: files to delete (git clean)
+pub fn discard_files(
+    repo: &Repository,
+    staged: &[String],
+    unstaged: &[String],
+    untracked: &[String],
+) -> GitResult<()> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?
+        .to_string_lossy()
+        .to_string();
+
+    // Unstage and restore staged files
+    if !staged.is_empty() {
+        let head = repo.head()?.peel_to_commit()?;
+        let refs: Vec<&str> = staged.iter().map(|s| s.as_str()).collect();
+        repo.reset_default(Some(&head.into_object()), &refs)?;
+
+        let mut args = vec!["checkout", "HEAD", "--"];
+        for p in staged {
+            args.push(p.as_str());
+        }
+        super::cli::run_git(&workdir, &args)?;
+    }
+
+    // Restore unstaged tracked files from index
+    if !unstaged.is_empty() {
+        let mut args = vec!["checkout", "--"];
+        for p in unstaged {
+            args.push(p.as_str());
+        }
+        super::cli::run_git(&workdir, &args)?;
+    }
+
+    // Remove untracked files
+    if !untracked.is_empty() {
+        let mut args = vec!["clean", "-fd", "--"];
+        for p in untracked {
+            args.push(p.as_str());
+        }
+        super::cli::run_git(&workdir, &args)?;
+    }
+
+    Ok(())
+}
+
 /// Create a tag at a specific commit
 pub fn create_tag(repo: &Repository, name: &str, target_oid: &str, message: Option<&str>) -> GitResult<Tag> {
     let oid = git2::Oid::from_str(target_oid)

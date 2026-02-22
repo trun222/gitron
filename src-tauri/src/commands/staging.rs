@@ -48,6 +48,19 @@ pub fn discard_all_changes(path: String) -> Result<RepoStatus, GitError> {
     repository::get_status(&repo)
 }
 
+/// Discard changes for specific files
+#[tauri::command]
+pub fn discard_files(
+    path: String,
+    staged: Vec<String>,
+    unstaged: Vec<String>,
+    untracked: Vec<String>,
+) -> Result<RepoStatus, GitError> {
+    let repo = repository::open(&path)?;
+    repository::discard_files(&repo, &staged, &unstaged, &untracked)?;
+    repository::get_status(&repo)
+}
+
 /// Add a pattern to .gitignore
 #[tauri::command]
 pub fn add_to_gitignore(path: String, pattern: String) -> Result<RepoStatus, GitError> {
