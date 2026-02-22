@@ -15,27 +15,28 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/git/types.rs` | All data types (Commit, Branch, FileDiff, RepoStatus, etc.) |
-| `src-tauri/src/git/error.rs` | GitError enum and GitResult type alias |
-| `src-tauri/src/git/repository.rs` | Repo open, status, staging, branch CRUD, checkout, rebase, merge |
-| `src-tauri/src/git/graph.rs` | Commit graph building (revwalk, branch/tag collection) |
-| `src-tauri/src/git/diff.rs` | Diff computation (workdir, staged, per-file) |
-| `src-tauri/src/git/cli.rs` | Git CLI bridge: `run_git_raw`, `run_git`, `run_git_async`, `run_git_async_with_github_auth` |
-| `src-tauri/src/git/mod.rs` | Module declarations |
+| `crates/gitron-core/src/git/types.rs` | All data types (Commit, Branch, FileDiff, RepoStatus, etc.) |
+| `crates/gitron-core/src/git/error.rs` | GitError enum and GitResult type alias |
+| `crates/gitron-core/src/git/repository.rs` | Repo open, status, staging, branch CRUD, checkout, rebase, merge |
+| `crates/gitron-core/src/git/graph.rs` | Commit graph building (revwalk, branch/tag collection) |
+| `crates/gitron-core/src/git/diff.rs` | Diff computation (workdir, staged, per-file) |
+| `crates/gitron-core/src/git/cli.rs` | Git CLI bridge: `run_git_raw`, `run_git`, `run_git_async`, `run_git_async_with_github_auth` |
+| `crates/gitron-core/src/git/remote.rs` | Remote operations: fetch, push, pull, tracking status |
+| `crates/gitron-core/src/git/mod.rs` | Module declarations |
 
 **Key dependencies**: `git2` crate (v0.19), `chrono`, `serde`
 
 **Rules**:
-- All git logic lives in `src-tauri/src/git/`. Never in `commands/`.
+- All git logic lives in `crates/gitron-core/src/git/`. Never in `commands/` or `routes/`.
 - Functions return `GitResult<T>`.
 - Use `Repository::discover()` to open repos (walks up to find `.git`).
 - Hot path (graph, diff, status) uses git2-rs. Complex ops (rebase, merge) use git CLI via `cli::run_git_raw`.
 
 ---
 
-## Specialist: Tauri IPC / Commands
+## Specialist: Tauri Desktop App
 
-**Trigger keywords**: command, invoke, IPC, Tauri command, handler, register command, generate_handler
+**Trigger keywords**: Tauri, desktop, native, IPC, invoke, command, handler, register command, generate_handler, tauri_impls, TauriCredentialStore, TauriEventEmitter
 
 **Read first**:
 - `docs/TECHNICAL_SPEC.md` — Section 3 (IPC Command Reference)
@@ -44,47 +45,102 @@ This file maps topics, prompts, and areas of work to the specific files and docu
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]` |
-| `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct (not yet wired) |
-| `src-tauri/src/commands/repo.rs` | open_repo, get_status, get_repo_info |
+| `src-tauri/src/lib.rs` | Command registration in `generate_handler![]`, credential store init |
+| `src-tauri/src/tauri_impls.rs` | `TauriCredentialStore` (tauri-plugin-store), `TauriEventEmitter` (AppHandle::emit) |
+| `src-tauri/src/commands/mod.rs` | Module declarations, AppState struct |
+| `src-tauri/src/commands/repo.rs` | open_repo, close_repo, get_status, get_repo_info, set_watcher_interval |
 | `src-tauri/src/commands/graph.rs` | get_commit_graph, get_commit_detail |
 | `src-tauri/src/commands/diff.rs` | get_workdir_diff, get_file_diff, get_staged_file_diff |
-| `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_files, stage_all, unstage_all |
+| `src-tauri/src/commands/staging.rs` | stage_file, unstage_file, stage_files, stage_all, unstage_all, discard_all_changes |
 | `src-tauri/src/commands/branch.rs` | list_branches, create_branch, checkout_branch, delete_branch, reset_to_commit, rebase_onto, merge_into |
 | `src-tauri/src/commands/commit.rs` | create_commit |
+| `src-tauri/src/commands/stash.rs` | apply_stash, pop_stash, drop_stash |
+| `src-tauri/src/commands/remote.rs` | list_remotes, add/remove_remote, fetch, push, pull, tracking, delete_remote_branch, checkout_remote_branch |
+| `src-tauri/src/commands/tag.rs` | create_tag, delete_tag, push_tag, delete_remote_tag, list_remote_tags |
+| `src-tauri/src/commands/clone.rs` | clone_repo |
 | `src-tauri/src/commands/ai.rs` | AI commands: get_providers, save/delete key, fetch_models, generate, settings |
+| `src-tauri/src/commands/github.rs` | GitHub: check_auth, device flow, logout, user, repos |
+| `src-tauri/tauri.conf.json` | App config (window, build commands, bundle) |
 
 **Rules**:
-- Commands are thin — delegate ALL logic to `git/` module.
+- Commands are thin — delegate ALL logic to `gitron_core::` modules.
 - Every command takes `path: String` as first param (stateless, opens repo per call).
 - Mutation commands return updated state (e.g., stage_file returns RepoStatus).
 - New commands MUST be added to `generate_handler![]` in `lib.rs`.
 - Rust `snake_case` params auto-convert to frontend `camelCase`.
+- **PARITY**: Every new Tauri command must also be added as a server route in `crates/gitron-server/src/routes/`.
 
 ---
 
-## Specialist: Frontend API & Types
+## Specialist: Axum Web Server
 
-**Trigger keywords**: TypeScript types, invoke binding, API call, frontend types, type mirror, data contract, settings, persistence
+**Trigger keywords**: server, web, HTTP, Axum, REST, API endpoint, SSE, events, FileCredentialStore, SseBroadcaster, bearer token, self-hosted, Docker
 
 **Read first**:
-- `docs/TECHNICAL_SPEC.md` — Section 6 (Data Types Contract)
-- `docs/DEVELOPER_GUIDE.md` — Section 7 (Adding a New IPC Command), Step 5-6
+- `CLAUDE.md` — Dual-Mode Parity rules
 
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types + frontend-only types (RecentRepo, GraphColumnWidths, AppSettings, AI types) |
-| `src/lib/api/repo.ts` | Git `invoke()` calls |
-| `src/lib/api/ai.ts` | AI `invoke()` calls (providers, keys, model fetching, generation, settings) |
-| `src/lib/api/settings.ts` | Persistent settings via `tauri-plugin-store` (recent repos, column widths, last active repo) |
+| `crates/gitron-server/src/main.rs` | CLI (--port, --host, --token, --frontend-dir, --repo), ServerState, middleware, static file serving |
+| `crates/gitron-server/src/routes/mod.rs` | All API routes registered (50+ POST + GET endpoints) |
+| `crates/gitron-server/src/routes/repo.rs` | open_repo, close_repo, get_status, get_repo_info |
+| `crates/gitron-server/src/routes/graph.rs` | get_commit_graph, get_commit_detail |
+| `crates/gitron-server/src/routes/diff.rs` | get_workdir_diff, get_file_diff, get_staged_file_diff |
+| `crates/gitron-server/src/routes/staging.rs` | stage, unstage, stage-many, stage-all, unstage-all, discard-all |
+| `crates/gitron-server/src/routes/branch.rs` | list, create, checkout, delete, reset, rebase, merge |
+| `crates/gitron-server/src/routes/commit.rs` | create_commit |
+| `crates/gitron-server/src/routes/stash.rs` | apply, pop, drop |
+| `crates/gitron-server/src/routes/remote.rs` | list, add, remove, tracking, fetch, fetch-all, push, pull, delete-branch, checkout |
+| `crates/gitron-server/src/routes/tag.rs` | create, delete, push, delete-remote, list-remote |
+| `crates/gitron-server/src/routes/clone.rs` | clone_repo |
+| `crates/gitron-server/src/routes/ai.rs` | providers, save/delete key, fetch models, generate, settings |
+| `crates/gitron-server/src/routes/github.rs` | check-auth, start-flow, poll-flow, logout, user, repos |
+| `crates/gitron-server/src/routes/fs.rs` | Directory browser for web mode |
+| `crates/gitron-server/src/routes/settings.rs` | Server-side app settings (GET/POST) |
+| `crates/gitron-server/src/sse.rs` | `SseBroadcaster` — implements `EventEmitter`, uses `tokio::sync::broadcast` for SSE |
+| `crates/gitron-server/src/file_store.rs` | `FileCredentialStore` — file-based credentials in `~/.config/gitron/credentials.json` |
+| `crates/gitron-server/src/auth.rs` | Bearer token auth middleware for `/api/*` routes |
 
 **Rules**:
-- Types in `types.ts` MUST match their Rust counterparts (`git/types.rs` and `ai/types.rs`). Manual sync.
+- Route handlers are thin — delegate ALL logic to `gitron_core::` modules.
+- Request structs must use `#[serde(rename = "camelCase")]` for multi-word fields (no Tauri auto-conversion in HTTP mode).
+- When the frontend sends `{ wrapper: data }`, the handler must accept a struct with a `wrapper` field — not the raw inner type.
+- AI settings persist to `~/.config/gitron/ai_settings.json`. App settings to `~/.config/gitron/settings.json`.
+- **PARITY**: Every new server route must also be added as a Tauri command in `src-tauri/src/commands/`.
+
+---
+
+## Specialist: Frontend Transport & API
+
+**Trigger keywords**: transport, invoke, API call, HTTP, SSE, EventSource, isTauri, COMMAND_MAP, TypeScript types, type mirror, data contract, settings, persistence, localStorage
+
+**Read first**:
+- `CLAUDE.md` — Dual-Mode Parity rules and Frontend Conventions
+- `docs/TECHNICAL_SPEC.md` — Section 6 (Data Types Contract)
+
+**Core files**:
+| File | Responsibility |
+|------|---------------|
+| `src/lib/api/transport.ts` | `Transport` interface + `isTauri()` runtime detection |
+| `src/lib/api/transport-tauri.ts` | `TauriTransport` — dynamic imports of `@tauri-apps/*` for invoke, listen, openUrl, pickDirectory |
+| `src/lib/api/transport-http.ts` | `HttpTransport` — fetch + COMMAND_MAP (command→endpoint), EventSource for SSE, window.open for URLs |
+| `src/lib/api/index.ts` | `getTransport()` singleton — returns TauriTransport or HttpTransport based on runtime |
+| `src/lib/api/types.ts` | TypeScript mirrors of all Rust types + frontend-only types (RecentRepo, GraphColumnWidths, AppSettings, AI types) |
+| `src/lib/api/repo.ts` | Git API calls via `getTransport().invoke()` |
+| `src/lib/api/ai.ts` | AI API calls via `getTransport().invoke()` |
+| `src/lib/api/github.ts` | GitHub API calls via `getTransport().invoke()` |
+| `src/lib/api/settings.ts` | `TauriSettingsStore` (tauri-plugin-store) / `WebSettingsStore` (localStorage with `gitron:` prefix) |
+| `src/lib/components/ui/dialog/DirectoryBrowser.svelte` | Web-mode directory picker (calls `/api/fs/list`, dispatched via `gitron:pick-directory` custom event) |
+
+**Rules**:
+- Types in `types.ts` MUST match their Rust counterparts (`gitron-core` types). Manual sync.
 - Rust `Option<T>` → TypeScript `T | null`
 - Rust enums → TypeScript string literal unions (e.g., `'Added' | 'Modified' | ...`)
-- Only `repo.ts` and `ai.ts` call `invoke()`. Components and stores NEVER import from `@tauri-apps/api/core`.
-- Settings persistence uses `@tauri-apps/plugin-store` (LazyStore), NOT `invoke()`.
+- **NEVER** import `@tauri-apps/*` in components, stores, or API files. The only allowed locations are `transport-tauri.ts` and `TauriSettingsStore` in `settings.ts`.
+- All API files use `getTransport().invoke('command_name', { args })`.
+- Settings persistence: Tauri mode uses `tauri-plugin-store` (LazyStore on `settings.json`). Web mode uses `localStorage` with `gitron:` key prefix.
+- **PARITY**: When adding a new command, you must add it to COMMAND_MAP in `transport-http.ts` AND to the server routes. If it's a GET command, add it to the `GET_COMMANDS` set.
 
 ---
 
@@ -232,10 +288,14 @@ Git status: --color-git-added, --color-git-modified, --color-git-deleted (+ -bg,
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/watcher/handler.rs` | Watcher setup, event debouncing, event classification |
-| `src-tauri/src/watcher/mod.rs` | Module declaration |
-| `src-tauri/src/cache/repo_state.rs` | In-memory cache updated by watcher |
-| `src-tauri/src/cache/mod.rs` | Module declaration |
+| `crates/gitron-core/src/watcher/handler.rs` | Watcher setup, event debouncing, event classification |
+| `crates/gitron-core/src/watcher/manager.rs` | WatcherManager lifecycle, uses `Arc<dyn EventEmitter>` |
+| `crates/gitron-core/src/watcher/mod.rs` | Module declaration |
+| `crates/gitron-core/src/cache/repo_state.rs` | In-memory cache updated by watcher |
+| `crates/gitron-core/src/cache/mod.rs` | Module declaration |
+| `crates/gitron-core/src/event.rs` | `EventEmitter` trait (emit_status_changed, emit_refs_changed) |
+| `src-tauri/src/tauri_impls.rs` | `TauriEventEmitter` — emits Tauri events via AppHandle |
+| `crates/gitron-server/src/sse.rs` | `SseBroadcaster` — emits SSE events via broadcast channel |
 
 **How it works**:
 1. `notify-rs` watches the repo directory recursively
@@ -282,13 +342,14 @@ Git status: --color-git-added, --color-git-modified, --color-git-deleted (+ -bg,
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/src/ai/mod.rs` | Module declarations |
-| `src-tauri/src/ai/error.rs` | `AIError` enum (thiserror, Serialize) and `AIResult<T>` type alias |
-| `src-tauri/src/ai/credential.rs` | API key storage via `crate::credential_store` (OS keychain). Functions: `store_key`, `get_key`, `delete_key`, `has_key` |
-| `src-tauri/src/ai/types.rs` | `AIProvider`, `AIModel`, `GenerateResult`, `AISettings` structs |
-| `src-tauri/src/ai/providers.rs` | Provider definitions (OpenAI, Anthropic, Gemini, OpenRouter), fallback models, default base URLs, dynamic model fetching from provider APIs |
-| `src-tauri/src/ai/generate.rs` | Builds prompt from staged diffs, calls provider APIs (OpenAI, Anthropic, Gemini, OpenRouter), parses response into title + body |
-| `src-tauri/src/commands/ai.rs` | 7 Tauri commands: `ai_get_providers`, `ai_save_key`, `ai_delete_key`, `ai_fetch_models`, `ai_generate_commit_message`, `ai_get_settings`, `ai_save_settings` |
+| `crates/gitron-core/src/ai/mod.rs` | Module declarations |
+| `crates/gitron-core/src/ai/error.rs` | `AIError` enum (thiserror, Serialize) and `AIResult<T>` type alias |
+| `crates/gitron-core/src/ai/credential.rs` | API key storage via `crate::credential` trait. Functions: `store_key`, `get_key`, `delete_key`, `has_key` |
+| `crates/gitron-core/src/ai/types.rs` | `AIProvider`, `AIModel`, `GenerateResult`, `AISettings` structs |
+| `crates/gitron-core/src/ai/providers.rs` | Provider definitions (OpenAI, Anthropic, Gemini, OpenRouter), fallback models, default base URLs, dynamic model fetching from provider APIs |
+| `crates/gitron-core/src/ai/generate.rs` | Builds prompt from staged diffs, calls provider APIs (OpenAI, Anthropic, Gemini, OpenRouter), parses response into title + body |
+| `src-tauri/src/commands/ai.rs` | 7 Tauri commands (thin wrappers around gitron-core) |
+| `crates/gitron-server/src/routes/ai.rs` | 7 HTTP endpoints (mirrors Tauri commands) |
 | `src/lib/api/ai.ts` | Tauri invoke wrappers for all AI commands |
 | `src/lib/api/types.ts` | TypeScript mirrors: `AIProvider`, `AIModel`, `GenerateResult`, `AISettings` |
 | `src/lib/stores/ai.ts` | AI state stores + actions: providers, settings, generating state, model fetching, commit generation |
@@ -340,52 +401,76 @@ Git status: --color-git-added, --color-git-modified, --color-git-deleted (+ -bg,
 
 ## Specialist: Build / Configuration / Deployment
 
-**Trigger keywords**: build, compile, Cargo.toml, package.json, tauri.conf.json, release, bundle, icon, install, deploy, CI/CD
+**Trigger keywords**: build, compile, Cargo.toml, package.json, tauri.conf.json, release, bundle, icon, install, deploy, CI/CD, Docker, server binary
 
 **Core files**:
 | File | Responsibility |
 |------|---------------|
-| `src-tauri/Cargo.toml` | Rust dependencies and crate config |
+| `Cargo.toml` | Workspace root — members, shared dependency versions |
+| `crates/gitron-core/Cargo.toml` | Core crate dependencies |
+| `src-tauri/Cargo.toml` | Tauri app dependencies (depends on gitron-core) |
+| `crates/gitron-server/Cargo.toml` | Server dependencies (depends on gitron-core) |
 | `src-tauri/tauri.conf.json` | Tauri app config (window, build commands, bundle) |
 | `src-tauri/capabilities/default.json` | Tauri capability grants (core, opener, dialog, store) |
 | `package.json` | Frontend dependencies and scripts |
 | `svelte.config.js` | SvelteKit config (adapter-static, SPA fallback) |
 | `vite.config.js` | Vite config (dev server port 1420, TailwindCSS plugin, Tauri HMR) |
-| `components.json` | shadcn-svelte config (style, baseColor, aliases) |
-| `tsconfig.json` | TypeScript config |
-| `.gitignore` | Ignored files |
+| `Dockerfile` | Multi-stage build (Node frontend + Rust server + Debian runtime) |
+| `.github/workflows/ci.yml` | CI: frontend check, Tauri build (4 targets), server build |
+| `.github/workflows/release.yml` | Release: Tauri installers + server binaries (4 targets) |
 
 **Commands**:
 ```bash
-npm run tauri dev     # Development mode (hot reload frontend, recompile Rust)
-npm run tauri build   # Production build
-cargo check           # Type-check Rust only
-npm run check         # Type-check frontend only
+pnpm dev              # Desktop mode (Tauri + Vite dev server)
+pnpm server:dev       # Web mode (build frontend + Axum server at :9417)
+pnpm build            # Build frontend only
+pnpm build:server     # Build server binary only
+cargo check           # Type-check Rust workspace
+pnpm check            # Type-check frontend only
 ```
 
 ---
 
 ## Cross-Cutting Concerns
 
-### When adding a new domain (e.g., stash, remote, tag management):
-1. Read `docs/DEVELOPER_GUIDE.md` Section 6 — full walkthrough
-2. Touch files in this order: `git/types.rs` → `git/*.rs` → `commands/*.rs` → `lib.rs` → `api/types.ts` → `api/repo.ts` → `stores/repo.ts` → `components/*.svelte`
+### When adding a new feature or command (PARITY CHECKLIST):
+
+Every new backend feature must work in BOTH Tauri and web mode. Follow this order:
+
+1. **Core logic** → `crates/gitron-core/src/` (types, git logic, AI logic, etc.)
+2. **Tauri command** → `src-tauri/src/commands/*.rs` + register in `lib.rs`
+3. **Server route** → `crates/gitron-server/src/routes/*.rs` + register in `routes/mod.rs`
+4. **TypeScript types** → `src/lib/api/types.ts`
+5. **API function** → `src/lib/api/repo.ts` (or `ai.ts` / `github.ts`) using `getTransport().invoke()`
+6. **COMMAND_MAP** → Add entry in `src/lib/api/transport-http.ts` mapping command name to `/api/*` endpoint
+7. **Store** → `src/lib/stores/*.ts`
+8. **Component** → `src/lib/components/`
+9. **Test both** → `pnpm dev` (Tauri) AND `pnpm server:dev` (web)
+
+### When adding a new real-time event:
+1. Define payload type in `gitron-core` types
+2. Add method to `EventEmitter` trait in `crates/gitron-core/src/event.rs`
+3. Implement in `TauriEventEmitter` (`src-tauri/src/tauri_impls.rs`)
+4. Implement in `SseBroadcaster` (`crates/gitron-server/src/sse.rs`)
+5. Add listener in `src/lib/stores/watcher.ts` using `getTransport().listen()`
 
 ### When working on AI / commit generation:
 1. Read the "Specialist: AI Commit Generation" section above
 2. Provider-specific logic lives in `ai/providers.rs` (model fetching) and `ai/generate.rs` (API calls)
 3. Adding a new provider: `providers.rs` PROVIDERS array → `providers.rs` fetch function → `generate.rs` match arm → frontend will auto-discover via `ai_get_providers`
 
-### When debugging IPC issues:
-1. Read `docs/TECHNICAL_SPEC.md` Section 3 — command reference
-2. Check `lib.rs` — is the command registered?
-3. Check parameter naming — Rust `snake_case` ↔ frontend `camelCase`
-4. Check error serialization — `GitError` implements `Serialize`
+### When debugging IPC / API issues:
+1. **Tauri mode**: Check `lib.rs` — is the command registered in `generate_handler![]`?
+2. **Web mode**: Check `routes/mod.rs` — is the route registered? Check `transport-http.ts` — is the command in COMMAND_MAP?
+3. Check parameter naming — Tauri auto-converts camelCase↔snake_case, but HTTP does NOT. Server structs need `#[serde(rename = "camelCase")]`.
+4. Check wrapper structs — if frontend sends `{ settings: data }`, server handler must accept a struct with a `settings` field.
+5. Check error serialization — `GitError` implements `Serialize`
 
 ### When modifying the UI layout:
 1. Read `docs/DEVELOPER_GUIDE.md` Section 8 — component conventions
 2. Read `docs/TECHNICAL_SPEC.md` Section 10 — graph rendering approach
 3. Use design tokens from `app.css`. Never hard-code colors.
+4. Use `isTauri()` from `$lib/api` for platform-specific UI (e.g., zoom uses Tauri API vs CSS transform)
 
 ### When working on performance:
 1. Read `docs/TECHNICAL_SPEC.md` Section 12 (Concurrency) and the Performance Considerations in `docs/ARCHITECTURE.md`

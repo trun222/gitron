@@ -29,6 +29,7 @@ pub struct AISettings {
     /// Remembers the last selected model per provider so switching back restores it.
     #[serde(default)]
     pub selected_models: HashMap<String, String>,
+    #[serde(default)]
     pub custom_base_urls: HashMap<String, String>,
     /// Max output tokens for AI generation. Default: 1500.
     #[serde(default = "default_max_tokens")]
