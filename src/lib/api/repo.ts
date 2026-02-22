@@ -69,6 +69,10 @@ export async function getCommitDetail(path: string, oid: string) {
   return getTransport().invoke('get_commit_detail', { path, oid });
 }
 
+export async function getCommitDiff(path: string, oid: string): Promise<FileDiff[]> {
+  return getTransport().invoke('get_commit_diff', { path, oid });
+}
+
 export async function getWorkdirDiff(path: string): Promise<FileDiff[]> {
   return getTransport().invoke('get_workdir_diff', { path });
 }

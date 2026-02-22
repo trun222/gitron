@@ -24,8 +24,7 @@ RUN rm -rf src-tauri/src
 
 # Stage 3: Runtime
 FROM debian:trixie-slim
-RUN apt-get update && apt-get install -y ca-certificates libssl3 git && rm -rf /var/lib/apt/lists/* \
-    && git config --global safe.directory '*'
+RUN apt-get update && apt-get install -y ca-certificates libssl3 git && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/gitron-server /usr/local/bin/gitron-server
 COPY --from=frontend /app/build /app/frontend
 

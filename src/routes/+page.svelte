@@ -4,7 +4,7 @@
   import CommitGraph from '$lib/components/graph/CommitGraph.svelte';
   import CommitDetail from '$lib/components/graph/CommitDetail.svelte';
   import FilePreview from '$lib/components/diff/FilePreview.svelte';
-  import { hasRepo, selectedCommit, isFileSelected, openRepo } from '$lib/stores/repo';
+  import { hasRepo, selectedCommit, isFileSelected, isCommitFileSelected, openRepo, clearCommitFileSelection } from '$lib/stores/repo';
   import { loadSettings, lastActiveRepo } from '$lib/stores/settings';
   import { openCloneDialog } from '$lib/stores/clone';
   import { get } from 'svelte/store';
@@ -22,6 +22,8 @@
   {#if $hasRepo}
     {#if $isFileSelected}
       <FilePreview />
+    {:else if $isCommitFileSelected}
+      <FilePreview onClose={clearCommitFileSelection} />
     {:else}
       <CommitGraph />
       {#if $selectedCommit}

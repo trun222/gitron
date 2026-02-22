@@ -2,6 +2,7 @@
   import {
     selectedFileDiff,
     selectedFile,
+    selectedCommitFile,
     clearFileSelection,
     selectNextFile,
     selectPrevFile,
@@ -12,6 +13,18 @@
   import type { Highlighter } from 'shiki';
   import type { DiffLineType, FileStatusType } from '$lib/api/types';
 
+  let { onClose }: { onClose?: () => void } = $props();
+
+  function handleClose() {
+    if (onClose) {
+      onClose();
+    } else {
+      clearFileSelection();
+    }
+  }
+
+  let displayPath = $derived($selectedFile?.path ?? $selectedCommitFile ?? '');
+
   let highlighter: Highlighter | null = $state(null);
 
   getHighlighter().then((h) => {
@@ -19,7 +32,7 @@
   });
 
   let language = $derived(
-    $selectedFile ? detectLanguage($selectedFile.path) : 'text',
+    displayPath ? detectLanguage(displayPath) : 'text',
   );
 
   function statusColor(status: FileStatusType): string {
@@ -89,7 +102,7 @@
       selectPrevFile();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      clearFileSelection();
+      handleClose();
     } else if (e.key === 's' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       stageSelectedFile();
@@ -117,10 +130,12 @@
         <span class="text-sm font-mono truncate">{$selectedFileDiff.path}</span>
         {#if $selectedFile}
           <span class="text-[10px] text-muted-foreground/60 uppercase">{$selectedFile.section}</span>
+        {:else if $selectedCommitFile}
+          <span class="text-[10px] text-muted-foreground/60 uppercase">commit</span>
         {/if}
       </div>
       <button
-        onclick={clearFileSelection}
+        onclick={handleClose}
         class="text-muted-foreground hover:text-foreground p-1 shrink-0 cursor-pointer"
         aria-label="Close file preview"
       >

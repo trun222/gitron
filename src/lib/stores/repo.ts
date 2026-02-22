@@ -52,6 +52,10 @@ export const commitSearchMatchOids = writable<Set<string>>(new Set());
 export const commitSearchLoading = writable<boolean>(false);
 export const commitSearchDiffs = writable<boolean>(false);
 
+// Commit file inspection state
+export const commitFiles = writable<FileDiff[] | null>(null);
+export const selectedCommitFile = writable<string | null>(null);
+
 // Discard all confirmation
 export const discardConfirmOpen = writable(false);
 
@@ -80,6 +84,7 @@ export const branchConflictPrompt = writable<BranchConflictInfo | null>(null);
 // Derived stores
 export const hasRepo = derived(repoInfo, ($info) => $info !== null);
 export const isFileSelected = derived(selectedFile, ($f) => $f !== null);
+export const isCommitFileSelected = derived(selectedCommitFile, ($f) => $f !== null);
 export const currentBranch = derived(repoInfo, ($info) => $info?.head_branch ?? null);
 export const localBranches = derived(commitGraph, ($graph) =>
   $graph?.branches.filter((b) => !b.is_remote) ?? []
@@ -144,6 +149,8 @@ export async function closeRepo() {
   selectedCommit.set(null);
   selectedFileDiff.set(null);
   selectedFile.set(null);
+  commitFiles.set(null);
+  selectedCommitFile.set(null);
   remotes.set([]);
   remoteTagNames.set(new Set());
   trackingStatus.set(null);
@@ -221,6 +228,34 @@ export async function unstageAllFiles(path: string) {
 
 export async function selectCommit(commit: Commit) {
   selectedCommit.set(commit);
+  selectedFileDiff.set(null);
+  selectedFile.set(null);
+  selectedCommitFile.set(null);
+  // Fetch files changed in this commit
+  const repoPathVal = get(repoPath);
+  if (repoPathVal) {
+    try {
+      const files = await api.getCommitDiff(repoPathVal, commit.oid);
+      commitFiles.set(files);
+    } catch {
+      commitFiles.set(null);
+    }
+  }
+}
+
+export function selectCommitFile(filePath: string) {
+  const files = get(commitFiles);
+  if (!files) return;
+  const diff = files.find((f) => f.path === filePath);
+  if (diff) {
+    selectedCommitFile.set(filePath);
+    selectedFileDiff.set(diff);
+    selectedFile.set(null);
+  }
+}
+
+export function clearCommitFileSelection() {
+  selectedCommitFile.set(null);
   selectedFileDiff.set(null);
 }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { selectedCommit } from '$lib/stores/repo';
+  import { selectedCommit, commitFiles, selectedCommitFile, selectCommitFile } from '$lib/stores/repo';
+  import type { FileStatusType } from '$lib/api/types';
 
   let expanded = $state(false);
 
@@ -19,6 +20,17 @@
 
   function toggle() {
     expanded = !expanded;
+  }
+
+  function statusBadge(status: FileStatusType): { char: string; cls: string } {
+    switch (status) {
+      case 'Added':
+        return { char: 'A', cls: 'text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]' };
+      case 'Deleted':
+        return { char: 'D', cls: 'text-[var(--color-git-deleted)] bg-[var(--color-git-deleted-bg)]' };
+      default:
+        return { char: 'M', cls: 'text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]' };
+    }
   }
 </script>
 
@@ -80,6 +92,28 @@
             </div>
           {/if}
         </div>
+
+        {#if $commitFiles && $commitFiles.length > 0}
+          <div class="mt-3 border-t border-border/50 pt-2">
+            <h4 class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+              Files changed ({$commitFiles.length})
+            </h4>
+            <div class="flex flex-col">
+              {#each $commitFiles as file (file.path)}
+                {@const badge = statusBadge(file.status)}
+                <button
+                  type="button"
+                  class="flex items-center gap-2 px-1 py-0.5 rounded text-xs font-mono cursor-pointer transition-colors text-left
+                    {$selectedCommitFile === file.path ? 'bg-accent text-foreground' : 'text-secondary-foreground hover:bg-accent/50'}"
+                  onclick={() => selectCommitFile(file.path)}
+                >
+                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 {badge.cls}">{badge.char}</span>
+                  <span class="truncate">{file.path}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
