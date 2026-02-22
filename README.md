@@ -6,6 +6,7 @@
   <p align="center">
     <a href="#installation">Install</a> &middot;
     <a href="#features">Features</a> &middot;
+    <a href="#server-mode">Server Mode</a> &middot;
     <a href="#development">Development</a> &middot;
     <a href="#roadmap">Roadmap</a> &middot;
     <a href="#contributing">Contributing</a>
@@ -20,7 +21,9 @@
 
 Gitron is a fast, cross-platform Git GUI that aims to deliver the polish and depth of GitKraken — for free, as open source. Built on Rust (Tauri v2) for performance and Svelte 5 for a responsive UI, Gitron is designed from the ground up with a plugin architecture and first-class AI agent integration.
 
-> **Status:** Early development (v0.1.0). Core git operations work. Not yet recommended for production use.
+Gitron runs in two modes from the same codebase: as a **native desktop app** (Tauri v2) or as a **self-hosted web server** you can access from any browser.
+
+> **Status:** Active development (v0.2.0). Core git operations, branching, remotes, and AI features work. Desktop and server modes available.
 
 ## Why Gitron?
 
@@ -39,21 +42,29 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 ### What works today
 
 - **Commit graph** — resizable, multi-column commit list with keyboard navigation
-- **Staging panel** — interactive stage/unstage per file with bulk actions
+- **Commit search** — search commits by message, author, or diff content from the command bar
+- **Commit diff viewer** — click any commit to see its changed files in the sidebar, click a file to view its full diff with syntax highlighting and arrow key navigation
+- **Staging panel** — interactive stage/unstage per file with bulk actions, flat or tree view
+- **Discard changes** — discard individual files or directories via context menu
+- **Gitignore management** — right-click files or extensions to add them to `.gitignore`
 - **Commit authoring** — message input with Cmd/Ctrl+Enter to commit
 - **AI commit messages** — generate commit titles and descriptions from staged diffs using OpenAI, Anthropic, Gemini, or OpenRouter
 - **Inline diff viewer** — syntax-highlighted diffs powered by Shiki (Catppuccin Mocha theme)
 - **Branch management** — create, checkout, delete, merge, and rebase branches
+- **Remote operations** — fetch, pull, push, force push, delete remote branches
+- **Stash management** — apply, pop, and drop stashes
+- **Tag management** — create, delete, push tags; remote tag tracking; tags sorted by commit position
+- **GitHub integration** — OAuth device flow login, user profile display
 - **Command palette** — Cmd/Ctrl+K to search repos, branches, and actions
+- **Self-hosted server mode** — run Gitron as a web server accessible from any browser, with Docker support
 - **Settings persistence** — recent repositories, column widths saved between sessions
-- **Keyboard shortcuts** — graph navigation, staging shortcuts, command palette
+- **Keyboard shortcuts** — graph navigation, staging shortcuts, commit file navigation, command palette
 
 ### Planned
 
 - Side-by-side diffs, hunk-level staging
-- Fetch, pull, push
 - Merge conflict resolution editor, interactive rebase, cherry-pick
-- Stash management, tags, git blame, file history
+- Git blame, file history
 - **Plugin system** — extend Gitron with Rust backend plugins and Svelte frontend plugins
 - **Agent Gateway** — MCP server exposing repo state to AI agents with permissioned access
 
@@ -100,6 +111,74 @@ Under the **Advanced** section for each provider:
 - Diffs are sent directly to the provider you select — Gitron does not proxy or store your code
 - Only staged diffs are sent (truncated to ~8,000 characters for large changesets)
 
+## Server Mode
+
+Gitron can run as a self-hosted web server, giving you a full Git GUI accessible from any browser. This is useful for headless servers, remote development machines, or teams that want a shared Git interface without installing a desktop app.
+
+### Quick Start with Docker
+
+```bash
+docker run -d \
+  -p 9417:9417 \
+  -v /path/to/your/repos:/repos \
+  --name gitron \
+  gitron-server
+```
+
+Then open `http://localhost:9417` in your browser.
+
+### Build the Docker Image
+
+```bash
+git clone https://github.com/thomasunderwoodii/gitron.git
+cd gitron
+docker build -t gitron-server .
+```
+
+### Run the Server Binary Directly
+
+If you prefer running without Docker, build and run the server binary:
+
+```bash
+# Build
+cargo build -p gitron-server --release
+pnpm build
+
+# Run (serves the frontend and API on port 9417)
+./target/release/gitron-server --frontend-dir build
+```
+
+### Server Options
+
+```
+gitron-server [OPTIONS]
+
+Options:
+  -p, --port <PORT>                Port to listen on [default: 9417]
+      --host <HOST>                Host to bind to [default: 127.0.0.1]
+      --token <TOKEN>              Authentication token (required when host != localhost)
+      --frontend-dir <PATH>        Path to built frontend files
+      --repo <PATH>                Auto-open a repository on startup
+```
+
+### Authentication
+
+When binding to a non-localhost address (e.g. `--host 0.0.0.0`), the server requires a bearer token for API access. Pass it with `--token`:
+
+```bash
+gitron-server --host 0.0.0.0 --token my-secret-token
+```
+
+The frontend will prompt for the token on first load.
+
+### Credentials and Settings
+
+In server mode, credentials and settings are stored as JSON files in `~/.config/gitron/`:
+
+- `credentials.json` — API keys for AI providers
+- `ai_settings.json` — AI provider configuration
+- `settings.json` — general settings
+
 ## Installation
 
 ### Download (coming soon)
@@ -116,7 +195,7 @@ Building from source works on macOS, Windows, and Linux.
 |------|---------|-------|
 | [Rust](https://www.rust-lang.org/tools/install) | 1.75+ | Install via `rustup` |
 | [Node.js](https://nodejs.org/) | 20+ | LTS recommended |
-| npm | 9+ | Comes with Node.js |
+| [pnpm](https://pnpm.io/) | 9+ | Install via `npm install -g pnpm` |
 | [Git](https://git-scm.com/) | 2.30+ | Required at runtime |
 
 #### macOS
@@ -132,8 +211,8 @@ Then build Gitron:
 ```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
-npm install
-npm run tauri build
+pnpm install
+pnpm tauri build
 ```
 
 The built `.app` and `.dmg` will be in `src-tauri/target/release/bundle/`.
@@ -148,8 +227,8 @@ Then build Gitron:
 ```powershell
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
-npm install
-npm run tauri build
+pnpm install
+pnpm tauri build
 ```
 
 The installer (`.msi` or `.exe`) will be in `src-tauri\target\release\bundle\`.
@@ -186,8 +265,8 @@ Then build Gitron:
 ```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
-npm install
-npm run tauri build
+pnpm install
+pnpm tauri build
 ```
 
 The built packages (`.deb`, `.AppImage`, `.rpm`) will be in `src-tauri/target/release/bundle/`.
@@ -196,35 +275,51 @@ The built packages (`.deb`, `.AppImage`, `.rpm`) will be in `src-tauri/target/re
 
 ### Running in dev mode
 
+**Desktop mode (Tauri):**
+
 ```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
-npm install
-npm run tauri dev
+pnpm install
+pnpm dev
 ```
 
-This will:
-1. Start the Vite dev server for the Svelte frontend (with hot reload)
-2. Compile the Rust backend
-3. Open the Tauri window pointing at the dev server
-4. Watch for Rust changes and recompile automatically
+This starts the Vite dev server, compiles the Rust backend, opens the Tauri window, and watches for changes.
+
+**Server mode (Axum):**
+
+```bash
+pnpm server:dev
+```
+
+This builds the frontend, compiles the Axum server, and serves everything at `http://localhost:9417`.
 
 ### Project structure
 
 ```
 gitron/
-├── src-tauri/               # Rust backend (Tauri v2)
+├── crates/
+│   ├── gitron-core/         # Shared Rust logic (git, AI, GitHub, cache, watcher)
+│   │   └── src/
+│   │       ├── git/         # All git operations (git2-rs)
+│   │       ├── ai/          # AI commit message generation
+│   │       ├── github/      # GitHub OAuth + API
+│   │       ├── cache/       # Repo state cache
+│   │       └── watcher/     # File system watcher (notify-rs)
+│   └── gitron-server/       # Axum web server (thin wrapper over gitron-core)
+│       └── src/
+│           ├── main.rs      # CLI, server setup
+│           └── routes/      # HTTP handlers (mirrors Tauri commands)
+├── src-tauri/               # Tauri desktop app (thin wrapper over gitron-core)
 │   └── src/
 │       ├── lib.rs           # Tauri builder, command registration
-│       ├── commands/        # IPC handlers (thin wrappers, no git logic)
-│       ├── git/             # All git logic (git2-rs)
-│       ├── cache/           # In-memory repo state cache
-│       └── watcher/         # File system watcher (notify-rs)
-├── src/                     # Svelte 5 frontend
+│       └── commands/        # IPC handlers (no git logic)
+├── src/                     # Svelte 5 frontend (shared between both modes)
 │   └── lib/
-│       ├── api/             # Tauri IPC bindings + TypeScript types
+│       ├── api/             # Transport abstraction (Tauri IPC or HTTP)
 │       ├── stores/          # Svelte stores (state management)
 │       └── components/      # UI components
+├── Dockerfile               # Multi-stage build for server mode
 ├── docs/                    # Project documentation
 └── package.json
 ```
@@ -235,31 +330,39 @@ gitron/
 ┌──────────────────────────────────┐
 │         Svelte 5 Frontend        │
 │  (graph, diff, staging, UI)      │
-└──────────────┬───────────────────┘
-               │ Tauri IPC
+└──────┬───────────────┬───────────┘
+       │ Tauri IPC     │ HTTP/SSE
+┌──────▼──────┐  ┌─────▼──────────┐
+│  Tauri App  │  │  Axum Server   │
+│  (desktop)  │  │  (self-hosted) │
+└──────┬──────┘  └─────┬──────────┘
+       └───────┬───────┘
 ┌──────────────▼───────────────────┐
-│          Rust Backend            │
+│        gitron-core (shared)      │
 │  ┌─────────┐  ┌──────────────┐  │
 │  │ git2-rs │  │ File Watcher │  │
-│  │ (core)  │  │  (notify-rs) │  │
+│  │         │  │  (notify-rs) │  │
 │  └─────────┘  └──────────────┘  │
 │  ┌─────────┐  ┌──────────────┐  │
 │  │ git CLI │  │ Repo State   │  │
-│  │ (future)│  │ Cache        │  │
+│  │         │  │ Cache        │  │
 │  └─────────┘  └──────────────┘  │
 └──────────────────────────────────┘
 ```
 
+- **gitron-core** contains all shared logic — both the Tauri app and the Axum server are thin wrappers
 - **git2-rs** handles all hot-path operations (graph traversal, diffs, status, staging, commits, branches) in-process for maximum performance
-- **git CLI** will be used for complex operations (interactive rebase, advanced merge) in later phases
-- **Tauri IPC** bridges the Rust backend and Svelte frontend with typed, serialized commands
-- **Strict module boundaries** — `commands/` contains zero git logic; `git/` contains all git logic; frontend components never call `invoke()` directly (they go through stores and API layers)
+- **git CLI** is used for complex operations (rebase, advanced merge)
+- **Transport abstraction** — the frontend auto-detects Tauri IPC or HTTP and uses the same API surface for both
+- **Strict module boundaries** — command handlers contain zero git logic; `gitron-core` contains all git logic; frontend components never call `invoke()` or `fetch()` directly (they go through stores and API layers)
 
 ### Tech stack
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| Backend | Rust + Tauri v2 | Native performance, ~5-10MB bundle, no Electron |
+| Shared core | Rust (gitron-core) | All git, AI, and GitHub logic in one place |
+| Desktop | Tauri v2 | Native performance, ~5-10MB bundle, no Electron |
+| Web server | Axum | Self-hosted mode, Docker-ready, token auth |
 | Git operations | git2-rs | In-process, zero-overhead git operations |
 | Frontend | Svelte 5 + SvelteKit | Compiles away, minimal runtime, great DX |
 | Styling | TailwindCSS v4 | Utility-first, design tokens via CSS custom properties |
@@ -270,13 +373,14 @@ gitron/
 
 ```bash
 # Development
-npm run tauri dev         # Run in dev mode (frontend + backend)
-npm run dev               # Run frontend only (Vite dev server)
-npm run check             # TypeScript / Svelte type checking
+pnpm dev                  # Desktop mode (Tauri + Vite dev server)
+pnpm server:dev           # Server mode (build frontend + Axum on :9417)
+pnpm check                # TypeScript / Svelte type checking
 
 # Production
-npm run tauri build       # Build release binary + installer
-npm run build             # Build frontend only
+pnpm tauri build          # Build desktop app + installer
+pnpm build                # Build frontend only
+pnpm build:server         # Build server binary only
 ```
 
 ## Roadmap
@@ -285,9 +389,9 @@ Gitron is developed in phases. Each phase builds on the previous one.
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **1. Foundation** | Core git backend, commit graph, app shell | Nearly complete |
-| **2. Core Workflow** | Stage, commit, push, pull, branch UI, diffs | In progress |
-| **3. Advanced Git** | Merge, rebase, cherry-pick, stash, blame, tags | Planned |
+| **1. Foundation** | Core git backend, commit graph, app shell | Complete |
+| **2. Core Workflow** | Stage, commit, push, pull, branch UI, diffs | Complete |
+| **3. Advanced Git** | Merge, rebase, stash, tags, commit search, server mode | In progress |
 | **4. Plugin System** | Backend (Rust traits) + frontend (UI slots) plugins | Planned |
 | **5. Agent Gateway** | MCP server, AI agent permissions, action queue | Planned |
 | **6. Polish & Release** | Theming, auto-update, code signing, installers | Planned |
@@ -331,9 +435,11 @@ Scopes: git, ui, graph, diff, staging, branch, plugin, agent, docs
 ### Key guidelines
 
 - Follow the strict module boundaries (see [CLAUDE.md](CLAUDE.md) or [Developer Guide](docs/DEVELOPER_GUIDE.md))
+- **Dual-mode parity** — every new feature must work in both desktop (Tauri) and server (Axum) modes
 - Use Svelte 5 runes (`$state`, `$derived`, `$props`) — no Svelte 4 patterns
 - No `unwrap()` in Rust production code — use `GitResult<T>` and proper error handling
-- Keep command handlers thin — all git logic belongs in `src-tauri/src/git/`
+- Keep command handlers thin — all git logic belongs in `crates/gitron-core/`
+- Use `getTransport()` for all backend calls in the frontend — never import `@tauri-apps/*` directly
 
 ## License
 
