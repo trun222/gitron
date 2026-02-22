@@ -2,6 +2,7 @@
   import { Dialog } from 'bits-ui';
   import { onMount, onDestroy } from 'svelte';
   import { isTauri } from '$lib/api';
+  import { base } from '$app/paths';
 
   interface DirEntry {
     name: string;
@@ -21,7 +22,7 @@
     loading = true;
     error = null;
     try {
-      const response = await fetch('/api/fs/list', {
+      const response = await fetch(`${base}/api/fs/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: path || null }),
