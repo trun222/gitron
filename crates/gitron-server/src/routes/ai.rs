@@ -88,9 +88,15 @@ pub async fn get_settings() -> Result<Json<AISettings>, (StatusCode, String)> {
     Ok(Json(settings))
 }
 
+#[derive(Deserialize)]
+pub struct SaveSettingsRequest {
+    settings: AISettings,
+}
+
 pub async fn save_settings(
-    Json(settings): Json<AISettings>,
+    Json(req): Json<SaveSettingsRequest>,
 ) -> Result<Json<()>, (StatusCode, String)> {
+    let settings = req.settings;
     let config_dir = crate::file_store::config_dir();
     std::fs::create_dir_all(&config_dir).map_err(err)?;
     let config_path = config_dir.join("ai_settings.json");
