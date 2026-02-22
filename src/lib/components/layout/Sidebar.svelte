@@ -19,7 +19,7 @@
     remoteTagNames,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -28,11 +28,14 @@
     initAI,
   } from '$lib/stores/ai';
 
+  import { buildTree, flattenTree, collectDirPaths } from './changes-tree';
+
   let commitTitle = $state('');
   let commitBody = $state('');
   let commitError = $state<string | null>(null);
   let committing = $state(false);
   let tagsExpanded = $state(true);
+  let expandedDirs = $state(new Set<string>());
 
   // Load AI state on mount
   $effect(() => {
@@ -95,6 +98,63 @@
   const bubbleColor = 'bg-primary text-primary-foreground';
   const totalChanges = $derived($stagedCount + $unstagedCount);
 
+  // Raw trees — pure derivation, no side effects
+  let rawTrees = $derived.by(() => {
+    if ($changesViewMode !== 'tree' || !$repoStatus) return null;
+    const staged = $repoStatus.staged.map((f) => ({ path: f.path, status: f.status, section: 'staged' as const }));
+    const unstaged = $repoStatus.unstaged.map((f) => ({ path: f.path, status: f.status, section: 'unstaged' as const }));
+    const untracked = $repoStatus.untracked.map((p) => ({ path: p, section: 'untracked' as const }));
+    return {
+      staged: buildTree(staged),
+      unstaged: buildTree(unstaged),
+      untracked: buildTree(untracked),
+    };
+  });
+
+  // Auto-expand directories we haven't seen yet
+  let knownDirs = new Set<string>();
+  $effect(() => {
+    if (!rawTrees) return;
+    const allDirs = [
+      ...collectDirPaths(rawTrees.staged),
+      ...collectDirPaths(rawTrees.unstaged),
+      ...collectDirPaths(rawTrees.untracked),
+    ];
+    let added = false;
+    const next = new Set(expandedDirs);
+    for (const d of allDirs) {
+      if (!knownDirs.has(d)) {
+        knownDirs.add(d);
+        next.add(d);
+        added = true;
+      }
+    }
+    if (added) {
+      expandedDirs = next;
+    }
+  });
+
+  // Flattened tree for rendering — reads expandedDirs without mutating it
+  let treeSections = $derived.by(() => {
+    if (!rawTrees) return null;
+    return {
+      staged: flattenTree(rawTrees.staged, expandedDirs),
+      unstaged: flattenTree(rawTrees.unstaged, expandedDirs),
+      untracked: flattenTree(rawTrees.untracked, expandedDirs),
+    };
+  });
+
+  function toggleDir(path: string) {
+    const next = new Set(expandedDirs);
+    if (next.has(path)) {
+      next.delete(path);
+    } else {
+      next.add(path);
+    }
+    expandedDirs = next;
+  }
+
+
   // Tags sorted by commit position in graph (newest first)
   let sortedTags = $derived.by(() => {
     const graph = $commitGraph;
@@ -134,11 +194,31 @@
     </div>
   {:else if $hasRepo}
     <div class="flex items-center gap-1.5 px-3 py-2 border-b border-border">
-      <span class="text-xs font-medium text-foreground flex-1">Changes</span>
+      <span class="text-xs font-medium text-foreground">Changes</span>
       {#if totalChanges > 0}
         <span class="{bubbleColor} text-[10px] px-1.5 rounded-full min-w-[18px] text-center">
           {totalChanges}
         </span>
+      {/if}
+      <span class="flex-1"></span>
+      <!-- View mode toggles -->
+      <button
+        class="w-5 h-5 flex items-center justify-center rounded transition-colors cursor-pointer {$changesViewMode === 'file' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
+        onclick={() => setChangesViewMode('file')}
+        aria-label="File view"
+        title="File view"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+      </button>
+      <button
+        class="w-5 h-5 flex items-center justify-center rounded transition-colors cursor-pointer {$changesViewMode === 'tree' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
+        onclick={() => setChangesViewMode('tree')}
+        aria-label="Tree view"
+        title="Tree view"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+      </button>
+      {#if totalChanges > 0}
         <button
           class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
           onclick={() => discardConfirmOpen.set(true)}
@@ -164,119 +244,277 @@
       aria-label="Changed files"
     >
         {#if $repoStatus}
-          <!-- STAGED -->
-          {#if $repoStatus.staged.length > 0}
-            <div class="flex items-center justify-between px-3 py-1.5">
-              <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
-                Staged ({$repoStatus.staged.length})
-              </span>
-              <button
-                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                onclick={() => unstageAllAndClear()}
-              >
-                Unstage All
-              </button>
-            </div>
-            <ul class="list-none">
-              {#each $repoStatus.staged as file}
-                <li
-                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
-                  onclick={() => handleFileClick(file.path, 'staged')}
-                  role="option"
-                  aria-selected={isSelected(file.path, 'staged')}
+          {#if $changesViewMode === 'tree' && treeSections}
+            <!-- TREE VIEW -->
+            <!-- STAGED (tree) -->
+            {#if $repoStatus.staged.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
+                  Staged ({$repoStatus.staged.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => unstageAllAndClear()}
                 >
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]">
-                    {file.status[0]}
-                  </span>
-                  <span class="truncate text-foreground flex-1">{file.path}</span>
-                  <button
-                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
-                    onclick={(e) => handleUnstageClick(e, file.path)}
-                    aria-label="Unstage {file.path}"
-                  >
-                    −
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
+                  Unstage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each treeSections.staged as entry (entry.path + ':' + entry.type)}
+                  {#if entry.type === 'dir'}
+                    <li
+                      class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
+                      style="padding-left: {12 + entry.depth * 12}px"
+                      onclick={() => toggleDir(entry.path)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                      <span class="truncate">{entry.name}</span>
+                    </li>
+                  {:else}
+                    <li
+                      class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                      style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
+                      onclick={() => handleFileClick(entry.path, 'staged')}
+                      role="option"
+                      aria-selected={isSelected(entry.path, 'staged')}
+                    >
+                      <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]">
+                        {entry.fileStatus?.[0] ?? '?'}
+                      </span>
+                      <span class="truncate text-foreground flex-1">{entry.name}</span>
+                      <button
+                        class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                        onclick={(e) => handleUnstageClick(e, entry.path)}
+                        aria-label="Unstage {entry.path}"
+                      >
+                        −
+                      </button>
+                    </li>
+                  {/if}
+                {/each}
+              </ul>
+            {/if}
 
-          <!-- UNSTAGED -->
-          {#if $repoStatus.unstaged.length > 0}
-            <div class="flex items-center justify-between px-3 py-1.5">
-              <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
-                Unstaged ({$repoStatus.unstaged.length})
-              </span>
-              <button
-                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                onclick={() => stageUnstagedAndClear()}
-              >
-                Stage All
-              </button>
-            </div>
-            <ul class="list-none">
-              {#each $repoStatus.unstaged as file}
-                <li
-                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
-                  onclick={() => handleFileClick(file.path, 'unstaged')}
-                  role="option"
-                  aria-selected={isSelected(file.path, 'unstaged')}
+            <!-- UNSTAGED (tree) -->
+            {#if $repoStatus.unstaged.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
+                  Unstaged ({$repoStatus.unstaged.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => stageUnstagedAndClear()}
                 >
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]">
-                    {file.status[0]}
-                  </span>
-                  <span class="truncate text-foreground flex-1">{file.path}</span>
-                  <button
-                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
-                    onclick={(e) => handleStageClick(e, file.path)}
-                    aria-label="Stage {file.path}"
-                  >
-                    +
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
+                  Stage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each treeSections.unstaged as entry (entry.path + ':' + entry.type)}
+                  {#if entry.type === 'dir'}
+                    <li
+                      class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
+                      style="padding-left: {12 + entry.depth * 12}px"
+                      onclick={() => toggleDir(entry.path)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                      <span class="truncate">{entry.name}</span>
+                    </li>
+                  {:else}
+                    <li
+                      class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                      style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
+                      onclick={() => handleFileClick(entry.path, 'unstaged')}
+                      role="option"
+                      aria-selected={isSelected(entry.path, 'unstaged')}
+                    >
+                      <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]">
+                        {entry.fileStatus?.[0] ?? '?'}
+                      </span>
+                      <span class="truncate text-foreground flex-1">{entry.name}</span>
+                      <button
+                        class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                        onclick={(e) => handleStageClick(e, entry.path)}
+                        aria-label="Stage {entry.path}"
+                      >
+                        +
+                      </button>
+                    </li>
+                  {/if}
+                {/each}
+              </ul>
+            {/if}
 
-          <!-- UNTRACKED -->
-          {#if $repoStatus.untracked.length > 0}
-            <div class="flex items-center justify-between px-3 py-1.5">
-              <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Untracked ({$repoStatus.untracked.length})
-              </span>
-              <button
-                class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                onclick={() => stageUntrackedAndClear()}
-              >
-                Stage All
-              </button>
-            </div>
-            <ul class="list-none">
-              {#each $repoStatus.untracked as file}
-                <li
-                  class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
-                  onclick={() => handleFileClick(file, 'untracked')}
-                  role="option"
-                  aria-selected={isSelected(file, 'untracked')}
+            <!-- UNTRACKED (tree) -->
+            {#if $repoStatus.untracked.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Untracked ({$repoStatus.untracked.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => stageUntrackedAndClear()}
                 >
-                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-muted-foreground bg-accent">
-                    ?
-                  </span>
-                  <span class="truncate text-foreground flex-1">{file}</span>
-                  <button
-                    class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
-                    onclick={(e) => handleStageClick(e, file)}
-                    aria-label="Stage {file}"
-                  >
-                    +
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
+                  Stage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each treeSections.untracked as entry (entry.path + ':' + entry.type)}
+                  {#if entry.type === 'dir'}
+                    <li
+                      class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
+                      style="padding-left: {12 + entry.depth * 12}px"
+                      onclick={() => toggleDir(entry.path)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                      <span class="truncate">{entry.name}</span>
+                    </li>
+                  {:else}
+                    <li
+                      class="group flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(entry.path, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                      style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
+                      onclick={() => handleFileClick(entry.path, 'untracked')}
+                      role="option"
+                      aria-selected={isSelected(entry.path, 'untracked')}
+                    >
+                      <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-muted-foreground bg-accent">
+                        ?
+                      </span>
+                      <span class="truncate text-foreground flex-1">{entry.name}</span>
+                      <button
+                        class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                        onclick={(e) => handleStageClick(e, entry.path)}
+                        aria-label="Stage {entry.path}"
+                      >
+                        +
+                      </button>
+                    </li>
+                  {/if}
+                {/each}
+              </ul>
+            {/if}
 
-          {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
-            <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
+            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
+              <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
+            {/if}
+          {:else}
+            <!-- FLAT FILE VIEW -->
+            <!-- STAGED -->
+            {#if $repoStatus.staged.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
+                  Staged ({$repoStatus.staged.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => unstageAllAndClear()}
+                >
+                  Unstage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each $repoStatus.staged as file}
+                  <li
+                    class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'staged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    onclick={() => handleFileClick(file.path, 'staged')}
+                    role="option"
+                    aria-selected={isSelected(file.path, 'staged')}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]">
+                      {file.status[0]}
+                    </span>
+                    <span class="truncate text-foreground flex-1">{file.path}</span>
+                    <button
+                      class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                      onclick={(e) => handleUnstageClick(e, file.path)}
+                      aria-label="Unstage {file.path}"
+                    >
+                      −
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            <!-- UNSTAGED -->
+            {#if $repoStatus.unstaged.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
+                  Unstaged ({$repoStatus.unstaged.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => stageUnstagedAndClear()}
+                >
+                  Stage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each $repoStatus.unstaged as file}
+                  <li
+                    class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file.path, 'unstaged') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    onclick={() => handleFileClick(file.path, 'unstaged')}
+                    role="option"
+                    aria-selected={isSelected(file.path, 'unstaged')}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]">
+                      {file.status[0]}
+                    </span>
+                    <span class="truncate text-foreground flex-1">{file.path}</span>
+                    <button
+                      class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                      onclick={(e) => handleStageClick(e, file.path)}
+                      aria-label="Stage {file.path}"
+                    >
+                      +
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            <!-- UNTRACKED -->
+            {#if $repoStatus.untracked.length > 0}
+              <div class="flex items-center justify-between px-3 py-1.5">
+                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Untracked ({$repoStatus.untracked.length})
+                </span>
+                <button
+                  class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  onclick={() => stageUntrackedAndClear()}
+                >
+                  Stage All
+                </button>
+              </div>
+              <ul class="list-none">
+                {#each $repoStatus.untracked as file}
+                  <li
+                    class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'untracked') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    onclick={() => handleFileClick(file, 'untracked')}
+                    role="option"
+                    aria-selected={isSelected(file, 'untracked')}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 text-muted-foreground bg-accent">
+                      ?
+                    </span>
+                    <span class="truncate text-foreground flex-1">{file}</span>
+                    <button
+                      class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-sm leading-none"
+                      onclick={(e) => handleStageClick(e, file)}
+                      aria-label="Stage {file}"
+                    >
+                      +
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
+              <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
+            {/if}
           {/if}
         {/if}
     </div>

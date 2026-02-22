@@ -283,6 +283,7 @@ export interface RefsChangedPayload {
 }
 
 // Settings types
+export type ChangesViewMode = 'file' | 'tree';
 export type ThemeMode = 'dark' | 'light' | 'system' | 'tron' | 'tron-enhanced';
 export type AutoFetchInterval = 0 | 60 | 300 | 900; // seconds; 0 = off
 export type FileWatcherInterval = 0 | 1000 | 2000 | 3000 | 5000; // ms; 0 = native only
@@ -320,4 +321,5 @@ export interface AppSettings {
   editorFontSize?: EditorFontSize;
   monoFont?: MonoFont;
   showTagsList?: boolean;
+  changesViewMode?: ChangesViewMode;
 }

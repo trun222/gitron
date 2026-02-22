@@ -1,5 +1,5 @@
 import { isTauri } from '$lib/api';
-import type { AppSettings, AutoFetchInterval, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from './types';
+import type { AppSettings, AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from './types';
 
 const MAX_RECENT_REPOS = 20;
 
@@ -192,5 +192,11 @@ export async function saveMonoFont(font: MonoFont): Promise<void> {
 export async function saveShowTagsList(enabled: boolean): Promise<void> {
   const settings = await getSettings();
   settings.showTagsList = enabled;
+  await saveSettings(settings);
+}
+
+export async function saveChangesViewMode(mode: ChangesViewMode): Promise<void> {
+  const settings = await getSettings();
+  settings.changesViewMode = mode;
   await saveSettings(settings);
 }

@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { AutoFetchInterval, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from '$lib/api/types';
+import type { AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
 import * as repoApi from '$lib/api/repo';
 import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
@@ -24,6 +24,7 @@ export const highContrast = writable(false);
 export const editorFontSize = writable<EditorFontSize>(12);
 export const monoFont = writable<MonoFont>('default');
 export const showTagsList = writable(true);
+export const changesViewMode = writable<ChangesViewMode>('file');
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -147,6 +148,11 @@ export async function setShowTagsList(enabled: boolean): Promise<void> {
   await settingsApi.saveShowTagsList(enabled);
 }
 
+export async function setChangesViewMode(mode: ChangesViewMode): Promise<void> {
+  changesViewMode.set(mode);
+  await settingsApi.saveChangesViewMode(mode);
+}
+
 export async function setAutoFetchInterval(interval: AutoFetchInterval): Promise<void> {
   autoFetchInterval.set(interval);
   stopAutoFetch();
@@ -223,6 +229,9 @@ export async function loadSettings(): Promise<void> {
 
   // Show tags list
   showTagsList.set(settings.showTagsList ?? true);
+
+  // Changes view mode
+  changesViewMode.set(settings.changesViewMode ?? 'file');
 
   settingsLoaded.set(true);
 }
