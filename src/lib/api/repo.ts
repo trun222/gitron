@@ -89,6 +89,10 @@ export async function discardAllChanges(path: string): Promise<RepoStatus> {
   return getTransport().invoke('discard_all_changes', { path });
 }
 
+export async function addToGitignore(path: string, pattern: string): Promise<RepoStatus> {
+  return getTransport().invoke('add_to_gitignore', { path, pattern });
+}
+
 export async function listBranches(path: string): Promise<Branch[]> {
   return getTransport().invoke('list_branches', { path });
 }

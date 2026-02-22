@@ -47,3 +47,11 @@ pub fn discard_all_changes(path: String) -> Result<RepoStatus, GitError> {
     repository::discard_all_changes(&repo)?;
     repository::get_status(&repo)
 }
+
+/// Add a pattern to .gitignore
+#[tauri::command]
+pub fn add_to_gitignore(path: String, pattern: String) -> Result<RepoStatus, GitError> {
+    let repo = repository::open(&path)?;
+    repository::add_to_gitignore(&repo, &pattern)?;
+    repository::get_status(&repo)
+}

@@ -341,6 +341,18 @@ export async function unstageAllAndClear() {
   clearFileSelection();
 }
 
+export async function addToGitignore(pattern: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.addToGitignore(path, pattern);
+    repoStatus.set(status);
+    clearFileSelection();
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function discardAllChanges() {
   const path = get(repoPath);
   if (!path) return;

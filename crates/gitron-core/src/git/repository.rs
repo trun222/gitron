@@ -531,6 +531,35 @@ pub fn merge_branch(workdir: &str, branch: &str) -> GitResult<MergeResult> {
     })
 }
 
+/// Add a pattern to the repository's .gitignore file
+pub fn add_to_gitignore(repo: &Repository, pattern: &str) -> GitResult<()> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?;
+
+    let gitignore_path = workdir.join(".gitignore");
+
+    let mut contents = if gitignore_path.exists() {
+        std::fs::read_to_string(&gitignore_path)
+            .map_err(|e| GitError::Other(format!("Failed to read .gitignore: {}", e)))?
+    } else {
+        String::new()
+    };
+
+    // Ensure a trailing newline before appending
+    if !contents.is_empty() && !contents.ends_with('\n') {
+        contents.push('\n');
+    }
+
+    contents.push_str(pattern);
+    contents.push('\n');
+
+    std::fs::write(&gitignore_path, contents)
+        .map_err(|e| GitError::Other(format!("Failed to write .gitignore: {}", e)))?;
+
+    Ok(())
+}
+
 /// Create a commit with the current index using git CLI (runs hooks)
 pub fn create_commit(workdir: &str, message: &str) -> GitResult<CommitResult> {
     let output = super::cli::run_git_raw(workdir, &["commit", "-m", message])?;

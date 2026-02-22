@@ -77,6 +77,21 @@ pub async fn discard_all(
     Ok(Json(status))
 }
 
+#[derive(Deserialize)]
+pub struct GitignoreRequest {
+    path: String,
+    pattern: String,
+}
+
+pub async fn add_to_gitignore(
+    Json(req): Json<GitignoreRequest>,
+) -> Result<Json<RepoStatus>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    repository::add_to_gitignore(&repo, &req.pattern).map_err(err)?;
+    let status = repository::get_status(&repo).map_err(err)?;
+    Ok(Json(status))
+}
+
 fn err(e: impl std::fmt::Display) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
 }
