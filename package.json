@@ -4,7 +4,8 @@
   "description": "Open-source, AI-native Git GUI built with Rust and Svelte",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "tauri dev",
+    "dev:frontend": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
