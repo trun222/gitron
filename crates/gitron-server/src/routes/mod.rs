@@ -35,6 +35,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/diff/workdir", post(diff::get_workdir_diff))
         .route("/diff/file", post(diff::get_file_diff))
         .route("/diff/staged", post(diff::get_staged_file_diff))
+        .route("/diff/commit", post(diff::get_commit_diff))
         // Staging
         .route("/staging/stage", post(staging::stage_file))
         .route("/staging/unstage", post(staging::unstage_file))

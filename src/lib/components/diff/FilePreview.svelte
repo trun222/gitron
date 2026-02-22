@@ -6,6 +6,8 @@
     clearFileSelection,
     selectNextFile,
     selectPrevFile,
+    selectNextCommitFile,
+    selectPrevCommitFile,
     stageSelectedFile,
     unstageSelectedFile,
   } from '$lib/stores/repo';
@@ -90,9 +92,25 @@
     return gap > 0 ? gap : null;
   }
 
+  let isCommitView = $derived($selectedCommitFile !== null);
+
   function handleKeydown(e: KeyboardEvent) {
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+    if (isCommitView) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectNextCommitFile();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectPrevCommitFile();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClose();
+      }
+      return;
+    }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();

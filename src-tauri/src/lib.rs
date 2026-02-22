@@ -30,6 +30,7 @@ pub fn run() {
             diff::get_workdir_diff,
             diff::get_file_diff,
             diff::get_staged_file_diff,
+            diff::get_commit_diff,
             staging::stage_file,
             staging::unstage_file,
             staging::stage_files,

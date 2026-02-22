@@ -254,6 +254,26 @@ export function selectCommitFile(filePath: string) {
   }
 }
 
+export function selectNextCommitFile() {
+  const current = get(selectedCommitFile);
+  const files = get(commitFiles);
+  if (!current || !files) return;
+  const idx = files.findIndex((f) => f.path === current);
+  if (idx >= 0 && idx < files.length - 1) {
+    selectCommitFile(files[idx + 1].path);
+  }
+}
+
+export function selectPrevCommitFile() {
+  const current = get(selectedCommitFile);
+  const files = get(commitFiles);
+  if (!current || !files) return;
+  const idx = files.findIndex((f) => f.path === current);
+  if (idx > 0) {
+    selectCommitFile(files[idx - 1].path);
+  }
+}
+
 export function clearCommitFileSelection() {
   selectedCommitFile.set(null);
   selectedFileDiff.set(null);

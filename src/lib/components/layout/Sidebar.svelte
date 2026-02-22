@@ -19,6 +19,10 @@
     remoteTagNames,
     addToGitignore,
     discardFiles,
+    selectedCommit,
+    commitFiles,
+    selectedCommitFile,
+    selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
   import { sidebarCollapsed, toggleSidebar, showTagsList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
@@ -150,6 +154,48 @@
       commitBody = result.body;
     }
   }
+
+  function commitFileStatusColor(status: string): string {
+    switch (status) {
+      case 'Added': return 'text-[var(--color-git-added)] bg-[var(--color-git-added-bg)]';
+      case 'Deleted': return 'text-[var(--color-git-deleted)] bg-[var(--color-git-deleted-bg)]';
+      default: return 'text-[var(--color-git-modified)] bg-[var(--color-git-modified-bg)]';
+    }
+  }
+
+  function handleCommitFileClick(path: string) {
+    selectCommitFile(path);
+  }
+
+  // Build tree for commit files
+  let commitFileTree = $derived.by(() => {
+    if ($changesViewMode !== 'tree' || !$commitFiles) return null;
+    const items = $commitFiles.map((f) => ({ path: f.path, status: f.status, section: 'staged' as const }));
+    return buildTree(items);
+  });
+
+  let commitFileTreeFlat = $derived.by(() => {
+    if (!commitFileTree) return null;
+    return flattenTree(commitFileTree, expandedDirs);
+  });
+
+  // Auto-expand commit file dirs
+  $effect(() => {
+    if (!commitFileTree) return;
+    const dirs = collectDirPaths(commitFileTree);
+    let added = false;
+    const next = new Set(expandedDirs);
+    for (const d of dirs) {
+      if (!knownDirs.has(d)) {
+        knownDirs.add(d);
+        next.add(d);
+        added = true;
+      }
+    }
+    if (added) {
+      expandedDirs = next;
+    }
+  });
 
   function handleFileClick(path: string, section: FileSection) {
     selectFile(path, section);
@@ -343,6 +389,65 @@
       role="listbox"
       aria-label="Changed files"
     >
+        <!-- Commit files section -->
+        {#if $selectedCommit && $commitFiles && $commitFiles.length > 0}
+          <div class="flex items-center justify-between px-3 py-1.5">
+            <span class="text-[11px] font-semibold text-primary uppercase tracking-wide">
+              Committed ({$commitFiles.length})
+            </span>
+            <span class="text-[10px] text-muted-foreground font-mono">{$selectedCommit.oid.slice(0, 7)}</span>
+          </div>
+          {#if $changesViewMode === 'tree' && commitFileTreeFlat}
+            <ul class="list-none">
+              {#each commitFileTreeFlat as entry (entry.path + ':' + entry.type)}
+                {#if entry.type === 'dir'}
+                  <li
+                    class="flex items-center gap-1.5 px-3 py-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors text-muted-foreground"
+                    style="padding-left: {12 + entry.depth * 12}px"
+                    onclick={() => toggleDir(entry.path)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span class="truncate">{entry.name}</span>
+                  </li>
+                {:else}
+                  <li
+                    class="flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {$selectedCommitFile === entry.path ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    style="padding-left: {12 + entry.depth * 12}px; padding-right: 12px"
+                    onclick={() => handleCommitFileClick(entry.path)}
+                    role="option"
+                    aria-selected={$selectedCommitFile === entry.path}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 {commitFileStatusColor(entry.fileStatus ?? 'Modified')}">
+                      {entry.fileStatus?.[0] ?? '?'}
+                    </span>
+                    <span class="truncate text-foreground flex-1">{entry.name}</span>
+                  </li>
+                {/if}
+              {/each}
+            </ul>
+          {:else}
+            <ul class="list-none">
+              {#each $commitFiles as file}
+                <li
+                  class="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {$selectedCommitFile === file.path ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                  onclick={() => handleCommitFileClick(file.path)}
+                  role="option"
+                  aria-selected={$selectedCommitFile === file.path}
+                >
+                  <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0 {commitFileStatusColor(file.status)}">
+                    {file.status[0]}
+                  </span>
+                  <span class="truncate text-foreground flex-1">{file.path}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          {#if totalChanges > 0}
+            <div class="my-1.5 mx-3 border-t border-border"></div>
+          {/if}
+        {/if}
+
         {#if $repoStatus}
           {#if $changesViewMode === 'tree' && treeSections}
             <!-- TREE VIEW -->
