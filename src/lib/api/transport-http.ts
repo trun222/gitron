@@ -85,6 +85,10 @@ export class HttpTransport implements Transport {
   private token: string | null;
 
   constructor(baseUrl?: string, token?: string) {
+    if (!baseUrl && typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/^\/t\/\d+\/p\/\d+/);
+      if (match) baseUrl = match[0];
+    }
     this.baseUrl = baseUrl ?? '';
     this.token = token ?? null;
   }
