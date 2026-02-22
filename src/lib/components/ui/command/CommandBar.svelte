@@ -10,6 +10,8 @@
     addRemote, removeRemote,
     discardConfirmOpen,
     forcePushConfirmOpen,
+    commitSearchActive, commitSearchQuery, commitSearchLoading, commitSearchDiffs,
+    searchCommitsAction, clearCommitSearch,
   } from '$lib/stores/repo';
   import { openCloneDialog } from '$lib/stores/clone';
 
@@ -20,18 +22,56 @@
   let inputRef = $state<HTMLInputElement | null>(null);
   let blurTimeout: ReturnType<typeof setTimeout> | undefined;
   let addRemoteMode = $state(false);
+  let commitSearchMode = $state(false);
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   export function focus() {
     inputRef?.focus();
   }
 
+  export function focusCommitSearch() {
+    commitSearchMode = true;
+    commitSearchActive.set(true);
+    search = '';
+    isOpen = false;
+    inputRef?.focus();
+  }
+
+  function toggleSearchDiffs() {
+    commitSearchDiffs.update((v) => !v);
+    // Re-trigger search immediately with current query
+    const q = search.trim();
+    if (q) {
+      searchCommitsAction(q);
+    }
+  }
+
+  // Debounced search when in commit search mode
+  $effect(() => {
+    if (!commitSearchMode) return;
+    const q = search;
+    clearTimeout(searchDebounceTimer);
+    if (!q.trim()) {
+      commitSearchQuery.set('');
+      searchCommitsAction('');
+      return;
+    }
+    searchDebounceTimer = setTimeout(() => {
+      commitSearchQuery.set(q);
+      searchCommitsAction(q);
+    }, 300);
+  });
+
   function handleFocus() {
     clearTimeout(blurTimeout);
-    isOpen = true;
+    if (!commitSearchMode) {
+      isOpen = true;
+    }
   }
 
   function handleBlur() {
     blurTimeout = setTimeout(() => {
+      if (commitSearchMode) return; // keep search active on blur
       isOpen = false;
       search = '';
     }, 150);
@@ -165,8 +205,23 @@
     await removeRemote(name);
   }
 
+  function handleEnterCommitSearchMode() {
+    isOpen = false;
+    search = '';
+    commitSearchMode = true;
+    commitSearchActive.set(true);
+    // Keep input focused
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
+      if (commitSearchMode) {
+        commitSearchMode = false;
+        search = '';
+        clearCommitSearch();
+        inputRef?.blur();
+        return;
+      }
       if (addRemoteMode) {
         addRemoteMode = false;
         search = '';
@@ -194,10 +249,42 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder={addRemoteMode ? "https://url.git or name https://url.git" : "Type a command... (Cmd+K)"}
-      class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors"
+      placeholder={commitSearchMode ? ($commitSearchDiffs ? "Search commits + diffs..." : "Search commit messages...") : addRemoteMode ? "https://url.git or name https://url.git" : "Type a command... (Cmd+K)"}
+      class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors {commitSearchMode ? 'pr-[180px]' : ''}"
     />
-    {#if isOpen && !addRemoteMode}
+    {#if commitSearchMode}
+      <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+        {#if $commitSearchLoading}
+          <svg class="search-spinner shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round"/></svg>
+        {/if}
+        <!-- svelte-ignore a11y_consider_explicit_label -->
+        <button
+          type="button"
+          class="search-scope-toggle"
+          class:active={$commitSearchDiffs}
+          onmousedown={(e) => e.preventDefault()}
+          onclick={toggleSearchDiffs}
+          title={$commitSearchDiffs ? 'Searching messages + diffs (click for messages only)' : 'Searching messages only (click to include diffs)'}
+        >
+          <svg class="shrink-0" viewBox="0 0 16 16" width="11" height="11">
+            <path fill="currentColor" d="M8.75 1.75V5H12a.75.75 0 0 1 0 1.5H8.75v3.25a.75.75 0 0 1-1.5 0V6.5H4a.75.75 0 0 1 0-1.5h3.25V1.75a.75.75 0 0 1 1.5 0ZM4 13h8a.75.75 0 0 1 0 1.5H4a.75.75 0 0 1 0-1.5Zm0-3h8a.75.75 0 0 1 0 1.5H4a.75.75 0 0 1 0-1.5Z" />
+          </svg>
+          {$commitSearchDiffs ? 'Diffs' : 'Messages'}
+        </button>
+        <button
+          type="button"
+          class="search-close-btn"
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => { commitSearchMode = false; search = ''; clearCommitSearch(); inputRef?.blur(); }}
+          title="Close search (Esc)"
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12">
+            <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+          </svg>
+        </button>
+      </div>
+    {/if}
+    {#if isOpen && !addRemoteMode && !commitSearchMode}
       <Command.List
         class="absolute top-full left-0 right-0 mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50"
       >
@@ -341,6 +428,18 @@
               </Command.GroupHeading>
               <Command.GroupItems>
                 <Command.Item
+                  value="search-commits"
+                  keywords={['search', 'find', 'commits', 'grep', 'filter']}
+                  onSelect={handleEnterCommitSearchMode}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z" />
+                  </svg>
+                  <span>Search Commits</span>
+                  <kbd class="ml-auto text-xs text-muted-foreground border border-border rounded px-1 py-0.5 font-mono">/</kbd>
+                </Command.Item>
+                <Command.Item
                   value="fetch-all-remotes"
                   keywords={['fetch', 'download', 'sync', 'remote']}
                   onSelect={() => handleGitAction('fetch')}
@@ -475,3 +574,49 @@
     {/if}
   </Command.Root>
 </div>
+
+<style>
+  .search-scope-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+    transition: background 150ms, color 150ms, border-color 150ms;
+  }
+  .search-scope-toggle:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .search-scope-toggle.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+  .search-close-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted-foreground);
+    transition: color 150ms, background 150ms;
+  }
+  .search-close-btn:hover {
+    color: var(--foreground);
+    background: var(--accent);
+  }
+  .search-spinner {
+    animation: search-spin 0.8s linear infinite;
+  }
+  @keyframes search-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

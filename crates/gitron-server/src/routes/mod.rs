@@ -30,6 +30,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         // Graph
         .route("/graph", post(graph::get_commit_graph))
         .route("/graph/detail", post(graph::get_commit_detail))
+        .route("/graph/search", post(graph::search_commits))
         // Diff
         .route("/diff/workdir", post(diff::get_workdir_diff))
         .route("/diff/file", post(diff::get_file_diff))

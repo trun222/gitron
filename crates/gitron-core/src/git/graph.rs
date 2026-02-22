@@ -420,6 +420,126 @@ fn compute_graph_layout(
     }
 }
 
+/// Search commits for a query string in messages, author names, file paths, and diff content
+pub fn search_commits(
+    repo: &Repository,
+    query: &str,
+    options: &GraphOptions,
+    search_diffs: bool,
+) -> GitResult<Vec<String>> {
+    let query_lower = query.to_lowercase();
+    let max_commits = options.max_commits.unwrap_or(500);
+    let mut matching_oids = Vec::new();
+
+    let (_, stash_internal_oids) = collect_stashes(repo);
+
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+
+    if let Some(ref from_oid) = options.from_oid {
+        let oid = git2::Oid::from_str(from_oid)?;
+        revwalk.push(oid)?;
+    } else {
+        revwalk.push_head().ok();
+        if options.include_remotes {
+            if let Ok(references) = repo.references() {
+                for reference in references.flatten() {
+                    if let Some(oid) = reference.target() {
+                        revwalk.push(oid).ok();
+                    }
+                }
+            }
+        }
+    }
+
+    let mut count = 0;
+    for oid_result in revwalk {
+        if count >= max_commits {
+            break;
+        }
+        let oid = oid_result?;
+        if stash_internal_oids.contains(&oid.to_string()) {
+            continue;
+        }
+
+        let commit = repo.find_commit(oid)?;
+        count += 1;
+
+        // 1. Check message (fast)
+        let message = commit.message().unwrap_or("").to_lowercase();
+        if message.contains(&query_lower) {
+            matching_oids.push(oid.to_string());
+            continue;
+        }
+
+        // 2. Check author name (fast)
+        let author = commit.author().name().unwrap_or("").to_lowercase();
+        if author.contains(&query_lower) {
+            matching_oids.push(oid.to_string());
+            continue;
+        }
+
+        // 3. Check file paths + diff content (slower, optional)
+        if search_diffs && commit_diff_matches(repo, &commit, &query_lower).unwrap_or(false) {
+            matching_oids.push(oid.to_string());
+        }
+    }
+
+    Ok(matching_oids)
+}
+
+/// Check if a commit's diff (file paths or line content) matches a query string
+fn commit_diff_matches(
+    repo: &Repository,
+    commit: &git2::Commit,
+    query_lower: &str,
+) -> GitResult<bool> {
+    let tree = commit.tree()?;
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(commit.parent(0)?.tree()?)
+    } else {
+        None
+    };
+
+    let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+
+    // Check file paths first (cheaper)
+    for delta in diff.deltas() {
+        if let Some(path) = delta.new_file().path() {
+            if path.to_string_lossy().to_lowercase().contains(query_lower) {
+                return Ok(true);
+            }
+        }
+        if let Some(path) = delta.old_file().path() {
+            if path.to_string_lossy().to_lowercase().contains(query_lower) {
+                return Ok(true);
+            }
+        }
+    }
+
+    // Check diff content (line-by-line)
+    let mut found = false;
+    diff.foreach(
+        &mut |_, _| true,
+        None,
+        None,
+        Some(&mut |_, _hunk, line| {
+            if found {
+                return false; // short-circuit
+            }
+            if let Ok(content) = std::str::from_utf8(line.content()) {
+                if content.to_lowercase().contains(query_lower) {
+                    found = true;
+                    return false;
+                }
+            }
+            true
+        }),
+    )?;
+
+    Ok(found)
+}
+
 /// Collect stash entries and their internal commit OIDs (to filter from the graph)
 fn collect_stashes(repo: &Repository) -> (Vec<StashEntry>, HashSet<String>) {
     let mut stashes = Vec::new();

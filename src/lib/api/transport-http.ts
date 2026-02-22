@@ -12,6 +12,7 @@ const COMMAND_MAP: Record<string, string> = {
   // Graph
   get_commit_graph: '/api/graph',
   get_commit_detail: '/api/graph/detail',
+  search_commits: '/api/graph/search',
   // Diff
   get_workdir_diff: '/api/diff/workdir',
   get_file_diff: '/api/diff/file',

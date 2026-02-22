@@ -45,6 +45,13 @@ export const remoteTagNames = writable<Set<string>>(new Set());
 // Scroll-to-commit (used by tags list to jump to a commit in the graph)
 export const scrollToCommitOid = writable<string | null>(null);
 
+// Commit search state
+export const commitSearchActive = writable<boolean>(false);
+export const commitSearchQuery = writable<string>('');
+export const commitSearchMatchOids = writable<Set<string>>(new Set());
+export const commitSearchLoading = writable<boolean>(false);
+export const commitSearchDiffs = writable<boolean>(false);
+
 // Discard all confirmation
 export const discardConfirmOpen = writable(false);
 
@@ -140,6 +147,7 @@ export async function closeRepo() {
   remotes.set([]);
   remoteTagNames.set(new Set());
   trackingStatus.set(null);
+  clearCommitSearch();
   error.set(null);
 }
 
@@ -777,6 +785,34 @@ export async function pushToRemote(remoteName?: string, force?: boolean) {
   } finally {
     networkOperation.set(null);
   }
+}
+
+// Commit search actions
+
+export async function searchCommitsAction(query: string) {
+  const path = get(repoPath);
+  if (!path || !query.trim()) {
+    commitSearchMatchOids.set(new Set());
+    return;
+  }
+  commitSearchLoading.set(true);
+  try {
+    const diffs = get(commitSearchDiffs);
+    const oids = await api.searchCommits(path, query, diffs);
+    commitSearchMatchOids.set(new Set(oids));
+  } catch {
+    commitSearchMatchOids.set(new Set());
+  } finally {
+    commitSearchLoading.set(false);
+  }
+}
+
+export function clearCommitSearch() {
+  commitSearchActive.set(false);
+  commitSearchQuery.set('');
+  commitSearchMatchOids.set(new Set());
+  commitSearchLoading.set(false);
+  commitSearchDiffs.set(false);
 }
 
 export async function pullFromRemote(remoteName?: string) {

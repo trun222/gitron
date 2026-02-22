@@ -26,6 +26,7 @@ pub fn run() {
             repo::get_repo_info,
             graph::get_commit_graph,
             graph::get_commit_detail,
+            graph::search_commits,
             diff::get_workdir_diff,
             diff::get_file_diff,
             diff::get_staged_file_diff,

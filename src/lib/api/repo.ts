@@ -49,6 +49,22 @@ export async function getCommitGraph(
   });
 }
 
+export async function searchCommits(
+  path: string,
+  query: string,
+  searchDiffs?: boolean,
+  maxCommits?: number,
+  includeRemotes?: boolean
+): Promise<string[]> {
+  return getTransport().invoke('search_commits', {
+    path,
+    query,
+    searchDiffs: searchDiffs ?? false,
+    maxCommits: maxCommits ?? 500,
+    includeRemotes: includeRemotes ?? true,
+  });
+}
+
 export async function getCommitDetail(path: string, oid: string) {
   return getTransport().invoke('get_commit_detail', { path, oid });
 }

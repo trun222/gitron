@@ -100,26 +100,16 @@ pub async fn run_git_async_with_github_auth(workdir: &str, args: &[&str]) -> Git
     // Rewrite github.com URLs to embed the OAuth token inline.
     // This is the same approach GitHub Desktop uses — proven reliable
     // across all git versions and credential helper configurations.
-    //
-    // Append to existing GIT_CONFIG_* env vars (e.g. safe.directory=*)
-    // rather than overwriting them.
     let authed_url = format!("https://x-access-token:{token}@github.com/");
     let config_key = format!("url.{authed_url}.insteadOf");
-
-    let existing_count: u32 = std::env::var("GIT_CONFIG_COUNT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
-    let idx = existing_count.to_string();
-    let new_count = (existing_count + 1).to_string();
 
     let output = AsyncCommand::new("git")
         .args(args)
         .current_dir(workdir)
         .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_CONFIG_COUNT", &new_count)
-        .env(format!("GIT_CONFIG_KEY_{idx}"), &config_key)
-        .env(format!("GIT_CONFIG_VALUE_{idx}"), "https://github.com/")
+        .env("GIT_CONFIG_COUNT", "1")
+        .env("GIT_CONFIG_KEY_0", &config_key)
+        .env("GIT_CONFIG_VALUE_0", "https://github.com/")
         .output()
         .await
         .map_err(|e| GitError::Io(e))?;

@@ -7,6 +7,7 @@
     rebaseOnto, mergeInto,
     createTagAtCommit, deleteTag, pushTag, deleteRemoteTag,
     scrollToCommitOid, remoteTagNames,
+    commitSearchActive, commitSearchMatchOids, commitSearchQuery,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
   import { gravatarUrl } from '$lib/utils/gravatar';
@@ -251,6 +252,19 @@
 
   function isSelected(commit: Commit): boolean {
     return $selectedCommit?.oid === commit.oid;
+  }
+
+  // When search is active with a query, show only matching commits
+  let isSearchFiltering = $derived($commitSearchActive && $commitSearchMatchOids.size > 0);
+
+  let filteredCommits = $derived.by(() => {
+    if (!$commitGraph) return [];
+    if (!isSearchFiltering) return $commitGraph.commits;
+    return $commitGraph.commits.filter((c) => $commitSearchMatchOids.has(c.oid));
+  });
+
+  function getSearchGridTemplate(): string {
+    return `1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
   }
 
   function selectedIndex(): number {
@@ -676,7 +690,7 @@
   });
 </script>
 
-<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {getGridTemplate()}">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isSearchFiltering ? getSearchGridTemplate() : getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
     {@const layout = $commitGraph.layout}
     {#if isTronEnhanced}
@@ -694,7 +708,9 @@
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-      <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
+      {#if !isSearchFiltering}
+        <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
+      {/if}
       <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
       <span class="text-center header-cell">Author<span class="resize-handle" role="separator" onmousedown={startResizePair('author', 'date')}></span></span>
       <span class="text-center header-cell">Date<span class="resize-handle" role="separator" onmousedown={startResizePair('date', 'sha')}></span></span>
@@ -711,6 +727,73 @@
       onkeydown={handleKeydown}
       onscroll={handleListScroll}
     >
+      {#if $commitSearchActive && $commitSearchMatchOids.size === 0 && $commitSearchQuery}
+        <div class="flex items-center justify-center py-8 text-sm text-muted-foreground">
+          No matching commits
+        </div>
+      {:else if isSearchFiltering}
+        {#each filteredCommits as commit (commit.oid)}
+          {@const branches = getBranchesForCommit(commit.oid)}
+          {@const tags = getTagsForCommit(commit.oid)}
+          {@const isHead = commit.oid === $commitGraph?.head_oid}
+          <button
+            role="option"
+            aria-selected={isSelected(commit)}
+            class="commit-row px-2 border-b border-border/50 w-full text-left cursor-pointer transition-colors font-inherit text-inherit {isSelected(commit) ? 'bg-accent' : 'hover:bg-accent/50'} {isHead ? 'font-medium' : ''}"
+            style="height: {ROW_HEIGHT}px; position: relative;"
+            onclick={() => selectCommit(commit)}
+            oncontextmenu={(e) => handleCommitContextMenu(e, commit)}
+          >
+            <!-- Message column -->
+            <span class="min-w-0 overflow-hidden truncate text-left">{commit.summary}</span>
+
+            <span class="author-cell text-muted-foreground text-center">
+              <img
+                class="avatar"
+                src={gravatarUrl(commit.author.email, 40)}
+                alt=""
+                loading="lazy"
+                onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
+              />
+              <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
+              </svg>
+              <span class="truncate">{commit.author.name}</span>
+            </span>
+            <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
+            <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
+
+            <!-- Branch & tag labels in search mode -->
+            {#if branches.length > 0 || tags.length > 0}
+              {@const grouped = groupBranches(branches)}
+              <span class="search-labels">
+                {#each grouped as group}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <span
+                    class="branch-tag"
+                    style={getUnifiedBranchStyle(group)}
+                    onclick={(e) => e.stopPropagation()}
+                    ondblclick={(e) => handleBranchClick(e, group.primary)}
+                    oncontextmenu={(e) => handleBranchContextMenu(e, group.primary)}
+                  >
+                    {group.name}
+                  </span>
+                {/each}
+                {#each tags as tag}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <span
+                    class="tag-pill"
+                    onclick={(e) => e.stopPropagation()}
+                    oncontextmenu={(e) => handleTagContextMenu(e, tag)}
+                  >
+                    {tag.name}
+                  </span>
+                {/each}
+              </span>
+            {/if}
+          </button>
+        {/each}
+      {:else}
       {#each $commitGraph.commits as commit, i}
         {@const node = layout?.nodes[i]}
         {@const branches = getBranchesForCommit(commit.oid)}
@@ -874,6 +957,7 @@
           {/if}
         </button>
       {/each}
+      {/if}
     </div>
   {:else}
     <div class="flex items-center justify-center h-full text-muted-foreground">
@@ -1106,6 +1190,17 @@
 
   .resize-handle:hover::after {
     opacity: 0.8;
+  }
+
+  .search-labels {
+    position: absolute;
+    right: 8px;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto;
   }
 
   .context-menu-item:disabled {

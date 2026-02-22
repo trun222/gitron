@@ -26,6 +26,10 @@
         e.preventDefault();
         settingsOpen = !settingsOpen;
       }
+      if (e.key === '/' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        commandBar?.focusCommitSearch();
+      }
     }
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);

@@ -40,6 +40,31 @@ pub async fn get_commit_detail(
     Ok(Json(commit))
 }
 
+#[derive(Deserialize)]
+pub struct SearchRequest {
+    path: String,
+    query: String,
+    #[serde(rename = "maxCommits")]
+    max_commits: Option<usize>,
+    #[serde(rename = "includeRemotes")]
+    include_remotes: Option<bool>,
+    #[serde(rename = "searchDiffs")]
+    search_diffs: Option<bool>,
+}
+
+pub async fn search_commits(
+    Json(req): Json<SearchRequest>,
+) -> Result<Json<Vec<String>>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    let options = GraphOptions {
+        max_commits: req.max_commits.or(Some(500)),
+        from_oid: None,
+        include_remotes: req.include_remotes.unwrap_or(true),
+    };
+    let results = git_graph::search_commits(&repo, &req.query, &options, req.search_diffs.unwrap_or(false)).map_err(err)?;
+    Ok(Json(results))
+}
+
 fn err(e: impl std::fmt::Display) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
 }

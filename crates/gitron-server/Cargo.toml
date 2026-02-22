@@ -10,7 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 gitron-core = { path = "../gitron-core" }
-git2 = { workspace = true }
 axum = { version = "0.8", features = ["macros"] }
 tokio = { workspace = true }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
