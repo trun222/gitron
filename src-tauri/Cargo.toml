@@ -1,6 +1,6 @@
 [package]
 name = "gitron"
-version = "0.3.0"
+version = "0.3.1"
 description = "Open-source, AI-native Git GUI"
 authors = ["Thomas Underwood II"]
 edition = "2021"
