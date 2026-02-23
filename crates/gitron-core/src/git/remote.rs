@@ -163,29 +163,57 @@ pub async fn push(
         args.push("--set-upstream");
     }
 
-    let output = cli::run_git_async_with_github_auth(workdir, &args).await?;
+    // Add --verbose for richer diagnostics on success and failure
+    args.push("--verbose");
 
-    let summary = if output.stderr.contains("Everything up-to-date") {
-        "Everything up-to-date".to_string()
-    } else {
-        output
-            .stderr
-            .lines()
-            .find(|line| line.contains("->"))
-            .unwrap_or("Push completed")
-            .trim()
-            .to_string()
-    };
+    match cli::run_git_async_with_github_auth(workdir, &args).await {
+        Ok(output) => {
+            let summary = if output.stderr.contains("Everything up-to-date") {
+                "Everything up-to-date".to_string()
+            } else {
+                output
+                    .stderr
+                    .lines()
+                    .find(|line| line.contains("->"))
+                    .unwrap_or("Push completed")
+                    .trim()
+                    .to_string()
+            };
 
-    Ok(PushResult {
-        remote: remote.to_string(),
-        branch: branch.unwrap_or("HEAD").to_string(),
-        summary,
-        output: OperationOutput {
-            stdout: output.stdout,
-            stderr: output.stderr,
-        },
-    })
+            Ok(PushResult {
+                remote: remote.to_string(),
+                branch: branch.unwrap_or("HEAD").to_string(),
+                summary,
+                output: OperationOutput {
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                },
+            })
+        }
+        Err(GitError::CliError {
+            command,
+            stderr,
+            exit_code,
+        }) => {
+            // Build a richer error message combining all available info
+            let mut details = String::new();
+            for line in stderr.lines() {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    if !details.is_empty() {
+                        details.push('\n');
+                    }
+                    details.push_str(trimmed);
+                }
+            }
+            Err(GitError::CliError {
+                command,
+                stderr: details,
+                exit_code,
+            })
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Pull from a remote

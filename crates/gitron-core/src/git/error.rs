@@ -20,7 +20,7 @@ pub enum GitError {
     #[error("Staging error: {0}")]
     StagingError(String),
 
-    #[error("CLI error ({exit_code}): {stderr}")]
+    #[error("CLI error ({exit_code}): `{command}`\n{stderr}")]
     CliError {
         command: String,
         stderr: String,

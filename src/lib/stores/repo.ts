@@ -811,7 +811,9 @@ export async function fetchFromRemote(remoteName?: string) {
     await refreshRemotes(path);
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
-    error.set(String(e));
+    const msg = String(e);
+    error.set(msg);
+    addOutput('fetch', '', msg, false);
   } finally {
     networkOperation.set(null);
   }
@@ -836,7 +838,9 @@ export async function pushToRemote(remoteName?: string, force?: boolean) {
     addOutput('push', result.output.stdout, result.output.stderr, true);
     await refreshAll(path);
   } catch (e) {
-    error.set(String(e));
+    const msg = String(e);
+    error.set(msg);
+    addOutput('push', '', msg, false);
   } finally {
     networkOperation.set(null);
   }
@@ -890,7 +894,9 @@ export async function pullFromRemote(remoteName?: string) {
     }
     await refreshAll(path);
   } catch (e) {
-    error.set(String(e));
+    const msg = String(e);
+    error.set(msg);
+    addOutput('pull', '', msg, false);
   } finally {
     networkOperation.set(null);
   }

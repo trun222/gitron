@@ -48,7 +48,7 @@ pub fn run_git(workdir: &str, args: &[&str]) -> GitResult<CliOutput> {
     if !output.status.success() {
         return Err(GitError::CliError {
             command: format!("git {}", args.join(" ")),
-            stderr: result.stderr,
+            stderr: combine_output(&result.stdout, &result.stderr),
             exit_code: result.exit_code,
         });
     }
@@ -75,7 +75,7 @@ pub async fn run_git_async(workdir: &str, args: &[&str]) -> GitResult<CliOutput>
     if !output.status.success() {
         return Err(GitError::CliError {
             command: format!("git {}", args.join(" ")),
-            stderr: result.stderr,
+            stderr: combine_output(&result.stdout, &result.stderr),
             exit_code: result.exit_code,
         });
     }
@@ -123,10 +123,24 @@ pub async fn run_git_async_with_github_auth(workdir: &str, args: &[&str]) -> Git
     if !output.status.success() {
         return Err(GitError::CliError {
             command: format!("git {}", args.join(" ")),
-            stderr: result.stderr,
+            stderr: combine_output(&result.stdout, &result.stderr),
             exit_code: result.exit_code,
         });
     }
 
     Ok(result)
+}
+
+/// Combine stdout and stderr into a single error message.
+/// Git hooks often write to stdout, while git errors go to stderr.
+/// Including both ensures hook output is visible in error messages.
+fn combine_output(stdout: &str, stderr: &str) -> String {
+    let stdout = stdout.trim();
+    let stderr = stderr.trim();
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => String::new(),
+        (true, false) => stderr.to_string(),
+        (false, true) => stdout.to_string(),
+        (false, false) => format!("{stdout}\n{stderr}"),
+    }
 }
