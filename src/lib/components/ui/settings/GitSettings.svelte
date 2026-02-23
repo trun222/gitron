@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval } from '$lib/stores/settings';
+  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors } from '$lib/stores/settings';
   import type { AutoFetchInterval, FileWatcherInterval } from '$lib/api/types';
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
@@ -56,6 +56,26 @@
   </div>
 </div>
 
+<div class="section">
+  <h3 class="section-title">Errors</h3>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Verbose git errors</span>
+      <span class="label-description">Show full command details and exit codes in error messages</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$verboseGitErrors}
+      onclick={() => setVerboseGitErrors(!$verboseGitErrors)}
+      role="switch"
+      aria-checked={$verboseGitErrors}
+      aria-label="Toggle verbose git errors"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+</div>
+
 <style>
   .section {
     margin-bottom: 24px;
@@ -108,5 +128,34 @@
   .select-input:focus {
     outline: none;
     border-color: var(--primary);
+  }
+
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--input);
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on {
+    background: var(--primary);
+  }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--foreground);
+    transition: transform 0.2s;
+  }
+  .toggle.on .toggle-thumb {
+    transform: translateX(16px);
+    background: var(--primary-foreground);
   }
 </style>

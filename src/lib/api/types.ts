@@ -322,4 +322,5 @@ export interface AppSettings {
   monoFont?: MonoFont;
   showTagsList?: boolean;
   changesViewMode?: ChangesViewMode;
+  verboseGitErrors?: boolean;
 }

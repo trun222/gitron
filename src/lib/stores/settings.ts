@@ -25,6 +25,7 @@ export const editorFontSize = writable<EditorFontSize>(12);
 export const monoFont = writable<MonoFont>('default');
 export const showTagsList = writable(true);
 export const changesViewMode = writable<ChangesViewMode>('file');
+export const verboseGitErrors = writable(false);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -171,6 +172,11 @@ export async function setAutoShowOutput(enabled: boolean): Promise<void> {
   await settingsApi.saveAutoShowOutput(enabled);
 }
 
+export async function setVerboseGitErrors(enabled: boolean): Promise<void> {
+  verboseGitErrors.set(enabled);
+  await settingsApi.saveVerboseGitErrors(enabled);
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -232,6 +238,9 @@ export async function loadSettings(): Promise<void> {
 
   // Changes view mode
   changesViewMode.set(settings.changesViewMode ?? 'file');
+
+  // Verbose git errors
+  verboseGitErrors.set(settings.verboseGitErrors ?? false);
 
   settingsLoaded.set(true);
 }

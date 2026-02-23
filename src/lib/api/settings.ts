@@ -200,3 +200,9 @@ export async function saveChangesViewMode(mode: ChangesViewMode): Promise<void> 
   settings.changesViewMode = mode;
   await saveSettings(settings);
 }
+
+export async function saveVerboseGitErrors(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.verboseGitErrors = enabled;
+  await saveSettings(settings);
+}

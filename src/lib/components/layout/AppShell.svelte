@@ -11,6 +11,7 @@
     refreshAll,
   } from '$lib/stores/repo';
   import { toggleOutputPanel } from '$lib/stores/output';
+  import { verboseGitErrors } from '$lib/stores/settings';
   import { get } from 'svelte/store';
   import { BranchConflictDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, ForcePushDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
   import { initAuth } from '$lib/stores/github';
@@ -20,7 +21,14 @@
 
   let errorExpanded = $state(false);
 
-  let errorFirstLine = $derived($error?.split('\n')[0] ?? '');
+  let errorFirstLine = $derived.by(() => {
+    if (!$error) return '';
+    const firstLine = $error.split('\n')[0];
+    if ($verboseGitErrors || !/^CLI error \(\d+\): `[^`]+`/.test(firstLine)) return firstLine;
+    // Non-verbose: skip the technical prefix line, show first non-empty stderr line
+    const stderrLine = $error.split('\n').slice(1).find((l) => l.trim());
+    return stderrLine?.trim() || firstLine;
+  });
   let errorIsMultiline = $derived(($error?.split('\n').length ?? 0) > 1);
 
   onMount(() => {
