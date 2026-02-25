@@ -369,6 +369,16 @@
   }
 
   // --- Context menu (uses action IDs, not closures, to avoid $state proxy issues) ---
+  function adjustMenuPosition(node: HTMLElement) {
+    const rect = node.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      node.style.top = `${Math.max(4, rect.top - rect.height)}px`;
+    }
+    if (rect.right > window.innerWidth) {
+      node.style.left = `${Math.max(4, window.innerWidth - rect.width)}px`;
+    }
+  }
+
   interface MenuAction {
     id: string;
     label: string;
@@ -974,6 +984,7 @@
   <div
     class="fixed z-50 min-w-[180px] rounded-lg border border-border bg-popover shadow-lg py-1"
     style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+    use:adjustMenuPosition
     onclick={(e) => e.stopPropagation()}
   >
     {#each contextMenu.items as item}
