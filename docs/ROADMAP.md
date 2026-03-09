@@ -55,6 +55,8 @@
 - [x] Rebase via context menu (right-click branch → "Rebase {current} onto {branch}", uses git CLI, conflict detection)
 - [ ] Interactive rebase
 - [ ] Cherry-pick
+- [x] Worktree management — list, create, remove, lock/unlock, prune with sidebar UI, command palette, and context menus (see [WORKTREE_DESIGN.md](./WORKTREE_DESIGN.md))
+- [x] Worktree integration — graph badges, open in new window/tab, open in terminal
 - [ ] Stash management (create, pop, apply, drop)
 - [ ] Tag management
 - [ ] Git blame integration

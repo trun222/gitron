@@ -5,3 +5,4 @@ pub mod graph;
 pub mod diff;
 pub mod cli;
 pub mod remote;
+pub mod worktree;

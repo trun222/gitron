@@ -10,6 +10,7 @@ pub mod remote;
 pub mod tag;
 pub mod github;
 pub mod clone;
+pub mod worktree;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

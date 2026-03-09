@@ -24,8 +24,10 @@ export const highContrast = writable(false);
 export const editorFontSize = writable<EditorFontSize>(12);
 export const monoFont = writable<MonoFont>('default');
 export const showTagsList = writable(true);
+export const showWorktreesList = writable(false);
 export const changesViewMode = writable<ChangesViewMode>('file');
 export const verboseGitErrors = writable(false);
+export const terminalApp = writable<string>('');
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -149,6 +151,11 @@ export async function setShowTagsList(enabled: boolean): Promise<void> {
   await settingsApi.saveShowTagsList(enabled);
 }
 
+export async function setShowWorktreesList(enabled: boolean): Promise<void> {
+  showWorktreesList.set(enabled);
+  await settingsApi.saveShowWorktreesList(enabled);
+}
+
 export async function setChangesViewMode(mode: ChangesViewMode): Promise<void> {
   changesViewMode.set(mode);
   await settingsApi.saveChangesViewMode(mode);
@@ -175,6 +182,11 @@ export async function setAutoShowOutput(enabled: boolean): Promise<void> {
 export async function setVerboseGitErrors(enabled: boolean): Promise<void> {
   verboseGitErrors.set(enabled);
   await settingsApi.saveVerboseGitErrors(enabled);
+}
+
+export async function setTerminalApp(app: string): Promise<void> {
+  terminalApp.set(app);
+  await settingsApi.saveTerminalApp(app);
 }
 
 // Actions
@@ -235,12 +247,16 @@ export async function loadSettings(): Promise<void> {
 
   // Show tags list
   showTagsList.set(settings.showTagsList ?? true);
+  showWorktreesList.set(settings.showWorktreesList ?? false);
 
   // Changes view mode
   changesViewMode.set(settings.changesViewMode ?? 'file');
 
   // Verbose git errors
   verboseGitErrors.set(settings.verboseGitErrors ?? false);
+
+  // Terminal app
+  terminalApp.set(settings.terminalApp ?? '');
 
   settingsLoaded.set(true);
 }

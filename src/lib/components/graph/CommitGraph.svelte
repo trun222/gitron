@@ -10,8 +10,9 @@
     commitSearchActive, commitSearchMatchOids, commitSearchQuery,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
+  import { linkedWorktrees } from '$lib/stores/worktree';
   import { gravatarUrl } from '$lib/utils/gravatar';
-  import type { Commit, Branch, Tag, StashEntry, GraphColumnWidths, GraphEdge } from '$lib/api/types';
+  import type { Commit, Branch, Tag, StashEntry, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
 
   const GRAPH_COLOR_COUNT = 14;
   const ROW_HEIGHT = 30;
@@ -248,6 +249,10 @@
   function getTagsForCommit(oid: string): Tag[] {
     if (!$commitGraph) return [];
     return $commitGraph.tags.filter((t) => t.target_oid === oid);
+  }
+
+  function getWorktreesForCommit(oid: string): WorktreeInfo[] {
+    return $linkedWorktrees.filter((w) => w.head_oid === oid);
   }
 
   function isSelected(commit: Commit): boolean {
@@ -745,6 +750,7 @@
         {#each filteredCommits as commit (commit.oid)}
           {@const branches = getBranchesForCommit(commit.oid)}
           {@const tags = getTagsForCommit(commit.oid)}
+          {@const commitWorktrees = getWorktreesForCommit(commit.oid)}
           {@const isHead = commit.oid === $commitGraph?.head_oid}
           <button
             role="option"
@@ -773,30 +779,38 @@
             <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
             <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
 
-            <!-- Branch & tag labels in search mode -->
-            {#if branches.length > 0 || tags.length > 0}
+            <!-- Branch, tag & worktree labels in search mode -->
+            {#if branches.length > 0 || tags.length > 0 || commitWorktrees.length > 0}
               {@const grouped = groupBranches(branches)}
               <span class="search-labels">
                 {#each grouped as group}
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span
                     class="branch-tag"
+                    title={group.name}
                     style={getUnifiedBranchStyle(group)}
                     onclick={(e) => e.stopPropagation()}
                     ondblclick={(e) => handleBranchClick(e, group.primary)}
                     oncontextmenu={(e) => handleBranchContextMenu(e, group.primary)}
                   >
-                    {group.name}
+                    <span class="pill-text">{group.name}</span>
                   </span>
                 {/each}
                 {#each tags as tag}
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span
                     class="tag-pill"
+                    title={tag.name}
                     onclick={(e) => e.stopPropagation()}
                     oncontextmenu={(e) => handleTagContextMenu(e, tag)}
                   >
-                    {tag.name}
+                    <span class="pill-text">{tag.name}</span>
+                  </span>
+                {/each}
+                {#each commitWorktrees as wt}
+                  <span class="worktree-pill" title={wt.name}>
+                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5L12 8h-2l4 5H9v2H7v-2H2l4-5H4z"/></svg>
+                    <span class="pill-text">{wt.name}</span>
                   </span>
                 {/each}
               </span>
@@ -808,6 +822,7 @@
         {@const node = layout?.nodes[i]}
         {@const branches = getBranchesForCommit(commit.oid)}
         {@const tags = getTagsForCommit(commit.oid)}
+        {@const commitWorktrees = getWorktreesForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
         {@const rowLanes = laneActivities[i] ?? new Map()}
         <button
@@ -921,8 +936,8 @@
           <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
           <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
 
-          <!-- Branch & tag labels: positioned absolutely over the row -->
-          {#if node && (branches.length > 0 || tags.length > 0)}
+          <!-- Branch, tag & worktree labels: positioned absolutely over the row -->
+          {#if node && (branches.length > 0 || tags.length > 0 || commitWorktrees.length > 0)}
             {@const grouped = groupBranches(branches)}
             <span
               class="branch-tags"
@@ -932,6 +947,7 @@
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="branch-tag"
+                  title={group.name}
                   style={getUnifiedBranchStyle(group)}
                   onclick={(e) => e.stopPropagation()}
                   ondblclick={(e) => handleBranchClick(e, group.primary)}
@@ -940,7 +956,7 @@
                   {#if group.primary.is_head}
                     <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
                   {/if}
-                  {group.name}
+                  <span class="pill-text">{group.name}</span>
                   {#if group.local}
                     <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v7a1.5 1.5 0 0 1-1.5 1.5H10v1h1.5a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1H6v-1H3.5A1.5 1.5 0 0 1 2 10.5v-7Zm1.5-.5a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-9ZM7 12v1h2v-1H7Z"/></svg>
                   {/if}
@@ -953,14 +969,21 @@
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="tag-pill"
+                  title={tag.name}
                   onclick={(e) => e.stopPropagation()}
                   oncontextmenu={(e) => handleTagContextMenu(e, tag)}
                 >
                   <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
-                  {tag.name}
+                  <span class="pill-text">{tag.name}</span>
                   {#if $remoteTagNames.has(tag.name)}
                     <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
                   {/if}
+                </span>
+              {/each}
+              {#each commitWorktrees as wt}
+                <span class="worktree-pill" title={wt.name}>
+                  <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5L12 8h-2l4 5H9v2H7v-2H2l4-5H4z"/></svg>
+                  <span class="pill-text">{wt.name}</span>
                 </span>
               {/each}
             </span>
@@ -1164,6 +1187,32 @@
 
   .tag-pill:hover {
     filter: brightness(1.25);
+  }
+
+  .worktree-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  .worktree-pill:hover {
+    filter: brightness(1.25);
+  }
+
+  .pill-text {
+    max-width: 20ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .branch-tag:hover {

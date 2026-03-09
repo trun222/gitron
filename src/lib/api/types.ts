@@ -190,6 +190,35 @@ export interface MergeResult {
   output: OperationOutput;
 }
 
+// Worktree types (matching crates/gitron-core/src/git/types.rs)
+
+export interface WorktreeInfo {
+  name: string;
+  path: string;
+  branch: string | null;
+  head_oid: string | null;
+  head_short_oid: string | null;
+  is_main: boolean;
+  is_locked: boolean;
+  lock_reason: string | null;
+  is_valid: boolean;
+}
+
+export interface WorktreeCreateResult {
+  worktree: WorktreeInfo;
+  output: OperationOutput;
+}
+
+export interface WorktreeRemoveResult {
+  success: boolean;
+  output: OperationOutput;
+}
+
+export interface WorktreePruneResult {
+  pruned: string[];
+  output: OperationOutput;
+}
+
 // GitHub OAuth types (matching src-tauri/src/github/types.rs)
 
 export interface GitHubUser {
@@ -323,4 +352,6 @@ export interface AppSettings {
   showTagsList?: boolean;
   changesViewMode?: ChangesViewMode;
   verboseGitErrors?: boolean;
+  terminalApp?: string;
+  showWorktreesList?: boolean;
 }

@@ -1,13 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
+  "description": "Capability for all windows",
+  "windows": ["main", "worktree-*"],
   "permissions": [
     "core:default",
     "opener:default",
     "dialog:default",
     "store:default",
-    "core:webview:allow-set-webview-zoom"
+    "core:webview:allow-set-webview-zoom",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-create"
   ]
 }

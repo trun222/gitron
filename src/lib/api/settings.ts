@@ -195,6 +195,12 @@ export async function saveShowTagsList(enabled: boolean): Promise<void> {
   await saveSettings(settings);
 }
 
+export async function saveShowWorktreesList(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.showWorktreesList = enabled;
+  await saveSettings(settings);
+}
+
 export async function saveChangesViewMode(mode: ChangesViewMode): Promise<void> {
   const settings = await getSettings();
   settings.changesViewMode = mode;
@@ -204,5 +210,11 @@ export async function saveChangesViewMode(mode: ChangesViewMode): Promise<void> 
 export async function saveVerboseGitErrors(enabled: boolean): Promise<void> {
   const settings = await getSettings();
   settings.verboseGitErrors = enabled;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalApp(app: string): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalApp = app || undefined;
   await saveSettings(settings);
 }

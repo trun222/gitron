@@ -14,6 +14,13 @@
     searchCommitsAction, clearCommitSearch,
   } from '$lib/stores/repo';
   import { openCloneDialog } from '$lib/stores/clone';
+  import { isTauri } from '$lib/api';
+  import {
+    linkedWorktrees,
+    showAddWorktreeDialog,
+    deleteWorktree,
+    pruneStaleWorktrees,
+  } from '$lib/stores/worktree';
 
   let { onShowShortcuts, onShowSettings }: { onShowShortcuts?: () => void; onShowSettings?: () => void } = $props();
 
@@ -211,6 +218,48 @@
     commitSearchMode = true;
     commitSearchActive.set(true);
     // Keep input focused
+  }
+
+  function handleAddWorktree() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    showAddWorktreeDialog.set(true);
+  }
+
+  async function handleOpenWorktree(worktreePath: string) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+
+    if (isTauri()) {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const label = `worktree-${Date.now()}`;
+      new WebviewWindow(label, {
+        url: `/?repo=${encodeURIComponent(worktreePath)}`,
+        title: `Gitron — ${worktreePath.split('/').pop() ?? 'Worktree'}`,
+        width: 1280,
+        height: 800,
+        minWidth: 900,
+        minHeight: 600,
+      });
+    } else {
+      window.open(`/?repo=${encodeURIComponent(worktreePath)}`, '_blank');
+    }
+  }
+
+  async function handleRemoveWorktree(worktreePath: string) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await deleteWorktree(worktreePath, false);
+  }
+
+  async function handlePruneWorktrees() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await pruneStaleWorktrees();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -498,6 +547,52 @@
                 >
                   <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   <span>Discard All Changes</span>
+                </Command.Item>
+              </Command.GroupItems>
+            </Command.Group>
+
+            <Command.Separator class="my-1 h-px bg-border" />
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Worktrees
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                <Command.Item
+                  value="add-worktree"
+                  keywords={['worktree', 'add', 'create', 'new', 'parallel', 'isolate']}
+                  onSelect={handleAddWorktree}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" />
+                  </svg>
+                  <span>Add Worktree...</span>
+                </Command.Item>
+                {#each $linkedWorktrees as wt (wt.path)}
+                  <Command.Item
+                    value={`worktree:${wt.path}`}
+                    keywords={[wt.name, wt.branch ?? '', wt.path, 'worktree', 'open', 'window']}
+                    onSelect={() => handleOpenWorktree(wt.path)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M8 1.5L12 8h-2l4 5H9v2H7v-2H2l4-5H4z"/>
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">{wt.name}</span>
+                      <span class="truncate text-xs text-muted-foreground">{wt.branch ?? 'detached'} · {wt.path}</span>
+                    </div>
+                    <span class="ml-auto text-xs text-muted-foreground">Open</span>
+                  </Command.Item>
+                {/each}
+                <Command.Item
+                  value="prune-worktrees"
+                  keywords={['worktree', 'prune', 'clean', 'stale', 'cleanup']}
+                  onSelect={handlePruneWorktrees}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Prune Stale Worktrees</span>
                 </Command.Item>
               </Command.GroupItems>
             </Command.Group>

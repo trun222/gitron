@@ -25,7 +25,7 @@
     selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -34,6 +34,7 @@
     initAI,
   } from '$lib/stores/ai';
 
+  import WorktreeSection from './WorktreeSection.svelte';
   import { buildTree, flattenTree, collectDirPaths } from './changes-tree';
 
   let commitTitle = $state('');
@@ -732,6 +733,11 @@
           {/if}
         {/if}
     </div>
+
+    <!-- WORKTREES -->
+    {#if $showWorktreesList}
+      <WorktreeSection />
+    {/if}
 
     <!-- TAGS LIST (bottom-docked) -->
     {#if $showTagsList && $commitGraph && $commitGraph.tags.length > 0}

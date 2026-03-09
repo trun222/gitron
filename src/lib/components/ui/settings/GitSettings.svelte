@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors } from '$lib/stores/settings';
+  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors, terminalApp, setTerminalApp } from '$lib/stores/settings';
+  import { isTauri } from '$lib/api';
   import type { AutoFetchInterval, FileWatcherInterval } from '$lib/api/types';
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
@@ -16,6 +17,19 @@
     { value: 3000, label: '3 seconds' },
     { value: 5000, label: '5 seconds' },
   ];
+
+  const knownTerminals = ['', 'iTerm', 'Warp', 'Ghostty', 'Alacritty', 'Kitty', 'Hyper'];
+  let isCustomTerminal = $derived(!knownTerminals.includes($terminalApp));
+  let showCustomInput = $state(false);
+
+  function handleTerminalSelect(value: string) {
+    if (value === '__custom__') {
+      showCustomInput = true;
+    } else {
+      showCustomInput = false;
+      setTerminalApp(value);
+    }
+  }
 </script>
 
 <div class="section">
@@ -55,6 +69,43 @@
     </select>
   </div>
 </div>
+
+{#if isTauri()}
+<div class="section">
+  <h3 class="section-title">Terminal</h3>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Terminal application</span>
+      <span class="label-description">Used for "Open in Terminal" on worktrees</span>
+    </div>
+    <div class="terminal-controls">
+      <select
+        class="select-input"
+        value={isCustomTerminal || showCustomInput ? '__custom__' : $terminalApp}
+        onchange={(e) => handleTerminalSelect((e.target as HTMLSelectElement).value)}
+      >
+        <option value="">System Default</option>
+        <option value="iTerm">iTerm2</option>
+        <option value="Warp">Warp</option>
+        <option value="Ghostty">Ghostty</option>
+        <option value="Alacritty">Alacritty</option>
+        <option value="Kitty">Kitty</option>
+        <option value="Hyper">Hyper</option>
+        <option value="__custom__">Custom...</option>
+      </select>
+      {#if isCustomTerminal || showCustomInput}
+        <input
+          type="text"
+          class="text-input"
+          placeholder="App name or path"
+          value={$terminalApp}
+          onchange={(e) => setTerminalApp((e.target as HTMLInputElement).value)}
+        />
+      {/if}
+    </div>
+  </div>
+</div>
+{/if}
 
 <div class="section">
   <h3 class="section-title">Errors</h3>
@@ -126,6 +177,32 @@
     flex-shrink: 0;
   }
   .select-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .terminal-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .text-input {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    color: var(--foreground);
+    font-size: 12px;
+    flex-shrink: 0;
+    width: 160px;
+  }
+  .text-input::placeholder {
+    color: var(--muted-foreground);
+  }
+  .text-input:focus {
     outline: none;
     border-color: var(--primary);
   }

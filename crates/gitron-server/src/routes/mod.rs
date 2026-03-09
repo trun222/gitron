@@ -8,6 +8,7 @@ mod stash;
 mod remote;
 mod tag;
 mod clone;
+mod worktree;
 mod ai;
 mod github;
 mod fs;
@@ -76,6 +77,13 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/tag/push", post(tag::push_tag))
         .route("/tag/delete-remote", post(tag::delete_remote_tag))
         .route("/tag/list-remote", post(tag::list_remote_tags))
+        // Worktree
+        .route("/worktree/list", post(worktree::list_worktrees))
+        .route("/worktree/add", post(worktree::add_worktree))
+        .route("/worktree/remove", post(worktree::remove_worktree))
+        .route("/worktree/lock", post(worktree::lock_worktree))
+        .route("/worktree/unlock", post(worktree::unlock_worktree))
+        .route("/worktree/prune", post(worktree::prune_worktrees))
         // Clone
         .route("/clone", post(clone::clone_repo))
         // GitHub

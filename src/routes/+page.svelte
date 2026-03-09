@@ -11,9 +11,17 @@
 
   onMount(async () => {
     await loadSettings();
-    const lastRepo = get(lastActiveRepo);
-    if (lastRepo) {
-      await openRepo(lastRepo);
+
+    // Check for ?repo= query parameter (used by "Open in New Window" for worktrees)
+    const params = new URLSearchParams(window.location.search);
+    const repoParam = params.get('repo');
+    if (repoParam) {
+      await openRepo(repoParam);
+    } else {
+      const lastRepo = get(lastActiveRepo);
+      if (lastRepo) {
+        await openRepo(lastRepo);
+      }
     }
   });
 </script>

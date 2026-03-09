@@ -276,6 +276,50 @@ pub struct RefsChangedPayload {
     pub status: RepoStatus,
 }
 
+/// A git worktree entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeInfo {
+    /// Name of the worktree (directory basename for linked, "main" for the primary)
+    pub name: String,
+    /// Absolute path to the worktree's working directory
+    pub path: String,
+    /// Branch currently checked out (None if detached HEAD)
+    pub branch: Option<String>,
+    /// HEAD commit OID
+    pub head_oid: Option<String>,
+    /// Short HEAD commit OID
+    pub head_short_oid: Option<String>,
+    /// Whether this is the main (non-linked) worktree
+    pub is_main: bool,
+    /// Whether the worktree directory is locked (prevents pruning)
+    pub is_locked: bool,
+    /// Lock reason, if locked
+    pub lock_reason: Option<String>,
+    /// Whether the worktree path is valid (directory exists)
+    pub is_valid: bool,
+}
+
+/// Result of creating a worktree
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeCreateResult {
+    pub worktree: WorktreeInfo,
+    pub output: OperationOutput,
+}
+
+/// Result of removing a worktree
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeRemoveResult {
+    pub success: bool,
+    pub output: OperationOutput,
+}
+
+/// Result of pruning worktrees
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreePruneResult {
+    pub pruned: Vec<String>,
+    pub output: OperationOutput,
+}
+
 /// Options for graph queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphOptions {

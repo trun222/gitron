@@ -8,6 +8,7 @@
     editorFontSize, setEditorFontSize,
     monoFont, setMonoFont,
     showTagsList, setShowTagsList,
+    showWorktreesList, setShowWorktreesList,
   } from '$lib/stores/settings';
   import type { ThemeMode, ZoomLevel, EditorFontSize, MonoFont } from '$lib/api/types';
 
@@ -175,6 +176,22 @@
       role="switch"
       aria-checked={$showTagsList}
       aria-label="Toggle show tags list"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Show worktrees panel</span>
+      <span class="label-description">Show a worktrees section at the bottom of the sidebar</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$showWorktreesList}
+      onclick={() => setShowWorktreesList(!$showWorktreesList)}
+      role="switch"
+      aria-checked={$showWorktreesList}
+      aria-label="Toggle show worktrees panel"
     >
       <span class="toggle-thumb"></span>
     </button>

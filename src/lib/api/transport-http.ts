@@ -58,6 +58,13 @@ const COMMAND_MAP: Record<string, string> = {
   push_tag: '/api/tag/push',
   delete_remote_tag: '/api/tag/delete-remote',
   list_remote_tags: '/api/tag/list-remote',
+  // Worktree
+  list_worktrees: '/api/worktree/list',
+  add_worktree: '/api/worktree/add',
+  remove_worktree: '/api/worktree/remove',
+  lock_worktree: '/api/worktree/lock',
+  unlock_worktree: '/api/worktree/unlock',
+  prune_worktrees: '/api/worktree/prune',
   // Clone
   clone_repo: '/api/clone',
   // GitHub
