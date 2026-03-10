@@ -13,6 +13,7 @@ import type {
 import * as api from '$lib/api/repo';
 import { trackRepoOpen } from '$lib/stores/settings';
 import { addOutput } from '$lib/stores/output';
+import { addToast } from '$lib/stores/toast';
 import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
 
 // File selection types
@@ -807,6 +808,7 @@ export async function fetchFromRemote(remoteName?: string) {
       ? await api.fetchRemote(path, remoteName)
       : await api.fetchAllRemotes(path);
     addOutput('fetch', result.output.stdout, result.output.stderr, true);
+    addToast(`Fetch: ${result.summary}`, 'success');
     await refreshAll(path);
     await refreshRemotes(path);
     refreshRemoteTags(); // fire-and-forget
@@ -814,6 +816,7 @@ export async function fetchFromRemote(remoteName?: string) {
     const msg = String(e);
     error.set(msg);
     addOutput('fetch', '', msg, false);
+    addToast('Fetch failed', 'error');
   } finally {
     networkOperation.set(null);
   }
@@ -836,11 +839,13 @@ export async function pushToRemote(remoteName?: string, force?: boolean) {
   try {
     const result = await api.pushToRemote(path, remote, branch, force, setUpstream);
     addOutput('push', result.output.stdout, result.output.stderr, true);
+    addToast(`Push: ${result.summary}`, 'success');
     await refreshAll(path);
   } catch (e) {
     const msg = String(e);
     error.set(msg);
     addOutput('push', '', msg, false);
+    addToast('Push failed', 'error');
   } finally {
     networkOperation.set(null);
   }
@@ -891,12 +896,16 @@ export async function pullFromRemote(remoteName?: string) {
     addOutput('pull', result.output.stdout, result.output.stderr, !result.merge_conflicts);
     if (result.merge_conflicts) {
       error.set('Pull completed with merge conflicts. Resolve conflicts and commit.');
+      addToast('Pull completed with merge conflicts', 'error');
+    } else {
+      addToast(`Pull: ${result.summary}`, 'success');
     }
     await refreshAll(path);
   } catch (e) {
     const msg = String(e);
     error.set(msg);
     addOutput('pull', '', msg, false);
+    addToast('Pull failed', 'error');
   } finally {
     networkOperation.set(null);
   }

@@ -217,11 +217,22 @@ pub async fn push(
 }
 
 /// Pull from a remote
+///
+/// First fetches all remotes so every branch is up to date, then merges
+/// the current branch's upstream (via `git pull`).
 pub async fn pull(
     workdir: &str,
     remote: &str,
     branch: Option<&str>,
 ) -> GitResult<PullResult> {
+    // Fetch all remotes first so the graph reflects every branch's latest state
+    let fetch_output = cli::run_git_async_with_github_auth(workdir, &["fetch", "--all", "--prune"]).await;
+    // Collect fetch stderr/stdout to include in the result; don't fail the pull if fetch fails
+    let (fetch_stdout, fetch_stderr) = match &fetch_output {
+        Ok(o) => (o.stdout.clone(), o.stderr.clone()),
+        Err(_) => (String::new(), String::new()),
+    };
+
     let mut args = vec!["pull", remote];
 
     let branch_name = branch.unwrap_or("").to_string();
@@ -248,26 +259,43 @@ pub async fn pull(
                     .to_string()
             };
 
+            // Combine fetch + pull output so the user sees the full picture
+            let combined_stdout = if fetch_stdout.is_empty() {
+                output.stdout
+            } else {
+                format!("{}\n{}", fetch_stdout, output.stdout)
+            };
+            let combined_stderr = if fetch_stderr.is_empty() {
+                output.stderr
+            } else {
+                format!("{}\n{}", fetch_stderr, output.stderr)
+            };
+
             Ok(PullResult {
                 remote: remote.to_string(),
                 branch: branch.unwrap_or("HEAD").to_string(),
                 summary,
                 merge_conflicts,
                 output: OperationOutput {
-                    stdout: output.stdout,
-                    stderr: output.stderr,
+                    stdout: combined_stdout,
+                    stderr: combined_stderr,
                 },
             })
         }
         Err(GitError::CliError { stderr, .. }) if stderr.contains("CONFLICT") => {
+            let combined_stderr = if fetch_stderr.is_empty() {
+                stderr
+            } else {
+                format!("{}\n{}", fetch_stderr, stderr)
+            };
             Ok(PullResult {
                 remote: remote.to_string(),
                 branch: branch.unwrap_or("HEAD").to_string(),
                 summary: "Pull completed with merge conflicts".to_string(),
                 merge_conflicts: true,
                 output: OperationOutput {
-                    stdout: String::new(),
-                    stderr,
+                    stdout: fetch_stdout,
+                    stderr: combined_stderr,
                 },
             })
         }

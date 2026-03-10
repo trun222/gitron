@@ -12,6 +12,7 @@
   } from '$lib/stores/repo';
   import { toggleOutputPanel } from '$lib/stores/output';
   import { verboseGitErrors } from '$lib/stores/settings';
+  import Toast from '$lib/components/ui/toast/Toast.svelte';
   import { get } from 'svelte/store';
   import { BranchConflictDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, ForcePushDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
   import { initAuth } from '$lib/stores/github';
@@ -156,6 +157,7 @@
   <StatusBar />
 </div>
 
+<Toast />
 <BranchConflictDialog />
 <CloneDialog />
 <DeleteBranchDialog />
