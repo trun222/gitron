@@ -241,18 +241,55 @@
     return date.toLocaleDateString();
   }
 
+  // Pre-built lookup maps: O(1) per commit row instead of O(n) filter
+  let branchesByOid = $derived.by(() => {
+    const map = new Map<string, Branch[]>();
+    if (!$commitGraph) return map;
+    for (const b of $commitGraph.branches) {
+      if (b.target_oid) {
+        const arr = map.get(b.target_oid);
+        if (arr) arr.push(b);
+        else map.set(b.target_oid, [b]);
+      }
+    }
+    return map;
+  });
+
+  let tagsByOid = $derived.by(() => {
+    const map = new Map<string, Tag[]>();
+    if (!$commitGraph) return map;
+    for (const t of $commitGraph.tags) {
+      if (t.target_oid) {
+        const arr = map.get(t.target_oid);
+        if (arr) arr.push(t);
+        else map.set(t.target_oid, [t]);
+      }
+    }
+    return map;
+  });
+
+  let worktreesByOid = $derived.by(() => {
+    const map = new Map<string, WorktreeInfo[]>();
+    for (const w of $linkedWorktrees) {
+      if (w.head_oid) {
+        const arr = map.get(w.head_oid);
+        if (arr) arr.push(w);
+        else map.set(w.head_oid, [w]);
+      }
+    }
+    return map;
+  });
+
   function getBranchesForCommit(oid: string): Branch[] {
-    if (!$commitGraph) return [];
-    return $commitGraph.branches.filter((b) => b.target_oid === oid);
+    return branchesByOid.get(oid) ?? [];
   }
 
   function getTagsForCommit(oid: string): Tag[] {
-    if (!$commitGraph) return [];
-    return $commitGraph.tags.filter((t) => t.target_oid === oid);
+    return tagsByOid.get(oid) ?? [];
   }
 
   function getWorktreesForCommit(oid: string): WorktreeInfo[] {
-    return $linkedWorktrees.filter((w) => w.head_oid === oid);
+    return worktreesByOid.get(oid) ?? [];
   }
 
   function isSelected(commit: Commit): boolean {

@@ -123,10 +123,12 @@ export async function openRepo(path: string) {
     const info = await api.openRepo(path);
     repoPath.set(path);
     repoInfo.set(info);
-    await refreshAll(path);
-    await refreshRemotes(path);
-    await refreshTrackingStatus();
-    refreshRemoteTags(); // fire-and-forget (needs defaultRemote populated)
+    // Parallelise independent fetches: status+graph+tracking and remotes
+    await Promise.all([
+      refreshAll(path),
+      refreshRemotes(path),
+    ]);
+    refreshRemoteTags(); // fire-and-forget (needs defaultRemote populated above)
     await trackRepoOpen(path);
     await startWatcherListeners();
   } catch (e) {
@@ -809,8 +811,7 @@ export async function fetchFromRemote(remoteName?: string) {
       : await api.fetchAllRemotes(path);
     addOutput('fetch', result.output.stdout, result.output.stderr, true);
     addToast(`Fetch: ${result.summary}`, 'success');
-    await refreshAll(path);
-    await refreshRemotes(path);
+    await Promise.all([refreshAll(path), refreshRemotes(path)]);
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     const msg = String(e);
@@ -853,21 +854,31 @@ export async function pushToRemote(remoteName?: string, force?: boolean) {
 
 // Commit search actions
 
+let searchVersion = 0;
+
 export async function searchCommitsAction(query: string) {
   const path = get(repoPath);
   if (!path || !query.trim()) {
+    searchVersion++;
     commitSearchMatchOids.set(new Set());
+    commitSearchLoading.set(false);
     return;
   }
+  const version = ++searchVersion;
   commitSearchLoading.set(true);
   try {
     const diffs = get(commitSearchDiffs);
     const oids = await api.searchCommits(path, query, diffs);
+    // Discard stale results if a newer search was triggered
+    if (version !== searchVersion) return;
     commitSearchMatchOids.set(new Set(oids));
   } catch {
+    if (version !== searchVersion) return;
     commitSearchMatchOids.set(new Set());
   } finally {
-    commitSearchLoading.set(false);
+    if (version === searchVersion) {
+      commitSearchLoading.set(false);
+    }
   }
 }
 

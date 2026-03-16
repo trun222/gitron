@@ -292,6 +292,16 @@ fn compute_graph_layout(
         }
     }
 
+    // Pre-build a map of row → branches that should be freed at that row
+    // This avoids iterating ALL branches for every commit (O(n*b) → O(n+b))
+    let mut free_at_row: HashMap<usize, Vec<String>> = HashMap::new();
+    for (bname, &needed_until) in &branch_needed_until {
+        if let Some(&last_row) = branch_last_row.get(bname) {
+            let free_row = needed_until.max(last_row);
+            free_at_row.entry(free_row).or_default().push(bname.clone());
+        }
+    }
+
     let mut nodes: Vec<GraphNode> = Vec::with_capacity(commits.len());
     let mut max_lanes: usize = 0;
 
@@ -380,26 +390,15 @@ fn compute_graph_layout(
             edges,
         });
 
-        // Free lanes for branches that are done (no more commits or parent references needed)
-        // Check all active branches to see if they're fully done at this row
-        let mut branches_to_free: Vec<String> = Vec::new();
-        for (bname, &needed_until) in &branch_needed_until {
-            if i >= needed_until {
-                // Check this branch has actually been placed already
-                if branch_to_lane.contains_key(bname) {
-                    // And all its commits have been processed
-                    if let Some(&last_row) = branch_last_row.get(bname) {
-                        if i >= last_row {
-                            branches_to_free.push(bname.clone());
+        // Free lanes for branches scheduled to be freed at this row
+        if let Some(branches_to_free) = free_at_row.remove(&i) {
+            for bname in branches_to_free {
+                if branch_to_lane.contains_key(&bname) {
+                    if let Some(freed_lane) = branch_to_lane.remove(&bname) {
+                        if freed_lane < active_lanes.len() {
+                            active_lanes[freed_lane] = None;
                         }
                     }
-                }
-            }
-        }
-        for bname in branches_to_free {
-            if let Some(freed_lane) = branch_to_lane.remove(&bname) {
-                if freed_lane < active_lanes.len() {
-                    active_lanes[freed_lane] = None;
                 }
             }
         }

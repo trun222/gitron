@@ -1,18 +1,50 @@
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use git2::Repository;
 
 use super::error::{GitError, GitResult};
 use super::types::*;
 
-/// Opens a git repository at the given path
+/// Global cache: maps input path → resolved .git directory.
+/// After the first `discover()`, subsequent opens use `Repository::open()` directly.
+static GIT_DIR_CACHE: std::sync::LazyLock<Mutex<HashMap<String, PathBuf>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Opens a git repository at the given path.
+/// Uses a cached .git directory path when available to skip `discover()`.
 pub fn open(path: &str) -> GitResult<Repository> {
-    Repository::discover(path).map_err(|_| GitError::NotARepository(path.to_string()))
+    // Fast path: use cached .git directory
+    if let Some(git_dir) = GIT_DIR_CACHE.lock().ok().and_then(|cache| cache.get(path).cloned()) {
+        if let Ok(repo) = Repository::open(&git_dir) {
+            return Ok(repo);
+        }
+        // Cache entry stale — remove it and fall through to discover
+        if let Ok(mut cache) = GIT_DIR_CACHE.lock() {
+            cache.remove(path);
+        }
+    }
+
+    // Slow path: discover and cache
+    let repo = Repository::discover(path)
+        .map_err(|_| GitError::NotARepository(path.to_string()))?;
+    if let Ok(mut cache) = GIT_DIR_CACHE.lock() {
+        cache.insert(path.to_string(), repo.path().to_path_buf());
+    }
+    Ok(repo)
+}
+
+/// Remove a path from the git directory cache (e.g., when closing a repo).
+pub fn invalidate_cache(path: &str) {
+    if let Ok(mut cache) = GIT_DIR_CACHE.lock() {
+        cache.remove(path);
+    }
 }
 
 /// Check if a path is inside a valid git repository
 pub fn is_valid_repo(path: &str) -> bool {
-    Repository::discover(path).is_ok()
+    open(path).is_ok()
 }
 
 /// Get basic repository information

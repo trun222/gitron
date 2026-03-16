@@ -16,6 +16,8 @@ struct CachedState {
     pub status: RepoStatus,
     pub graph: CommitGraph,
     pub last_updated: Instant,
+    /// Fingerprint of ref targets — used to skip redundant graph rebuilds
+    pub refs_fingerprint: u64,
 }
 
 impl RepoStateCache {
@@ -57,6 +59,23 @@ impl RepoStateCache {
             .and_then(|guard| guard.as_ref().map(|s| s.graph.clone()))
     }
 
+    /// Get the current refs fingerprint for change detection
+    pub fn get_refs_fingerprint(&self) -> Option<u64> {
+        self.inner
+            .read()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|s| s.refs_fingerprint))
+    }
+
+    /// Update the refs fingerprint
+    pub fn update_refs_fingerprint(&self, fingerprint: u64) {
+        if let Ok(mut guard) = self.inner.write() {
+            if let Some(ref mut state) = *guard {
+                state.refs_fingerprint = fingerprint;
+            }
+        }
+    }
+
     pub fn initialize(&self, info: RepoInfo, status: RepoStatus, graph: CommitGraph) {
         if let Ok(mut guard) = self.inner.write() {
             *guard = Some(CachedState {
@@ -64,6 +83,7 @@ impl RepoStateCache {
                 status,
                 graph,
                 last_updated: Instant::now(),
+                refs_fingerprint: 0,
             });
         }
     }

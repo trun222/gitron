@@ -58,6 +58,10 @@ pub fn close_repo(state: State<'_, AppState>) -> Result<(), GitError> {
     if let Some(watcher) = state.watcher.lock().unwrap().take() {
         watcher.stop();
     }
+    // Invalidate the repo path cache for fast opens
+    if let Some(path) = state.repo_path.lock().unwrap().as_ref() {
+        repository::invalidate_cache(&path.to_string_lossy());
+    }
     state.cache.clear();
     *state.repo_path.lock().unwrap() = None;
     Ok(())

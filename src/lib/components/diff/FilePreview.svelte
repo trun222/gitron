@@ -129,6 +129,141 @@
       unstageSelectedFile();
     }
   }
+
+  // --- Virtualization ---
+  const LINE_HEIGHT = 20; // matches leading-5
+  const SEPARATOR_HEIGHT = 36; // hunk separator row height
+  const OVERSCAN = 20; // extra rows rendered above/below viewport
+  // Threshold: only virtualise when total items exceed this count
+  const VIRTUAL_THRESHOLD = 200;
+
+  // Flatten hunks into a linear list of renderable items
+  interface DiffLine {
+    kind: 'line';
+    origin: DiffLineType;
+    content: string;
+    new_lineno: number | null;
+  }
+  interface DiffSeparator {
+    kind: 'separator';
+    gap: number | null;
+  }
+  type DiffItem = DiffLine | DiffSeparator;
+
+  let flatItems = $derived.by((): DiffItem[] => {
+    const diff = $selectedFileDiff;
+    if (!diff || diff.is_binary || diff.hunks.length === 0) return [];
+    const items: DiffItem[] = [];
+    for (let i = 0; i < diff.hunks.length; i++) {
+      const hunk = diff.hunks[i];
+      if (hunk.lines.length === 0) continue;
+      if (i > 0) {
+        items.push({ kind: 'separator', gap: skippedLines(diff.hunks, i) });
+      }
+      for (const line of hunk.lines) {
+        items.push({ kind: 'line', origin: line.origin, content: line.content, new_lineno: line.new_lineno });
+      }
+    }
+    return items;
+  });
+
+  let useVirtual = $derived(flatItems.length > VIRTUAL_THRESHOLD);
+
+  // Total height for the virtual scroller
+  let totalHeight = $derived.by(() => {
+    if (!useVirtual) return 0;
+    let h = 0;
+    for (const item of flatItems) {
+      h += item.kind === 'separator' ? SEPARATOR_HEIGHT : LINE_HEIGHT;
+    }
+    return h;
+  });
+
+  // Precompute cumulative offsets for each item
+  let itemOffsets = $derived.by((): number[] => {
+    if (!useVirtual) return [];
+    const offsets: number[] = new Array(flatItems.length);
+    let y = 0;
+    for (let i = 0; i < flatItems.length; i++) {
+      offsets[i] = y;
+      y += flatItems[i].kind === 'separator' ? SEPARATOR_HEIGHT : LINE_HEIGHT;
+    }
+    return offsets;
+  });
+
+  let scrollContainer: HTMLDivElement | undefined = $state();
+  let scrollTop = $state(0);
+  let viewportHeight = $state(0);
+
+  // Reset scroll when diff changes
+  $effect(() => {
+    void $selectedFileDiff;
+    scrollTop = 0;
+    if (scrollContainer) scrollContainer.scrollTop = 0;
+  });
+
+  function handleScroll() {
+    if (scrollContainer) {
+      scrollTop = scrollContainer.scrollTop;
+      viewportHeight = scrollContainer.clientHeight;
+    }
+  }
+
+  // Binary search to find the first visible item
+  function findFirstVisible(top: number): number {
+    let lo = 0, hi = itemOffsets.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const itemBottom = itemOffsets[mid] + (flatItems[mid].kind === 'separator' ? SEPARATOR_HEIGHT : LINE_HEIGHT);
+      if (itemBottom <= top) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  let visibleRange = $derived.by((): { start: number; end: number; offsetY: number } => {
+    if (!useVirtual || flatItems.length === 0) return { start: 0, end: 0, offsetY: 0 };
+    const first = Math.max(0, findFirstVisible(scrollTop) - OVERSCAN);
+    const bottom = scrollTop + viewportHeight;
+    let last = first;
+    while (last < flatItems.length) {
+      if (itemOffsets[last] > bottom) break;
+      last++;
+    }
+    last = Math.min(flatItems.length, last + OVERSCAN);
+    return { start: first, end: last, offsetY: itemOffsets[first] ?? 0 };
+  });
+
+  let visibleItems = $derived(
+    useVirtual ? flatItems.slice(visibleRange.start, visibleRange.end) : flatItems,
+  );
+
+  // Memoize syntax highlighting results
+  let highlightCache = new Map<string, { content: string; color?: string }[]>();
+  let lastDiffPath: string | null = null;
+
+  // Clear cache when file changes
+  $effect(() => {
+    const path = displayPath;
+    if (path !== lastDiffPath) {
+      highlightCache = new Map();
+      lastDiffPath = path;
+    }
+  });
+
+  function tokenizeLineCached(
+    hl: Highlighter | null,
+    content: string,
+    lang: string,
+  ): { content: string; color?: string }[] {
+    const cached = highlightCache.get(content);
+    if (cached) return cached;
+    const result = tokenizeLine(hl, content, lang);
+    // Cap cache size to prevent unbounded growth
+    if (highlightCache.size > 5000) highlightCache.clear();
+    highlightCache.set(content, result);
+    return result;
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -175,43 +310,76 @@
     </div>
 
     <!-- Diff content -->
-    <div class="flex-1 overflow-auto min-h-0 font-mono leading-5" style="font-size: var(--editor-font-size)">
+    <div
+      bind:this={scrollContainer}
+      onscroll={handleScroll}
+      class="flex-1 overflow-auto min-h-0 font-mono leading-5"
+      style="font-size: var(--editor-font-size)"
+    >
       {#if $selectedFileDiff.is_binary}
         <p class="text-muted-foreground text-sm text-center p-8">Binary file — cannot display diff</p>
       {:else if $selectedFileDiff.hunks.length === 0}
         <p class="text-muted-foreground text-sm text-center p-8">No changes</p>
-      {:else}
-        {#each $selectedFileDiff.hunks as hunk, i}
-          {#if hunk.lines.length > 0}
-            <!-- Hunk separator -->
-            {#if i > 0}
-              {@const gap = skippedLines($selectedFileDiff.hunks, i)}
-              <div class="flex items-center gap-3 px-4 py-3 select-none bg-accent/30">
-                <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
-                <span class="text-[11px] text-muted-foreground">{gap ? `${gap} lines` : '···'}</span>
-                <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
-              </div>
-            {/if}
-            <!-- Lines -->
-            {#each hunk.lines as line}
-              <div class="flex {lineBackground(line.origin)} min-w-fit">
-                <!-- Gutter -->
-                <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
-                  <span class="w-12 text-right pr-2 text-muted-foreground/30">
-                    {line.new_lineno ?? ''}
-                  </span>
-                  <span class="w-6 text-center {originColor(line.origin)}">
-                    {originChar(line.origin)}
-                  </span>
+      {:else if useVirtual}
+        <!-- Virtualised rendering for large diffs -->
+        <div style="height: {totalHeight}px; position: relative;">
+          <div style="position: absolute; top: {visibleRange.offsetY}px; left: 0; right: 0;">
+            {#each visibleItems as item}
+              {#if item.kind === 'separator'}
+                <div class="flex items-center gap-3 px-4 select-none bg-accent/30" style="height: {SEPARATOR_HEIGHT}px;">
+                  <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
+                  <span class="text-[11px] text-muted-foreground">{item.gap ? `${item.gap} lines` : '···'}</span>
+                  <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
                 </div>
-                <!-- Syntax-highlighted content -->
-                <span class="whitespace-pre pl-2 pr-4"
-                  >{#each tokenizeLine(highlighter, line.content, language) as token}<span
-                      style:color={token.color}>{token.content}</span
-                    >{/each}</span
-                >
-              </div>
+              {:else}
+                <div class="flex {lineBackground(item.origin)} min-w-fit" style="height: {LINE_HEIGHT}px;">
+                  <!-- Gutter -->
+                  <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
+                    <span class="w-12 text-right pr-2 text-muted-foreground/30">
+                      {item.new_lineno ?? ''}
+                    </span>
+                    <span class="w-6 text-center {originColor(item.origin)}">
+                      {originChar(item.origin)}
+                    </span>
+                  </div>
+                  <!-- Syntax-highlighted content -->
+                  <span class="whitespace-pre pl-2 pr-4"
+                    >{#each tokenizeLineCached(highlighter, item.content, language) as token}<span
+                        style:color={token.color}>{token.content}</span
+                      >{/each}</span
+                  >
+                </div>
+              {/if}
             {/each}
+          </div>
+        </div>
+      {:else}
+        <!-- Small diffs: render all lines directly (no virtualisation overhead) -->
+        {#each flatItems as item}
+          {#if item.kind === 'separator'}
+            <div class="flex items-center gap-3 px-4 py-3 select-none bg-accent/30">
+              <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
+              <span class="text-[11px] text-muted-foreground">{item.gap ? `${item.gap} lines` : '···'}</span>
+              <div class="flex-1 border-t border-dashed border-muted-foreground/50"></div>
+            </div>
+          {:else}
+            <div class="flex {lineBackground(item.origin)} min-w-fit">
+              <!-- Gutter -->
+              <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
+                <span class="w-12 text-right pr-2 text-muted-foreground/30">
+                  {item.new_lineno ?? ''}
+                </span>
+                <span class="w-6 text-center {originColor(item.origin)}">
+                  {originChar(item.origin)}
+                </span>
+              </div>
+              <!-- Syntax-highlighted content -->
+              <span class="whitespace-pre pl-2 pr-4"
+                >{#each tokenizeLineCached(highlighter, item.content, language) as token}<span
+                    style:color={token.color}>{token.content}</span
+                  >{/each}</span
+              >
+            </div>
           {/if}
         {/each}
       {/if}

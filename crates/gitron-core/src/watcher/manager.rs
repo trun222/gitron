@@ -4,6 +4,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use crate::cache::repo_state::RepoStateCache;
 use crate::event::EventEmitter;
 use crate::git::{graph, repository, types::*};
@@ -57,18 +60,32 @@ async fn event_consumer(
     let path_str = repo_path.to_string_lossy().to_string();
 
     while let Some(event) = rx.recv().await {
-        match event {
-            RepoChangeEvent::WorkdirChanged => {
-                if let Some(status) = refresh_status(&path_str) {
-                    cache.update_status(status.clone());
-                    let payload = StatusChangedPayload { status };
-                    emitter.emit_status_changed(&payload);
-                }
+        // Coalesce rapid events: drain any queued events within a short window
+        let mut has_workdir = matches!(event, RepoChangeEvent::WorkdirChanged);
+        let mut has_refs = matches!(event, RepoChangeEvent::HeadChanged | RepoChangeEvent::RefsChanged);
+
+        // Brief pause to coalesce rapid-fire events
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Drain any additional queued events
+        while let Ok(extra) = rx.try_recv() {
+            match extra {
+                RepoChangeEvent::WorkdirChanged => has_workdir = true,
+                RepoChangeEvent::HeadChanged | RepoChangeEvent::RefsChanged => has_refs = true,
             }
-            RepoChangeEvent::HeadChanged | RepoChangeEvent::RefsChanged => {
+        }
+
+        if has_refs {
+            // Compute a fingerprint of all ref targets to skip redundant graph rebuilds
+            let new_fingerprint = compute_refs_fingerprint(&path_str);
+            let old_fingerprint = cache.get_refs_fingerprint();
+            let refs_changed = new_fingerprint != old_fingerprint.unwrap_or(0);
+
+            if refs_changed {
                 if let Some((status, graph)) = refresh_status_and_graph(&path_str) {
                     cache.update_status(status.clone());
                     cache.update_graph(graph.clone());
+                    cache.update_refs_fingerprint(new_fingerprint);
                     let status_payload = StatusChangedPayload {
                         status: status.clone(),
                     };
@@ -76,12 +93,62 @@ async fn event_consumer(
                     emitter.emit_status_changed(&status_payload);
                     emitter.emit_refs_changed(&refs_payload);
                 }
+            } else {
+                // Refs didn't actually change — just refresh status
+                if let Some(status) = refresh_status(&path_str) {
+                    cache.update_status(status.clone());
+                    let payload = StatusChangedPayload { status };
+                    emitter.emit_status_changed(&payload);
+                }
+            }
+        } else if has_workdir {
+            if let Some(status) = refresh_status(&path_str) {
+                cache.update_status(status.clone());
+                let payload = StatusChangedPayload { status };
+                emitter.emit_status_changed(&payload);
             }
         }
-
-        // 50ms cooldown between processing batches
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
+}
+
+/// Compute a hash of all ref targets (HEAD + branch tips + tags).
+/// Used to detect whether refs have actually changed.
+fn compute_refs_fingerprint(path: &str) -> u64 {
+    let repo = match repository::open(path) {
+        Ok(r) => r,
+        Err(_) => return 0,
+    };
+    let mut hasher = DefaultHasher::new();
+
+    // Hash HEAD
+    if let Ok(head) = repo.head() {
+        if let Some(oid) = head.target() {
+            oid.as_bytes().hash(&mut hasher);
+        }
+        if let Some(name) = head.shorthand() {
+            name.hash(&mut hasher);
+        }
+    }
+
+    // Hash all references
+    if let Ok(refs) = repo.references() {
+        let mut ref_pairs: Vec<(String, String)> = refs
+            .flatten()
+            .filter_map(|r| {
+                let name = r.name()?.to_string();
+                let oid = r.target().map(|o| o.to_string())?;
+                Some((name, oid))
+            })
+            .collect();
+        // Sort for deterministic hashing
+        ref_pairs.sort();
+        for (name, oid) in &ref_pairs {
+            name.hash(&mut hasher);
+            oid.hash(&mut hasher);
+        }
+    }
+
+    hasher.finish()
 }
 
 fn refresh_status(path: &str) -> Option<RepoStatus> {
