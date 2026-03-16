@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
-use gitron_core::git::{graph, repository, types::*};
+use gitron_core::git::{graph, remote, repository, types::*};
 use gitron_core::watcher::manager::WatcherManager;
 
 use crate::ServerState;
@@ -19,13 +19,20 @@ pub struct OpenRepoRequest {
 pub async fn open_repo(
     State(state): State<Arc<ServerState>>,
     Json(req): Json<OpenRepoRequest>,
-) -> Result<Json<RepoInfo>, (StatusCode, String)> {
+) -> Result<Json<OpenRepoResult>, (StatusCode, String)> {
     let repo = repository::open(&req.path).map_err(err)?;
     let info = repository::get_repo_info(&repo).map_err(err)?;
-
     let status = repository::get_status(&repo).map_err(err)?;
     let graph_data = graph::build_commit_graph(&repo, &GraphOptions::default()).map_err(err)?;
-    state.cache.initialize(info.clone(), status, graph_data);
+    let remotes = remote::list_remotes(&repo).map_err(err)?;
+    let tracking = info
+        .head_branch
+        .as_deref()
+        .map(|branch| remote::get_tracking_status(&repo, branch))
+        .transpose()
+        .map_err(err)?;
+
+    state.cache.initialize(info.clone(), status.clone(), graph_data.clone());
 
     // Stop existing watcher
     if let Some(old) = state.watcher.lock().unwrap().take() {
@@ -48,7 +55,13 @@ pub async fn open_repo(
         }
     }
 
-    Ok(Json(info))
+    Ok(Json(OpenRepoResult {
+        info,
+        status,
+        graph: graph_data,
+        remotes,
+        tracking,
+    }))
 }
 
 pub async fn close_repo(

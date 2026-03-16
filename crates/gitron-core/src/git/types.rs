@@ -187,6 +187,16 @@ pub struct RepoInfo {
     pub is_empty: bool,
 }
 
+/// Consolidated result from opening a repository (all data in one round-trip)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenRepoResult {
+    pub info: RepoInfo,
+    pub status: RepoStatus,
+    pub graph: CommitGraph,
+    pub remotes: Vec<Remote>,
+    pub tracking: Option<TrackingStatus>,
+}
+
 /// A configured remote
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Remote {

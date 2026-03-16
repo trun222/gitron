@@ -1217,6 +1217,7 @@
   .graph-cell {
     position: relative;
     overflow: visible;
+    z-index: 1;
   }
 
   .branch-tags {

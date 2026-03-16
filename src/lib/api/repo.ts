@@ -16,9 +16,10 @@ import type {
   RebaseResult,
   MergeResult,
   RemoteTagInfo,
+  OpenRepoResult,
 } from './types';
 
-export async function openRepo(path: string): Promise<RepoInfo> {
+export async function openRepo(path: string): Promise<OpenRepoResult> {
   return getTransport().invoke('open_repo', { path });
 }
 

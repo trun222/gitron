@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, State};
 
-use gitron_core::git::{error::GitError, graph, repository, types::*};
+use gitron_core::git::{error::GitError, graph, remote, repository, types::*};
 use gitron_core::watcher::manager::WatcherManager;
 
 use crate::tauri_impls::TauriEventEmitter;
@@ -11,20 +11,27 @@ use crate::tauri_impls::TauriEventEmitter;
 use super::AppState;
 
 /// Open a repository at the given path.
+/// Returns all data needed by the frontend in a single round-trip.
 /// Starts the file watcher and initializes the cache.
 #[tauri::command]
 pub async fn open_repo(
     path: String,
     app: AppHandle,
     state: State<'_, AppState>,
-) -> Result<RepoInfo, GitError> {
+) -> Result<OpenRepoResult, GitError> {
     let repo = repository::open(&path)?;
     let info = repository::get_repo_info(&repo)?;
-
-    // Initialize cache with current state
     let status = repository::get_status(&repo)?;
     let graph_data = graph::build_commit_graph(&repo, &GraphOptions::default())?;
-    state.cache.initialize(info.clone(), status, graph_data);
+    let remotes = remote::list_remotes(&repo)?;
+    let tracking = info
+        .head_branch
+        .as_deref()
+        .map(|branch| remote::get_tracking_status(&repo, branch))
+        .transpose()?;
+
+    // Initialize cache
+    state.cache.initialize(info.clone(), status.clone(), graph_data.clone());
 
     // Stop any existing watcher
     if let Some(old) = state.watcher.lock().unwrap().take() {
@@ -48,7 +55,13 @@ pub async fn open_repo(
         }
     }
 
-    Ok(info)
+    Ok(OpenRepoResult {
+        info,
+        status,
+        graph: graph_data,
+        remotes,
+        tracking,
+    })
 }
 
 /// Close the currently opened repository.

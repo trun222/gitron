@@ -120,14 +120,13 @@ export async function openRepo(path: string) {
   loading.set(true);
   error.set(null);
   try {
-    const info = await api.openRepo(path);
+    const result = await api.openRepo(path);
     repoPath.set(path);
-    repoInfo.set(info);
-    // Parallelise independent fetches: status+graph+tracking and remotes
-    await Promise.all([
-      refreshAll(path),
-      refreshRemotes(path),
-    ]);
+    repoInfo.set(result.info);
+    repoStatus.set(result.status);
+    commitGraph.set(result.graph);
+    remotes.set(result.remotes);
+    trackingStatus.set(result.tracking);
     refreshRemoteTags(); // fire-and-forget (needs defaultRemote populated above)
     await trackRepoOpen(path);
     await startWatcherListeners();

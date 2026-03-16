@@ -138,6 +138,14 @@ export interface RepoInfo {
   is_empty: boolean;
 }
 
+export interface OpenRepoResult {
+  info: RepoInfo;
+  status: RepoStatus;
+  graph: CommitGraph;
+  remotes: Remote[];
+  tracking: TrackingStatus | null;
+}
+
 export interface Remote {
   name: string;
   url: string;
