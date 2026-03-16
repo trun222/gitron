@@ -154,12 +154,13 @@ fn open_terminal_linux(dir: &str, app: &str) -> Result<(), String> {
             }
         }
     } else {
+        let xterm_cmd = format!("cd '{}' && exec $SHELL", dir);
         let terminals = [
             ("x-terminal-emulator", vec!["--working-directory", dir]),
             ("gnome-terminal", vec!["--working-directory", dir]),
             ("konsole", vec!["--workdir", dir]),
             ("xfce4-terminal", vec!["--working-directory", dir]),
-            ("xterm", vec!["-e", &format!("cd '{}' && exec $SHELL", dir)]),
+            ("xterm", vec!["-e", xterm_cmd.as_str()]),
         ];
         let mut launched = false;
         for (term, args) in &terminals {
