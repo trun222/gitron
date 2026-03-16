@@ -481,6 +481,7 @@
 
   function handleCommitContextMenu(e: MouseEvent, commit: Commit) {
     e.preventDefault();
+    window.getSelection()?.removeAllRanges();
 
     // Stash-specific context menu
     const stash = stashMap.get(commit.oid);
@@ -557,6 +558,7 @@
   function handleBranchContextMenu(e: MouseEvent, branch: Branch) {
     e.preventDefault();
     e.stopPropagation();
+    window.getSelection()?.removeAllRanges();
     const current = $currentBranch;
     const items: (MenuAction | 'separator')[] = [
       { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
@@ -598,6 +600,7 @@
   function handleTagContextMenu(e: MouseEvent, tag: Tag) {
     e.preventDefault();
     e.stopPropagation();
+    window.getSelection()?.removeAllRanges();
     const remoteOid = $remoteTagMap.get(tag.name);
     const isOnRemote = remoteOid !== undefined;
     const isSynced = remoteOid === tag.target_oid;
@@ -1240,6 +1243,7 @@
     border-style: solid;
     cursor: pointer;
     transition: filter 150ms ease;
+    user-select: none;
   }
 
   .branch-icon {
@@ -1288,6 +1292,7 @@
     border-color: var(--muted-foreground);
     color: var(--muted-foreground);
     background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+    user-select: none;
   }
 
   .tag-pill:hover {
