@@ -31,6 +31,11 @@ export interface Tag {
   message: string | null;
 }
 
+export interface RemoteTagInfo {
+  name: string;
+  oid: string;
+}
+
 export interface StashEntry {
   index: number;
   oid: string;

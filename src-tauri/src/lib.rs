@@ -68,6 +68,7 @@ pub fn run() {
             github_cmd::github_list_repos,
             tag::create_tag,
             tag::delete_tag,
+            tag::move_tag,
             tag::push_tag,
             tag::delete_remote_tag,
             tag::list_remote_tags,

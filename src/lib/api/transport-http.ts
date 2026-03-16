@@ -55,6 +55,7 @@ const COMMAND_MAP: Record<string, string> = {
   // Tag
   create_tag: '/api/tag/create',
   delete_tag: '/api/tag/delete',
+  move_tag: '/api/tag/move',
   push_tag: '/api/tag/push',
   delete_remote_tag: '/api/tag/delete-remote',
   list_remote_tags: '/api/tag/list-remote',

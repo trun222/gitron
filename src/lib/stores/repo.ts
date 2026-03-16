@@ -40,8 +40,8 @@ export const remotes = writable<Remote[]>([]);
 export const trackingStatus = writable<TrackingStatus | null>(null);
 export const networkOperation = writable<string | null>(null);
 
-// Remote tag tracking
-export const remoteTagNames = writable<Set<string>>(new Set());
+// Remote tag tracking (name → remote OID)
+export const remoteTagMap = writable<Map<string, string>>(new Map());
 
 // Scroll-to-commit (used by tags list to jump to a commit in the graph)
 export const scrollToCommitOid = writable<string | null>(null);
@@ -155,7 +155,7 @@ export async function closeRepo() {
   commitFiles.set(null);
   selectedCommitFile.set(null);
   remotes.set([]);
-  remoteTagNames.set(new Set());
+  remoteTagMap.set(new Map());
   trackingStatus.set(null);
   clearCommitSearch();
   error.set(null);
@@ -637,7 +637,18 @@ export async function deleteTag(name: string) {
   }
 }
 
-export async function pushTag(tagName: string) {
+export async function moveTag(name: string, targetOid: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.moveTag(path, name, targetOid);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function pushTag(tagName: string, force?: boolean) {
   const path = get(repoPath);
   if (!path) return;
   const remote = get(defaultRemote);
@@ -646,7 +657,7 @@ export async function pushTag(tagName: string) {
     return;
   }
   try {
-    const result = await api.pushTag(path, remote.name, tagName);
+    const result = await api.pushTag(path, remote.name, tagName, force);
     addOutput('push-tag', result.output.stdout, result.output.stderr, true);
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
@@ -748,12 +759,12 @@ export async function refreshRemoteTags() {
   const path = get(repoPath);
   const remote = get(defaultRemote);
   if (!path || !remote) {
-    remoteTagNames.set(new Set());
+    remoteTagMap.set(new Map());
     return;
   }
   try {
-    const names = await api.listRemoteTags(path, remote.name);
-    remoteTagNames.set(new Set(names));
+    const tags = await api.listRemoteTags(path, remote.name);
+    remoteTagMap.set(new Map(tags.map((t) => [t.name, t.oid])));
   } catch {
     // Silently ignore — remote may be unreachable
   }

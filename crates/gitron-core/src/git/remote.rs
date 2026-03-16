@@ -304,9 +304,15 @@ pub async fn pull(
 }
 
 /// Push a tag to a remote
-pub async fn push_tag(workdir: &str, remote: &str, tag_name: &str) -> GitResult<PushResult> {
+pub async fn push_tag(workdir: &str, remote: &str, tag_name: &str, force: bool) -> GitResult<PushResult> {
     let refspec = format!("refs/tags/{}", tag_name);
-    let output = cli::run_git_async_with_github_auth(workdir, &["push", remote, &refspec]).await?;
+    let mut args = vec!["push"];
+    if force {
+        args.push("--force");
+    }
+    args.push(remote);
+    args.push(&refspec);
+    let output = cli::run_git_async_with_github_auth(workdir, &args).await?;
 
     let summary = if output.stderr.contains("Everything up-to-date") {
         "Tag already up-to-date".to_string()
@@ -338,26 +344,29 @@ pub async fn delete_remote_tag(workdir: &str, remote: &str, tag_name: &str) -> G
     Ok(())
 }
 
-/// List tag names that exist on a remote via `git ls-remote --tags`
-pub async fn list_remote_tags(workdir: &str, remote: &str) -> GitResult<Vec<String>> {
+/// List tags that exist on a remote via `git ls-remote --tags` (returns name + OID)
+pub async fn list_remote_tags(workdir: &str, remote: &str) -> GitResult<Vec<RemoteTagInfo>> {
     let output =
         cli::run_git_async_with_github_auth(workdir, &["ls-remote", "--tags", remote]).await?;
 
-    let names: Vec<String> = output
+    let tags: Vec<RemoteTagInfo> = output
         .stdout
         .lines()
         .filter_map(|line| {
             // Format: "<sha>\trefs/tags/<name>"
-            let refname = line.split('\t').nth(1)?;
+            let mut parts = line.split('\t');
+            let oid = parts.next()?.trim().to_string();
+            let refname = parts.next()?;
             // Skip dereferenced entries (e.g. refs/tags/v1.0^{})
             if refname.ends_with("^{}") {
                 return None;
             }
-            refname.strip_prefix("refs/tags/").map(|s| s.to_string())
+            let name = refname.strip_prefix("refs/tags/")?.to_string();
+            Some(RemoteTagInfo { name, oid })
         })
         .collect();
 
-    Ok(names)
+    Ok(tags)
 }
 
 /// Delete a remote branch via `git push --delete`

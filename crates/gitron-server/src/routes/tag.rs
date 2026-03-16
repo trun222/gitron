@@ -37,19 +37,37 @@ pub async fn delete_tag(
 }
 
 #[derive(Deserialize)]
+pub struct MoveTagRequest {
+    path: String,
+    name: String,
+    #[serde(rename = "targetOid")]
+    target_oid: String,
+}
+
+pub async fn move_tag(
+    Json(req): Json<MoveTagRequest>,
+) -> Result<Json<Tag>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    let tag = repository::move_tag(&repo, &req.name, &req.target_oid).map_err(err)?;
+    Ok(Json(tag))
+}
+
+#[derive(Deserialize)]
 pub struct PushTagRequest {
     path: String,
     #[serde(rename = "remoteName")]
     remote_name: String,
     #[serde(rename = "tagName")]
     tag_name: String,
+    #[serde(default)]
+    force: bool,
 }
 
 pub async fn push_tag(
     Json(req): Json<PushTagRequest>,
 ) -> Result<Json<PushResult>, (StatusCode, String)> {
     let workdir = get_workdir(&req.path)?;
-    let result = remote::push_tag(&workdir, &req.remote_name, &req.tag_name)
+    let result = remote::push_tag(&workdir, &req.remote_name, &req.tag_name, req.force)
         .await
         .map_err(err)?;
     Ok(Json(result))
@@ -74,7 +92,7 @@ pub struct ListRemoteTagsRequest {
 
 pub async fn list_remote_tags(
     Json(req): Json<ListRemoteTagsRequest>,
-) -> Result<Json<Vec<String>>, (StatusCode, String)> {
+) -> Result<Json<Vec<RemoteTagInfo>>, (StatusCode, String)> {
     let workdir = get_workdir(&req.path)?;
     let tags = remote::list_remote_tags(&workdir, &req.remote_name)
         .await

@@ -74,6 +74,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         // Tag
         .route("/tag/create", post(tag::create_tag))
         .route("/tag/delete", post(tag::delete_tag))
+        .route("/tag/move", post(tag::move_tag))
         .route("/tag/push", post(tag::push_tag))
         .route("/tag/delete-remote", post(tag::delete_remote_tag))
         .route("/tag/list-remote", post(tag::list_remote_tags))

@@ -19,15 +19,23 @@ pub fn delete_tag(path: String, name: String) -> Result<(), GitError> {
     repository::delete_tag(&repo, &name)
 }
 
+/// Move a tag to a different commit
+#[tauri::command]
+pub fn move_tag(path: String, name: String, target_oid: String) -> Result<Tag, GitError> {
+    let repo = repository::open(&path)?;
+    repository::move_tag(&repo, &name, &target_oid)
+}
+
 /// Push a tag to a remote
 #[tauri::command]
 pub async fn push_tag(
     path: String,
     remote_name: String,
     tag_name: String,
+    force: Option<bool>,
 ) -> Result<PushResult, GitError> {
     let workdir = get_workdir(&path)?;
-    remote::push_tag(&workdir, &remote_name, &tag_name).await
+    remote::push_tag(&workdir, &remote_name, &tag_name, force.unwrap_or(false)).await
 }
 
 /// Delete a remote tag
@@ -46,7 +54,7 @@ pub async fn delete_remote_tag(
 pub async fn list_remote_tags(
     path: String,
     remote_name: String,
-) -> Result<Vec<String>, GitError> {
+) -> Result<Vec<RemoteTagInfo>, GitError> {
     let workdir = get_workdir(&path)?;
     remote::list_remote_tags(&workdir, &remote_name).await
 }

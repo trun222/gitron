@@ -544,6 +544,23 @@ pub fn delete_tag(repo: &Repository, name: &str) -> GitResult<()> {
     Ok(())
 }
 
+/// Move a tag to a different commit (delete + recreate, preserving annotation)
+pub fn move_tag(repo: &Repository, name: &str, target_oid: &str) -> GitResult<Tag> {
+    // Check if the tag exists and whether it's annotated
+    let refname = format!("refs/tags/{}", name);
+    let reference = repo.find_reference(&refname)
+        .map_err(|_| GitError::Other(format!("Tag '{}' not found", name)))?;
+
+    let message = reference
+        .peel_to_tag()
+        .ok()
+        .and_then(|tag| tag.message().map(|m| m.to_string()));
+
+    // Delete and recreate at the new target
+    delete_tag(repo, name)?;
+    create_tag(repo, name, target_oid, message.as_deref())
+}
+
 /// Clone a repository from a URL to a destination path (uses CLI for network ops)
 pub async fn clone_repo(url: &str, dest: &str) -> GitResult<CloneResult> {
     let dest_path = std::path::Path::new(dest);

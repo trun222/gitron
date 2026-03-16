@@ -15,6 +15,7 @@ import type {
   CloneResult,
   RebaseResult,
   MergeResult,
+  RemoteTagInfo,
 } from './types';
 
 export async function openRepo(path: string): Promise<RepoInfo> {
@@ -259,12 +260,17 @@ export async function deleteTag(path: string, name: string): Promise<void> {
   return getTransport().invoke('delete_tag', { path, name });
 }
 
+export async function moveTag(path: string, name: string, targetOid: string): Promise<Tag> {
+  return getTransport().invoke('move_tag', { path, name, targetOid });
+}
+
 export async function pushTag(
   path: string,
   remoteName: string,
-  tagName: string
+  tagName: string,
+  force?: boolean
 ): Promise<PushResult> {
-  return getTransport().invoke('push_tag', { path, remoteName, tagName });
+  return getTransport().invoke('push_tag', { path, remoteName, tagName, force: force ?? false });
 }
 
 export async function deleteRemoteTag(
@@ -278,6 +284,6 @@ export async function deleteRemoteTag(
 export async function listRemoteTags(
   path: string,
   remoteName: string
-): Promise<string[]> {
+): Promise<RemoteTagInfo[]> {
   return getTransport().invoke('list_remote_tags', { path, remoteName });
 }

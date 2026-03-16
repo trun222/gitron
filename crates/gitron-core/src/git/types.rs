@@ -40,6 +40,13 @@ pub struct Tag {
     pub message: Option<String>,
 }
 
+/// A remote tag reference (name + OID from ls-remote)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteTagInfo {
+    pub name: String,
+    pub oid: String,
+}
+
 /// A stash entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StashEntry {

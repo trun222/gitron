@@ -5,8 +5,8 @@
     resetToCommit, currentBranch,
     applyStash, popStash, dropStash,
     rebaseOnto, mergeInto,
-    createTagAtCommit, deleteTag, pushTag, deleteRemoteTag,
-    scrollToCommitOid, remoteTagNames,
+    createTagAtCommit, deleteTag, moveTag, pushTag, deleteRemoteTag,
+    scrollToCommitOid, remoteTagMap,
     commitSearchActive, commitSearchMatchOids, commitSearchQuery,
   } from '$lib/stores/repo';
   import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
@@ -481,6 +481,25 @@
       { id: 'create-branch', label: 'Create branch here' },
       { id: 'create-tag', label: 'Create tag here' },
     ];
+    // "Move tag here" submenu — list tags not already on this commit, most recent first
+    const tagsElsewhere = ($commitGraph?.tags ?? []).filter((t) => t.target_oid !== commit.oid);
+    if (tagsElsewhere.length > 0) {
+      // Sort by commit position in graph (lower index = more recent)
+      const commitIndex = new Map(($commitGraph?.commits ?? []).map((c, i) => [c.oid, i]));
+      const sorted = [...tagsElsewhere].sort((a, b) => {
+        const ia = commitIndex.get(a.target_oid) ?? Infinity;
+        const ib = commitIndex.get(b.target_oid) ?? Infinity;
+        return ia - ib;
+      });
+      items.push({
+        id: 'move-tag-submenu',
+        label: 'Move tag here',
+        submenu: sorted.map((t) => ({
+          id: `move-tag:${t.name}`,
+          label: t.name,
+        })),
+      });
+    }
     if (branch) {
       items.push({
         id: 'reset-submenu',
@@ -551,10 +570,12 @@
   function handleTagContextMenu(e: MouseEvent, tag: Tag) {
     e.preventDefault();
     e.stopPropagation();
-    const isOnRemote = $remoteTagNames.has(tag.name);
+    const remoteOid = $remoteTagMap.get(tag.name);
+    const isOnRemote = remoteOid !== undefined;
+    const isSynced = remoteOid === tag.target_oid;
     const items: (MenuAction | 'separator')[] = [];
-    if (!isOnRemote) {
-      items.push({ id: 'push-tag', label: 'Push tag to remote' });
+    if (!isSynced) {
+      items.push({ id: 'push-tag', label: isOnRemote ? 'Push tag to remote (force)' : 'Push tag to remote' });
     }
     if (isOnRemote) {
       items.push({ id: 'delete-remote-tag', label: 'Delete from remote', danger: true });
@@ -637,7 +658,11 @@
         }
         break;
       case 'push-tag':
-        if (tagName) pushTag(tagName);
+        if (tagName) {
+          // Force push if the tag already exists on the remote (e.g., after a move)
+          const needsForce = $remoteTagMap.has(tagName);
+          pushTag(tagName, needsForce);
+        }
         break;
       case 'delete-tag':
         if (tagName) deleteTag(tagName);
@@ -647,6 +672,12 @@
         break;
       case 'copy-tag-name':
         if (tagName) navigator.clipboard.writeText(tagName);
+        break;
+      default:
+        if (actionId.startsWith('move-tag:') && commitOid) {
+          const moveTagName = actionId.slice('move-tag:'.length);
+          moveTag(moveTagName, commitOid);
+        }
         break;
     }
   }
@@ -1003,6 +1034,7 @@
                 </span>
               {/each}
               {#each tags as tag}
+                {@const remoteOid = $remoteTagMap.get(tag.name)}
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="tag-pill"
@@ -1012,8 +1044,12 @@
                 >
                   <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
                   <span class="pill-text">{tag.name}</span>
-                  {#if $remoteTagNames.has(tag.name)}
-                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                  {#if remoteOid}
+                    {#if remoteOid === tag.target_oid}
+                      <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Synced with remote"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                    {:else}
+                      <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Out of sync with remote" style="opacity: 0.5"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                    {/if}
                   {/if}
                 </span>
               {/each}
