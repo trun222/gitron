@@ -268,6 +268,34 @@
     return map;
   });
 
+  // Remote-only tag ghosts: tags that exist on remote at a different OID than local.
+  // These show as dimmed pills at the remote's commit, like remote-only branches.
+  interface RemoteTagGhost {
+    name: string;
+    oid: string;
+  }
+
+  let remoteTagGhostsByOid = $derived.by(() => {
+    const map = new Map<string, RemoteTagGhost[]>();
+    const localTags = $commitGraph?.tags ?? [];
+    const localByName = new Map(localTags.map((t) => [t.name, t.target_oid]));
+
+    for (const [name, remoteOid] of $remoteTagMap) {
+      const localOid = localByName.get(name);
+      // Show ghost only when local tag exists but points elsewhere (tag was moved)
+      if (localOid && localOid !== remoteOid) {
+        const arr = map.get(remoteOid);
+        if (arr) arr.push({ name, oid: remoteOid });
+        else map.set(remoteOid, [{ name, oid: remoteOid }]);
+      }
+    }
+    return map;
+  });
+
+  function getRemoteTagGhostsForCommit(oid: string): RemoteTagGhost[] {
+    return remoteTagGhostsByOid.get(oid) ?? [];
+  }
+
   let worktreesByOid = $derived.by(() => {
     const map = new Map<string, WorktreeInfo[]>();
     for (const w of $linkedWorktrees) {
@@ -1005,7 +1033,7 @@
           <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
 
           <!-- Branch, tag & worktree labels: positioned absolutely over the row -->
-          {#if node && (branches.length > 0 || tags.length > 0 || commitWorktrees.length > 0)}
+          {#if node && (branches.length > 0 || tags.length > 0 || getRemoteTagGhostsForCommit(commit.oid).length > 0 || commitWorktrees.length > 0)}
             {@const grouped = groupBranches(branches)}
             <span
               class="branch-tags"
@@ -1035,6 +1063,7 @@
               {/each}
               {#each tags as tag}
                 {@const remoteOid = $remoteTagMap.get(tag.name)}
+                {@const isSynced = remoteOid === tag.target_oid}
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="tag-pill"
@@ -1044,13 +1073,16 @@
                 >
                   <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
                   <span class="pill-text">{tag.name}</span>
-                  {#if remoteOid}
-                    {#if remoteOid === tag.target_oid}
-                      <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Synced with remote"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
-                    {:else}
-                      <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Out of sync with remote" style="opacity: 0.5"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
-                    {/if}
+                  {#if isSynced}
+                    <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Synced with remote"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
                   {/if}
+                </span>
+              {/each}
+              {#each getRemoteTagGhostsForCommit(commit.oid) as ghost}
+                <span class="tag-pill tag-pill-remote" title="{ghost.name} (remote)">
+                  <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
+                  <span class="pill-text">{ghost.name}</span>
+                  <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
                 </span>
               {/each}
               {#each commitWorktrees as wt}
@@ -1260,6 +1292,11 @@
 
   .tag-pill:hover {
     filter: brightness(1.25);
+  }
+
+  .tag-pill-remote {
+    border-style: dashed;
+    opacity: 0.7;
   }
 
   .worktree-pill {
