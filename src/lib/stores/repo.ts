@@ -810,24 +810,25 @@ export async function removeRemote(name: string) {
   }
 }
 
-export async function fetchFromRemote(remoteName?: string) {
+export async function fetchFromRemote(remoteName?: string, options?: { silent?: boolean }) {
   const path = get(repoPath);
   if (!path) return;
   if (get(networkOperation)) return;
   networkOperation.set('fetching');
+  const silent = options?.silent ?? false;
   try {
     const result = remoteName
       ? await api.fetchRemote(path, remoteName)
       : await api.fetchAllRemotes(path);
     addOutput('fetch', result.output.stdout, result.output.stderr, true);
-    addToast(`Fetch: ${result.summary}`, 'success');
+    if (!silent) addToast(`Fetch: ${result.summary}`, 'success');
     await Promise.all([refreshAll(path), refreshRemotes(path)]);
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     const msg = String(e);
     error.set(msg);
     addOutput('fetch', '', msg, false);
-    addToast('Fetch failed', 'error');
+    if (!silent) addToast('Fetch failed', 'error');
   } finally {
     networkOperation.set(null);
   }

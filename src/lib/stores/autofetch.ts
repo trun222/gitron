@@ -9,7 +9,7 @@ export function startAutoFetch(intervalSeconds: number): void {
 
   timer = setInterval(() => {
     if (get(hasRepo) && !get(networkOperation)) {
-      fetchFromRemote();
+      fetchFromRemote(undefined, { silent: true });
     }
   }, intervalSeconds * 1000);
 }

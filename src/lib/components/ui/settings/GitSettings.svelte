@@ -5,6 +5,8 @@
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
     { value: 0, label: 'Off' },
+    { value: 15, label: '15 seconds' },
+    { value: 30, label: '30 seconds' },
     { value: 60, label: '1 minute' },
     { value: 300, label: '5 minutes' },
     { value: 900, label: '15 minutes' },

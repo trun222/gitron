@@ -16,7 +16,7 @@ export const graphColumnWidths = writable<GraphColumnWidths>({
 });
 export const sidebarCollapsed = writable(false);
 export const theme = writable<ThemeMode>('tron');
-export const autoFetchInterval = writable<AutoFetchInterval>(0);
+export const autoFetchInterval = writable<AutoFetchInterval>(15);
 export const autoShowOutput = writable(true);
 export const fileWatcherInterval = writable<FileWatcherInterval>(0);
 export const zoomLevel = writable<ZoomLevel>(1.0);
@@ -207,7 +207,7 @@ export async function loadSettings(): Promise<void> {
   applyTheme(savedTheme);
 
   // Auto-fetch
-  const savedInterval = settings.autoFetchInterval ?? 0;
+  const savedInterval = settings.autoFetchInterval ?? 15;
   autoFetchInterval.set(savedInterval);
   startAutoFetch(savedInterval);
 
