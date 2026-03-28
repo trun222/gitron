@@ -367,4 +367,5 @@ export interface AppSettings {
   verboseGitErrors?: boolean;
   terminalApp?: string;
   showWorktreesList?: boolean;
+  treeExpandedByDefault?: boolean;
 }

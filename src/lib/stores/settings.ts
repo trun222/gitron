@@ -28,6 +28,7 @@ export const showWorktreesList = writable(false);
 export const changesViewMode = writable<ChangesViewMode>('file');
 export const verboseGitErrors = writable(false);
 export const terminalApp = writable<string>('');
+export const treeExpandedByDefault = writable(false);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -189,6 +190,11 @@ export async function setTerminalApp(app: string): Promise<void> {
   await settingsApi.saveTerminalApp(app);
 }
 
+export async function setTreeExpandedByDefault(enabled: boolean): Promise<void> {
+  treeExpandedByDefault.set(enabled);
+  await settingsApi.saveTreeExpandedByDefault(enabled);
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -257,6 +263,9 @@ export async function loadSettings(): Promise<void> {
 
   // Terminal app
   terminalApp.set(settings.terminalApp ?? '');
+
+  // Tree expanded by default
+  treeExpandedByDefault.set(settings.treeExpandedByDefault ?? false);
 
   settingsLoaded.set(true);
 }

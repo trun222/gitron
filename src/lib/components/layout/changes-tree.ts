@@ -8,6 +8,7 @@ export interface TreeNode {
   children?: TreeNode[];
   fileStatus?: FileStatusType;
   section?: FileSection;
+  fileCount?: number;
 }
 
 export interface FlatEntry {
@@ -18,6 +19,7 @@ export interface FlatEntry {
   fileStatus?: FileStatusType;
   section?: FileSection;
   expanded?: boolean;
+  fileCount?: number;
 }
 
 interface FileInput {
@@ -58,7 +60,21 @@ export function buildTree(files: FileInput[]): TreeNode[] {
   }
 
   sortTree(root);
+  computeFileCounts(root);
   return root;
+}
+
+function computeFileCounts(nodes: TreeNode[]): number {
+  let total = 0;
+  for (const node of nodes) {
+    if (node.type === 'file') {
+      total++;
+    } else if (node.children) {
+      node.fileCount = computeFileCounts(node.children);
+      total += node.fileCount;
+    }
+  }
+  return total;
 }
 
 function sortTree(nodes: TreeNode[]): void {
@@ -83,6 +99,7 @@ export function flattenTree(nodes: TreeNode[], expandedDirs: Set<string>, depth 
         type: 'dir',
         depth,
         expanded,
+        fileCount: node.fileCount,
       });
       if (expanded && node.children) {
         result.push(...flattenTree(node.children, expandedDirs, depth + 1));

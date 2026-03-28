@@ -25,7 +25,7 @@
     selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -180,9 +180,9 @@
     return flattenTree(commitFileTree, expandedDirs);
   });
 
-  // Auto-expand commit file dirs
+  // Auto-expand commit file dirs (only when setting is enabled)
   $effect(() => {
-    if (!commitFileTree) return;
+    if (!commitFileTree || !$treeExpandedByDefault) return;
     const dirs = collectDirPaths(commitFileTree);
     let added = false;
     const next = new Set(expandedDirs);
@@ -258,10 +258,10 @@
     };
   });
 
-  // Auto-expand directories we haven't seen yet
+  // Auto-expand directories we haven't seen yet (only when setting is enabled)
   let knownDirs = new Set<string>();
   $effect(() => {
-    if (!rawTrees) return;
+    if (!rawTrees || !$treeExpandedByDefault) return;
     const allDirs = [
       ...collectDirPaths(rawTrees.staged),
       ...collectDirPaths(rawTrees.unstaged),
@@ -410,6 +410,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                     <span class="truncate">{entry.name}</span>
+                    {#if entry.fileCount}<span class="text-[10px] text-muted-foreground/60">{entry.fileCount}</span>{/if}
                   </li>
                 {:else}
                   <li
@@ -477,6 +478,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                       <span class="truncate">{entry.name}</span>
+                      {#if entry.fileCount}<span class="text-[10px] text-muted-foreground/60">{entry.fileCount}</span>{/if}
                     </li>
                   {:else}
                     <li
@@ -529,6 +531,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                       <span class="truncate">{entry.name}</span>
+                      {#if entry.fileCount}<span class="text-[10px] text-muted-foreground/60">{entry.fileCount}</span>{/if}
                     </li>
                   {:else}
                     <li
@@ -581,6 +584,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform duration-100" style="transform: rotate({entry.expanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                       <span class="truncate">{entry.name}</span>
+                      {#if entry.fileCount}<span class="text-[10px] text-muted-foreground/60">{entry.fileCount}</span>{/if}
                     </li>
                   {:else}
                     <li

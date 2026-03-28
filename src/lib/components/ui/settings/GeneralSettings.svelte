@@ -9,6 +9,7 @@
     monoFont, setMonoFont,
     showTagsList, setShowTagsList,
     showWorktreesList, setShowWorktreesList,
+    treeExpandedByDefault, setTreeExpandedByDefault,
   } from '$lib/stores/settings';
   import type { ThemeMode, ZoomLevel, EditorFontSize, MonoFont } from '$lib/api/types';
 
@@ -192,6 +193,22 @@
       role="switch"
       aria-checked={$showWorktreesList}
       aria-label="Toggle show worktrees panel"
+    >
+      <span class="toggle-thumb"></span>
+    </button>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Expand tree by default</span>
+      <span class="label-description">Automatically expand all folders in the changes tree view</span>
+    </div>
+    <button
+      class="toggle"
+      class:on={$treeExpandedByDefault}
+      onclick={() => setTreeExpandedByDefault(!$treeExpandedByDefault)}
+      role="switch"
+      aria-checked={$treeExpandedByDefault}
+      aria-label="Toggle tree expanded by default"
     >
       <span class="toggle-thumb"></span>
     </button>

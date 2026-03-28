@@ -218,3 +218,9 @@ export async function saveTerminalApp(app: string): Promise<void> {
   settings.terminalApp = app || undefined;
   await saveSettings(settings);
 }
+
+export async function saveTreeExpandedByDefault(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.treeExpandedByDefault = enabled;
+  await saveSettings(settings);
+}
