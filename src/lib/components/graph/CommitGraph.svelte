@@ -452,13 +452,13 @@
     if (colorIdx === undefined) return '';
     const color = getGraphColor(colorIdx);
     if (group.primary.is_head) {
-      return `border-color: ${color}; background: ${color}; color: var(--primary-foreground)`;
+      return `background: ${color}; color: var(--primary-foreground)`;
     }
     if (!group.local) {
-      // Remote-only
-      return `border-color: ${color}80; color: ${color}; border-style: dashed; opacity: 0.7`;
+      // Remote-only — opaque tinted background so graph lines don't bleed through
+      return `background: color-mix(in srgb, ${color} 20%, var(--card)); color: ${color}; opacity: 0.7`;
     }
-    return `border-color: ${color}; color: ${color}; background: ${color}1a`;
+    return `background: color-mix(in srgb, ${color} 25%, var(--card)); color: ${color}`;
   }
 
   // --- Context menu (uses action IDs, not closures, to avoid $state proxy issues) ---
@@ -1333,8 +1333,7 @@
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
-    border-width: 1px;
-    border-style: solid;
+    border: none;
     cursor: pointer;
     transition: filter 150ms ease;
     user-select: none;

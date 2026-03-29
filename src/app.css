@@ -219,9 +219,8 @@
   box-shadow: inset 3px 0 0 var(--primary);
 }
 
-/* Tron Enhanced: Branch tag neon glow */
+/* Tron Enhanced: Branch tag styling */
 .tron-enhanced .branch-tag {
-  box-shadow: 0 0 6px currentColor;
   border-radius: 2px;
 }
 
