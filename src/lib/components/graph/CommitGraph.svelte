@@ -970,7 +970,7 @@
           <!-- Graph column -->
           <span class="graph-cell" style="height: {ROW_HEIGHT}px">
             {#if node}
-              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" style="overflow: visible;" filter={isTronEnhanced ? 'url(#tron-glow)' : null}>
+              <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" filter={isTronEnhanced ? 'url(#tron-glow)' : null}>
                 {#each [...rowLanes] as [lane, activity]}
                   {#if lane !== node.lane}
                     <line
