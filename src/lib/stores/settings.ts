@@ -29,6 +29,7 @@ export const changesViewMode = writable<ChangesViewMode>('file');
 export const verboseGitErrors = writable(false);
 export const terminalApp = writable<string>('');
 export const treeExpandedByDefault = writable(false);
+export const excludedAuthors = writable<string[]>([]);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -195,6 +196,28 @@ export async function setTreeExpandedByDefault(enabled: boolean): Promise<void> 
   await settingsApi.saveTreeExpandedByDefault(enabled);
 }
 
+export async function setExcludedAuthors(authors: string[]): Promise<void> {
+  excludedAuthors.set(authors);
+  await settingsApi.saveExcludedAuthors(authors);
+}
+
+export async function addExcludedAuthor(author: string): Promise<void> {
+  excludedAuthors.update((current) => {
+    if (current.includes(author)) return current;
+    const next = [...current, author];
+    settingsApi.saveExcludedAuthors(next);
+    return next;
+  });
+}
+
+export async function removeExcludedAuthor(author: string): Promise<void> {
+  excludedAuthors.update((current) => {
+    const next = current.filter((a) => a !== author);
+    settingsApi.saveExcludedAuthors(next);
+    return next;
+  });
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -266,6 +289,9 @@ export async function loadSettings(): Promise<void> {
 
   // Tree expanded by default
   treeExpandedByDefault.set(settings.treeExpandedByDefault ?? false);
+
+  // Excluded authors
+  excludedAuthors.set(settings.excludedAuthors ?? []);
 
   settingsLoaded.set(true);
 }

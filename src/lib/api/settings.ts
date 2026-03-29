@@ -224,3 +224,9 @@ export async function saveTreeExpandedByDefault(enabled: boolean): Promise<void>
   settings.treeExpandedByDefault = enabled;
   await saveSettings(settings);
 }
+
+export async function saveExcludedAuthors(authors: string[]): Promise<void> {
+  const settings = await getSettings();
+  settings.excludedAuthors = authors;
+  await saveSettings(settings);
+}
