@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors, terminalApp, setTerminalApp } from '$lib/stores/settings';
+  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors, terminalApp, setTerminalApp, excludedAuthors, removeExcludedAuthor, addExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
   import type { AutoFetchInterval, FileWatcherInterval } from '$lib/api/types';
 
@@ -19,6 +19,16 @@
     { value: 3000, label: '3 seconds' },
     { value: 5000, label: '5 seconds' },
   ];
+
+  let newAuthorInput = $state('');
+
+  function handleAddAuthor() {
+    const trimmed = newAuthorInput.trim();
+    if (trimmed) {
+      addExcludedAuthor(trimmed);
+      newAuthorInput = '';
+    }
+  }
 
   const knownTerminals = ['', 'iTerm', 'Warp', 'Ghostty', 'Alacritty', 'Kitty', 'Hyper'];
   let isCustomTerminal = $derived(!knownTerminals.includes($terminalApp));
@@ -108,6 +118,45 @@
   </div>
 </div>
 {/if}
+
+<div class="section">
+  <h3 class="section-title">Hidden Authors</h3>
+  <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+    <div class="setting-label">
+      <span class="label-text">Excluded authors</span>
+      <span class="label-description">Commits by these authors will be hidden from the graph. Right-click a commit to hide an author.</span>
+    </div>
+    {#if $excludedAuthors.length > 0}
+      <div class="excluded-authors-list">
+        {#each $excludedAuthors as author}
+          <span class="excluded-author-chip">
+            {author}
+            <button
+              class="chip-remove"
+              title="Remove"
+              onclick={() => removeExcludedAuthor(author)}
+            >
+              <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+            </button>
+          </span>
+        {/each}
+        <button class="clear-all-btn" onclick={() => setExcludedAuthors([])}>Clear all</button>
+      </div>
+    {:else}
+      <span class="no-authors-text">No authors hidden</span>
+    {/if}
+    <div class="add-author-row">
+      <input
+        type="text"
+        class="text-input"
+        placeholder="Author name to hide..."
+        bind:value={newAuthorInput}
+        onkeydown={(e) => { if (e.key === 'Enter') handleAddAuthor(); }}
+      />
+      <button class="add-author-btn" onclick={handleAddAuthor} disabled={!newAuthorInput.trim()}>Add</button>
+    </div>
+  </div>
+</div>
 
 <div class="section">
   <h3 class="section-title">Errors</h3>
@@ -236,5 +285,76 @@
   .toggle.on .toggle-thumb {
     transform: translateX(16px);
     background: var(--primary-foreground);
+  }
+
+  .excluded-authors-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .excluded-author-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    font-size: 12px;
+  }
+
+  .chip-remove {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--muted-foreground);
+    transition: color 0.15s;
+  }
+  .chip-remove:hover {
+    color: var(--destructive);
+  }
+
+  .no-authors-text {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+
+  .add-author-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .add-author-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    color: var(--foreground);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .add-author-btn:hover:not(:disabled) {
+    background: var(--accent);
+  }
+  .add-author-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .clear-all-btn {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .clear-all-btn:hover {
+    color: var(--foreground);
   }
 </style>

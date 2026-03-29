@@ -368,4 +368,5 @@ export interface AppSettings {
   terminalApp?: string;
   showWorktreesList?: boolean;
   treeExpandedByDefault?: boolean;
+  excludedAuthors?: string[];
 }
