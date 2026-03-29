@@ -11,7 +11,7 @@ import type {
   TrackingStatus,
 } from '$lib/api/types';
 import * as api from '$lib/api/repo';
-import { trackRepoOpen } from '$lib/stores/settings';
+import { trackRepoOpen, excludedAuthors } from '$lib/stores/settings';
 import { addOutput } from '$lib/stores/output';
 import { addToast } from '$lib/stores/toast';
 import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
@@ -130,6 +130,13 @@ export async function openRepo(path: string) {
     refreshRemoteTags(); // fire-and-forget (needs defaultRemote populated above)
     await trackRepoOpen(path);
     await startWatcherListeners();
+    // Re-fetch graph with excluded authors if any are set.
+    // The initial open_repo uses GraphOptions::default() (no exclusions).
+    const excluded = get(excludedAuthors);
+    if (excluded.length > 0) {
+      const graph = await api.getCommitGraph(path, undefined, undefined, excluded);
+      commitGraph.set(graph);
+    }
   } catch (e) {
     error.set(String(e));
   } finally {
@@ -164,7 +171,7 @@ export async function refreshAll(path: string) {
   try {
     const [status, graph] = await Promise.all([
       api.getStatus(path),
-      api.getCommitGraph(path),
+      api.getCommitGraph(path, undefined, undefined, get(excludedAuthors)),
     ]);
     repoStatus.set(status);
     commitGraph.set(graph);

@@ -230,3 +230,39 @@ export async function saveExcludedAuthors(authors: string[]): Promise<void> {
   settings.excludedAuthors = authors;
   await saveSettings(settings);
 }
+
+export async function saveTagsExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.tagsExpanded = expanded;
+  await saveSettings(settings);
+}
+
+export async function saveWorktreesExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.worktreesExpanded = expanded;
+  await saveSettings(settings);
+}
+
+export async function saveOutputPanelOpen(open: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.outputPanelOpen = open;
+  await saveSettings(settings);
+}
+
+export async function saveStagedExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.stagedExpanded = expanded;
+  await saveSettings(settings);
+}
+
+export async function saveUnstagedExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.unstagedExpanded = expanded;
+  await saveSettings(settings);
+}
+
+export async function saveUntrackedExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.untrackedExpanded = expanded;
+  await saveSettings(settings);
+}

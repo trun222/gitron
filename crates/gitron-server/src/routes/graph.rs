@@ -11,6 +11,8 @@ pub struct GraphRequest {
     max_commits: Option<usize>,
     #[serde(rename = "includeRemotes")]
     include_remotes: Option<bool>,
+    #[serde(rename = "excludedAuthors", default)]
+    excluded_authors: Vec<String>,
 }
 
 pub async fn get_commit_graph(
@@ -21,6 +23,7 @@ pub async fn get_commit_graph(
         max_commits: req.max_commits.or(Some(500)),
         from_oid: None,
         include_remotes: req.include_remotes.unwrap_or(true),
+        excluded_authors: req.excluded_authors,
     };
     let graph = git_graph::build_commit_graph(&repo, &options).map_err(err)?;
     Ok(Json(graph))
@@ -60,6 +63,7 @@ pub async fn search_commits(
         max_commits: req.max_commits.or(Some(500)),
         from_oid: None,
         include_remotes: req.include_remotes.unwrap_or(true),
+        excluded_authors: Vec::new(),
     };
     let results = git_graph::search_commits(&repo, &req.query, &options, req.search_diffs.unwrap_or(false)).map_err(err)?;
     Ok(Json(results))

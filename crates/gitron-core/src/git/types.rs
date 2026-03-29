@@ -343,6 +343,8 @@ pub struct GraphOptions {
     pub max_commits: Option<usize>,
     pub from_oid: Option<String>,
     pub include_remotes: bool,
+    #[serde(default)]
+    pub excluded_authors: Vec<String>,
 }
 
 impl Default for GraphOptions {
@@ -351,6 +353,7 @@ impl Default for GraphOptions {
             max_commits: Some(500),
             from_oid: None,
             include_remotes: true,
+            excluded_authors: Vec::new(),
         }
     }
 }

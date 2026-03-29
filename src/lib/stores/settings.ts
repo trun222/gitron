@@ -30,6 +30,12 @@ export const verboseGitErrors = writable(false);
 export const terminalApp = writable<string>('');
 export const treeExpandedByDefault = writable(false);
 export const excludedAuthors = writable<string[]>([]);
+export const tagsExpanded = writable(true);
+export const worktreesExpanded = writable(true);
+export const outputPanelOpen = writable(false);
+export const stagedExpanded = writable(true);
+export const unstagedExpanded = writable(true);
+export const untrackedExpanded = writable(true);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -218,6 +224,44 @@ export async function removeExcludedAuthor(author: string): Promise<void> {
   });
 }
 
+export async function setTagsExpanded(expanded: boolean): Promise<void> {
+  tagsExpanded.set(expanded);
+  await settingsApi.saveTagsExpanded(expanded);
+}
+
+export async function setWorktreesExpanded(expanded: boolean): Promise<void> {
+  worktreesExpanded.set(expanded);
+  await settingsApi.saveWorktreesExpanded(expanded);
+}
+
+export async function setOutputPanelOpen(open: boolean): Promise<void> {
+  outputPanelOpen.set(open);
+  await settingsApi.saveOutputPanelOpen(open);
+}
+
+export async function toggleOutputPanel(): Promise<void> {
+  outputPanelOpen.update((v) => {
+    const next = !v;
+    settingsApi.saveOutputPanelOpen(next);
+    return next;
+  });
+}
+
+export async function setStagedExpanded(expanded: boolean): Promise<void> {
+  stagedExpanded.set(expanded);
+  await settingsApi.saveStagedExpanded(expanded);
+}
+
+export async function setUnstagedExpanded(expanded: boolean): Promise<void> {
+  unstagedExpanded.set(expanded);
+  await settingsApi.saveUnstagedExpanded(expanded);
+}
+
+export async function setUntrackedExpanded(expanded: boolean): Promise<void> {
+  untrackedExpanded.set(expanded);
+  await settingsApi.saveUntrackedExpanded(expanded);
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -292,6 +336,14 @@ export async function loadSettings(): Promise<void> {
 
   // Excluded authors
   excludedAuthors.set(settings.excludedAuthors ?? []);
+
+  // Panel expanded states
+  tagsExpanded.set(settings.tagsExpanded ?? true);
+  worktreesExpanded.set(settings.worktreesExpanded ?? true);
+  outputPanelOpen.set(settings.outputPanelOpen ?? false);
+  stagedExpanded.set(settings.stagedExpanded ?? true);
+  unstagedExpanded.set(settings.unstagedExpanded ?? true);
+  untrackedExpanded.set(settings.untrackedExpanded ?? true);
 
   settingsLoaded.set(true);
 }

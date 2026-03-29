@@ -42,12 +42,14 @@ export async function getRepoInfo(path: string): Promise<RepoInfo> {
 export async function getCommitGraph(
   path: string,
   maxCommits?: number,
-  includeRemotes?: boolean
+  includeRemotes?: boolean,
+  excludedAuthors?: string[]
 ): Promise<CommitGraph> {
   return getTransport().invoke('get_commit_graph', {
     path,
     maxCommits: maxCommits ?? 500,
     includeRemotes: includeRemotes ?? true,
+    excludedAuthors: excludedAuthors ?? [],
   });
 }
 

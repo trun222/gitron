@@ -12,11 +12,10 @@
     pruneStaleWorktrees,
   } from '$lib/stores/worktree';
   import { repoPath } from '$lib/stores/repo';
-  import { terminalApp } from '$lib/stores/settings';
+  import { terminalApp, worktreesExpanded, setWorktreesExpanded } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
   import type { WorktreeInfo } from '$lib/api/types';
 
-  let expanded = $state(true);
 
   // Add dialog state
   let addPath = $state('');
@@ -206,8 +205,8 @@
     <div class="flex items-center justify-between w-full px-3 py-1.5">
       <button
         class="flex items-center gap-1 cursor-pointer hover:bg-accent/50 transition-colors rounded px-1 -ml-1"
-        onclick={() => expanded = !expanded}
-        aria-expanded={expanded}
+        onclick={() => setWorktreesExpanded(!$worktreesExpanded)}
+        aria-expanded={$worktreesExpanded}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -220,7 +219,7 @@
           stroke-linecap="round"
           stroke-linejoin="round"
           class="text-muted-foreground transition-transform duration-150"
-          style="transform: rotate({expanded ? '90deg' : '0deg'})"
+          style="transform: rotate({$worktreesExpanded ? '90deg' : '0deg'})"
         >
           <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
@@ -237,7 +236,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       </button>
     </div>
-    {#if expanded}
+    {#if $worktreesExpanded}
       <ul class="list-none overflow-y-auto max-h-[30vh]">
         {#each $worktrees as wt (wt.path)}
           <li>

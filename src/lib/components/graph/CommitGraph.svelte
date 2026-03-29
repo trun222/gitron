@@ -8,7 +8,9 @@
     createTagAtCommit, deleteTag, moveTag, pushTag, deleteRemoteTag,
     scrollToCommitOid, remoteTagMap,
     commitSearchActive, commitSearchMatchOids, commitSearchQuery,
+    refreshAll, repoPath,
   } from '$lib/stores/repo';
+  import { get } from 'svelte/store';
   import { graphColumnWidths, saveGraphColumnWidths, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { linkedWorktrees } from '$lib/stores/worktree';
   import { gravatarUrl } from '$lib/utils/gravatar';
@@ -63,6 +65,20 @@
       scrollToIndex(idx);
     }
     scrollToCommitOid.set(null);
+  });
+
+  // Re-fetch graph from backend when excluded authors change.
+  // The openRepo initial fetch uses GraphOptions::default() (no exclusions).
+  // Once settings load and excludedAuthors becomes non-empty, this effect
+  // triggers a re-fetch with the correct exclusions.
+  let prevExcludedAuthors: string[] = $state([]);
+  $effect(() => {
+    const current = $excludedAuthors;
+    if (JSON.stringify(current) !== JSON.stringify(prevExcludedAuthors)) {
+      prevExcludedAuthors = [...current];
+      const path = get(repoPath);
+      if (path) refreshAll(path);
+    }
   });
 
   let isTronEnhanced = $derived($theme === 'tron-enhanced');
@@ -328,14 +344,11 @@
   let isSearchFiltering = $derived($commitSearchActive && $commitSearchMatchOids.size > 0);
 
   let isAuthorFiltering = $derived($excludedAuthors.length > 0);
-  let excludedAuthorSet = $derived(new Set($excludedAuthors));
+  let isFiltering = $derived(isSearchFiltering);
 
   let filteredCommits = $derived.by(() => {
     if (!$commitGraph) return [];
     let commits = $commitGraph.commits;
-    if (isAuthorFiltering) {
-      commits = commits.filter((c) => !excludedAuthorSet.has(c.author.name));
-    }
     if (isSearchFiltering) {
       const matchOids = $commitSearchMatchOids;
       commits = commits.filter((c) => matchOids.has(c.oid));
@@ -821,7 +834,7 @@
   });
 </script>
 
-<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isSearchFiltering ? getSearchGridTemplate() : getGridTemplate()}">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isFiltering ? getSearchGridTemplate() : getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
     {@const layout = $commitGraph.layout}
     {#if isTronEnhanced}
@@ -839,7 +852,7 @@
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-      {#if !isSearchFiltering}
+      {#if !isFiltering}
         <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
       {/if}
       <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
@@ -879,7 +892,7 @@
         <div class="flex items-center justify-center py-8 text-sm text-muted-foreground">
           No matching commits
         </div>
-      {:else if isSearchFiltering}
+      {:else if isFiltering}
         {#each filteredCommits as commit (commit.oid)}
           {@const branches = getBranchesForCommit(commit.oid)}
           {@const tags = getTagsForCommit(commit.oid)}
@@ -953,34 +966,11 @@
       {:else}
       {#each $commitGraph.commits as commit, i}
         {@const node = layout?.nodes[i]}
-        {@const isExcludedAuthor = isAuthorFiltering && excludedAuthorSet.has(commit.author.name)}
-        {@const rowLanes = laneActivities[i] ?? new Map()}
-        {#if isExcludedAuthor}
-          <!-- Collapsed row: only graph pass-through lines -->
-          {@const COLLAPSED_HEIGHT = 4}
-          <div class="collapsed-author-row" style="height: {COLLAPSED_HEIGHT}px">
-            <span class="graph-cell" style="height: {COLLAPSED_HEIGHT}px">
-              {#if node}
-                <svg width={graphColumnWidth} height={COLLAPSED_HEIGHT} class="block" style="overflow: visible;">
-                  {#each [...rowLanes] as [lane, activity]}
-                    <line
-                      x1={laneX(lane)} y1={0}
-                      x2={laneX(lane)} y2={COLLAPSED_HEIGHT}
-                      stroke={getGraphColor(activity.colorIndex)}
-                      stroke-width={LINE_WIDTH}
-                      stroke-linecap="round"
-                      opacity="0.4"
-                    />
-                  {/each}
-                </svg>
-              {/if}
-            </span>
-          </div>
-        {:else}
         {@const branches = getBranchesForCommit(commit.oid)}
         {@const tags = getTagsForCommit(commit.oid)}
         {@const commitWorktrees = getWorktreesForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
+        {@const rowLanes = laneActivities[i] ?? new Map()}
         <button
           role="option"
           aria-selected={isSelected(commit)}
@@ -1154,7 +1144,6 @@
           <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
           <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
         </button>
-        {/if}
       {/each}
       {/if}
     </div>
@@ -1309,12 +1298,6 @@
   }
   .author-filter-clear:hover {
     color: var(--foreground);
-  }
-
-  .collapsed-author-row {
-    display: grid;
-    grid-template-columns: var(--grid-cols);
-    overflow: hidden;
   }
 
   .commit-row {

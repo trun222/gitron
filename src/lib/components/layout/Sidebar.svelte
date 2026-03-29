@@ -25,7 +25,7 @@
     selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault, tagsExpanded, setTagsExpanded, stagedExpanded, setStagedExpanded, unstagedExpanded, setUnstagedExpanded, untrackedExpanded, setUntrackedExpanded } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -41,7 +41,6 @@
   let commitBody = $state('');
   let commitError = $state<string | null>(null);
   let committing = $state(false);
-  let tagsExpanded = $state(true);
   let expandedDirs = $state(new Set<string>());
 
   // --- Context menu ---
@@ -455,10 +454,17 @@
             <!-- TREE VIEW -->
             <!-- STAGED (tree) -->
             {#if $repoStatus.staged.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
-                  Staged ({$repoStatus.staged.length})
-                </span>
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setStagedExpanded(!$stagedExpanded)}
+                  aria-expanded={$stagedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$stagedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
+                    Staged ({$repoStatus.staged.length})
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => unstageAllAndClear()}
@@ -466,6 +472,7 @@
                   Unstage All
                 </button>
               </div>
+              {#if $stagedExpanded}
               <ul class="list-none">
                 {#each treeSections.staged as entry (entry.path + ':' + entry.type)}
                   {#if entry.type === 'dir'}
@@ -504,14 +511,22 @@
                   {/if}
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             <!-- UNSTAGED (tree) -->
             {#if $repoStatus.unstaged.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setUnstagedExpanded(!$unstagedExpanded)}
+                  aria-expanded={$unstagedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$unstagedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
                   Unstaged ({$repoStatus.unstaged.length})
-                </span>
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => stageUnstagedAndClear()}
@@ -519,6 +534,7 @@
                   Stage All
                 </button>
               </div>
+              {#if $unstagedExpanded}
               <ul class="list-none">
                 {#each treeSections.unstaged as entry (entry.path + ':' + entry.type)}
                   {#if entry.type === 'dir'}
@@ -557,14 +573,22 @@
                   {/if}
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             <!-- UNTRACKED (tree) -->
             {#if $repoStatus.untracked.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Untracked ({$repoStatus.untracked.length})
-                </span>
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setUntrackedExpanded(!$untrackedExpanded)}
+                  aria-expanded={$untrackedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$untrackedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Untracked ({$repoStatus.untracked.length})
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => stageUntrackedAndClear()}
@@ -572,6 +596,7 @@
                   Stage All
                 </button>
               </div>
+              {#if $untrackedExpanded}
               <ul class="list-none">
                 {#each treeSections.untracked as entry (entry.path + ':' + entry.type)}
                   {#if entry.type === 'dir'}
@@ -610,6 +635,7 @@
                   {/if}
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
@@ -619,10 +645,17 @@
             <!-- FLAT FILE VIEW -->
             <!-- STAGED -->
             {#if $repoStatus.staged.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
-                  Staged ({$repoStatus.staged.length})
-                </span>
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setStagedExpanded(!$stagedExpanded)}
+                  aria-expanded={$stagedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$stagedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-git-added uppercase tracking-wide">
+                    Staged ({$repoStatus.staged.length})
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => unstageAllAndClear()}
@@ -630,6 +663,7 @@
                   Unstage All
                 </button>
               </div>
+              {#if $stagedExpanded}
               <ul class="list-none">
                 {#each $repoStatus.staged as file}
                   <li
@@ -653,14 +687,22 @@
                   </li>
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             <!-- UNSTAGED -->
             {#if $repoStatus.unstaged.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
-                  Unstaged ({$repoStatus.unstaged.length})
-                </span>
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setUnstagedExpanded(!$unstagedExpanded)}
+                  aria-expanded={$unstagedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$unstagedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-git-modified uppercase tracking-wide">
+                    Unstaged ({$repoStatus.unstaged.length})
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => stageUnstagedAndClear()}
@@ -668,6 +710,7 @@
                   Stage All
                 </button>
               </div>
+              {#if $unstagedExpanded}
               <ul class="list-none">
                 {#each $repoStatus.unstaged as file}
                   <li
@@ -691,14 +734,22 @@
                   </li>
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             <!-- UNTRACKED -->
             {#if $repoStatus.untracked.length > 0}
-              <div class="flex items-center justify-between px-3 py-1.5">
-                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Untracked ({$repoStatus.untracked.length})
-                </span>
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setUntrackedExpanded(!$untrackedExpanded)}
+                  aria-expanded={$untrackedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$untrackedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Untracked ({$repoStatus.untracked.length})
+                  </span>
+                </button>
                 <button
                   class="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
                   onclick={() => stageUntrackedAndClear()}
@@ -706,6 +757,7 @@
                   Stage All
                 </button>
               </div>
+              {#if $untrackedExpanded}
               <ul class="list-none">
                 {#each $repoStatus.untracked as file}
                   <li
@@ -729,6 +781,7 @@
                   </li>
                 {/each}
               </ul>
+              {/if}
             {/if}
 
             {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
@@ -748,8 +801,8 @@
       <div class="border-t border-border">
         <button
           class="flex items-center justify-between w-full px-3 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors"
-          onclick={() => tagsExpanded = !tagsExpanded}
-          aria-expanded={tagsExpanded}
+          onclick={() => setTagsExpanded(!$tagsExpanded)}
+          aria-expanded={$tagsExpanded}
         >
           <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
             Tags ({$commitGraph.tags.length})
@@ -765,12 +818,12 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             class="text-muted-foreground transition-transform duration-150"
-            style="transform: rotate({tagsExpanded ? '90deg' : '0deg'})"
+            style="transform: rotate({$tagsExpanded ? '90deg' : '0deg'})"
           >
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
         </button>
-        {#if tagsExpanded}
+        {#if $tagsExpanded}
           <ul class="list-none overflow-y-auto max-h-[40vh]">
             {#each sortedTags as tag}
               {@const remoteOid = $remoteTagMap.get(tag.name)}

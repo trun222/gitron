@@ -6,12 +6,14 @@ pub fn get_commit_graph(
     path: String,
     max_commits: Option<usize>,
     include_remotes: Option<bool>,
+    excluded_authors: Option<Vec<String>>,
 ) -> Result<CommitGraph, GitError> {
     let repo = repository::open(&path)?;
     let options = GraphOptions {
         max_commits: max_commits.or(Some(500)),
         from_oid: None,
         include_remotes: include_remotes.unwrap_or(true),
+        excluded_authors: excluded_authors.unwrap_or_default(),
     };
     git_graph::build_commit_graph(&repo, &options)
 }
@@ -30,6 +32,7 @@ pub fn search_commits(
         max_commits: max_commits.or(Some(500)),
         from_oid: None,
         include_remotes: include_remotes.unwrap_or(true),
+        excluded_authors: Vec::new(),
     };
     git_graph::search_commits(&repo, &query, &options, search_diffs.unwrap_or(false))
 }

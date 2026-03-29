@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { autoShowOutput } from '$lib/stores/settings';
+import { autoShowOutput, outputPanelOpen as _outputPanelOpen, toggleOutputPanel as _toggleOutputPanel, setOutputPanelOpen } from '$lib/stores/settings';
 
 export interface OutputEntry {
   id: number;
@@ -13,7 +13,7 @@ export interface OutputEntry {
 let nextId = 0;
 
 export const outputEntries = writable<OutputEntry[]>([]);
-export const outputPanelOpen = writable(false);
+export const outputPanelOpen = _outputPanelOpen;
 
 export const hasEntries = derived(outputEntries, ($entries) => $entries.length > 0);
 
@@ -36,7 +36,7 @@ export function addOutput(
   };
 
   outputEntries.update((entries) => [...entries, entry]);
-  if (get(autoShowOutput)) outputPanelOpen.set(true);
+  if (get(autoShowOutput)) setOutputPanelOpen(true);
 }
 
 export function clearOutput() {
@@ -44,5 +44,5 @@ export function clearOutput() {
 }
 
 export function toggleOutputPanel() {
-  outputPanelOpen.update((open) => !open);
+  _toggleOutputPanel();
 }

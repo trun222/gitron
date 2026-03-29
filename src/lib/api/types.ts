@@ -369,4 +369,10 @@ export interface AppSettings {
   showWorktreesList?: boolean;
   treeExpandedByDefault?: boolean;
   excludedAuthors?: string[];
+  tagsExpanded?: boolean;
+  worktreesExpanded?: boolean;
+  outputPanelOpen?: boolean;
+  stagedExpanded?: boolean;
+  unstagedExpanded?: boolean;
+  untrackedExpanded?: boolean;
 }

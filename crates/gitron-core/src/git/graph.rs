@@ -37,7 +37,10 @@ pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResul
         }
     }
 
-    // Walk commits, skipping internal stash commits
+    // Build excluded authors set for fast lookups
+    let excluded_authors: HashSet<&str> = options.excluded_authors.iter().map(|s| s.as_str()).collect();
+
+    // Walk commits, skipping internal stash commits and excluded authors
     for oid_result in revwalk {
         if commits.len() >= max_commits {
             break;
@@ -48,6 +51,13 @@ pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResul
             continue;
         }
         let commit = repo.find_commit(oid)?;
+        if !excluded_authors.is_empty() {
+            let author = commit.author();
+            let author_name = author.name().unwrap_or("");
+            if excluded_authors.contains(author_name) {
+                continue;
+            }
+        }
         commits.push(commit_to_type(&commit));
     }
 
