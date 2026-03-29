@@ -9,7 +9,7 @@
     scrollToCommitOid, remoteTagMap,
     commitSearchActive, commitSearchMatchOids, commitSearchQuery,
   } from '$lib/stores/repo';
-  import { graphColumnWidths, saveGraphColumnWidths, theme } from '$lib/stores/settings';
+  import { graphColumnWidths, saveGraphColumnWidths, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { linkedWorktrees } from '$lib/stores/worktree';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import type { Commit, Branch, Tag, StashEntry, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
@@ -327,10 +327,21 @@
   // When search is active with a query, show only matching commits
   let isSearchFiltering = $derived($commitSearchActive && $commitSearchMatchOids.size > 0);
 
+  let isAuthorFiltering = $derived($excludedAuthors.length > 0);
+  let isFiltering = $derived(isSearchFiltering || isAuthorFiltering);
+
   let filteredCommits = $derived.by(() => {
     if (!$commitGraph) return [];
-    if (!isSearchFiltering) return $commitGraph.commits;
-    return $commitGraph.commits.filter((c) => $commitSearchMatchOids.has(c.oid));
+    let commits = $commitGraph.commits;
+    if (isAuthorFiltering) {
+      const excluded = new Set($excludedAuthors);
+      commits = commits.filter((c) => !excluded.has(c.author.name));
+    }
+    if (isSearchFiltering) {
+      const matchOids = $commitSearchMatchOids;
+      commits = commits.filter((c) => matchOids.has(c.oid));
+    }
+    return commits;
   });
 
   function getSearchGridTemplate(): string {
@@ -469,6 +480,7 @@
     branchIsRemote?: boolean;
     stashIndex?: number;
     tagName?: string;
+    authorName?: string;
   }
 
   let contextMenu: ContextMenuState | null = $state(null);
@@ -544,6 +556,8 @@
       'separator',
       { id: 'copy-sha', label: 'Copy commit SHA' },
       { id: 'copy-message', label: 'Copy commit message' },
+      'separator',
+      { id: 'hide-author', label: `Hide commits by "${commit.author.name}"` },
     );
     contextMenu = {
       x: e.clientX,
@@ -551,6 +565,7 @@
       commitOid: commit.oid,
       shortOid: commit.short_oid,
       commitMessage: commit.message,
+      authorName: commit.author.name,
       items,
     };
   }
@@ -629,7 +644,7 @@
   function executeMenuAction(actionId: string) {
     if (!contextMenu) return;
     // Snapshot values before closing
-    const { x, y, commitOid, shortOid, commitMessage, branchName, branchIsRemote, stashIndex, tagName } = contextMenu;
+    const { x, y, commitOid, shortOid, commitMessage, branchName, branchIsRemote, stashIndex, tagName, authorName } = contextMenu;
     closeContextMenu();
 
     switch (actionId) {
@@ -703,6 +718,9 @@
         break;
       case 'copy-tag-name':
         if (tagName) navigator.clipboard.writeText(tagName);
+        break;
+      case 'hide-author':
+        if (authorName) addExcludedAuthor(authorName);
         break;
       default:
         if (actionId.startsWith('move-tag:') && commitOid) {
@@ -804,7 +822,7 @@
   });
 </script>
 
-<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isSearchFiltering ? getSearchGridTemplate() : getGridTemplate()}">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isFiltering ? getSearchGridTemplate() : getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
     {@const layout = $commitGraph.layout}
     {#if isTronEnhanced}
@@ -822,7 +840,7 @@
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-      {#if !isSearchFiltering}
+      {#if !isFiltering}
         <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
       {/if}
       <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
@@ -830,6 +848,23 @@
       <span class="text-center header-cell">Date<span class="resize-handle" role="separator" onmousedown={startResizePair('date', 'sha')}></span></span>
       <span class="text-center">SHA</span>
     </div>
+
+    {#if isAuthorFiltering}
+      <div class="author-filter-banner">
+        <span class="author-filter-label">Hiding commits by:</span>
+        {#each $excludedAuthors as author}
+          <button
+            class="author-filter-chip"
+            title="Click to show commits by {author}"
+            onclick={() => removeExcludedAuthor(author)}
+          >
+            {author}
+            <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          </button>
+        {/each}
+        <button class="author-filter-clear" onclick={() => setExcludedAuthors([])}>Clear all</button>
+      </div>
+    {/if}
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
@@ -845,7 +880,7 @@
         <div class="flex items-center justify-center py-8 text-sm text-muted-foreground">
           No matching commits
         </div>
-      {:else if isSearchFiltering}
+      {:else if isFiltering}
         {#each filteredCommits as commit (commit.oid)}
           {@const branches = getBranchesForCommit(commit.oid)}
           {@const tags = getTagsForCommit(commit.oid)}
@@ -1051,7 +1086,7 @@
                       <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
                       <span class="pill-text">{tag.name}</span>
                       {#if isSynced}
-                        <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" title="Synced with remote"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
+                        <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor" aria-label="Synced with remote"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
                       {/if}
                     </span>
                   {/each}
@@ -1207,6 +1242,52 @@
 {/if}
 
 <style>
+  .author-filter-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--accent);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+
+  .author-filter-label {
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .author-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .author-filter-chip:hover {
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    border-color: var(--destructive);
+  }
+
+  .author-filter-clear {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-left: 4px;
+  }
+  .author-filter-clear:hover {
+    color: var(--foreground);
+  }
+
   .commit-row {
     display: grid;
     grid-template-columns: var(--grid-cols);
