@@ -328,14 +328,13 @@
   let isSearchFiltering = $derived($commitSearchActive && $commitSearchMatchOids.size > 0);
 
   let isAuthorFiltering = $derived($excludedAuthors.length > 0);
-  let isFiltering = $derived(isSearchFiltering || isAuthorFiltering);
+  let excludedAuthorSet = $derived(new Set($excludedAuthors));
 
   let filteredCommits = $derived.by(() => {
     if (!$commitGraph) return [];
     let commits = $commitGraph.commits;
     if (isAuthorFiltering) {
-      const excluded = new Set($excludedAuthors);
-      commits = commits.filter((c) => !excluded.has(c.author.name));
+      commits = commits.filter((c) => !excludedAuthorSet.has(c.author.name));
     }
     if (isSearchFiltering) {
       const matchOids = $commitSearchMatchOids;
@@ -822,7 +821,7 @@
   });
 </script>
 
-<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isFiltering ? getSearchGridTemplate() : getGridTemplate()}">
+<div class="flex flex-col flex-1 overflow-hidden text-[13px]" style="--grid-cols: {isSearchFiltering ? getSearchGridTemplate() : getGridTemplate()}">
   {#if $commitGraph && $commitGraph.commits.length > 0}
     {@const layout = $commitGraph.layout}
     {#if isTronEnhanced}
@@ -840,7 +839,7 @@
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-      {#if !isFiltering}
+      {#if !isSearchFiltering}
         <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
       {/if}
       <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
@@ -880,7 +879,7 @@
         <div class="flex items-center justify-center py-8 text-sm text-muted-foreground">
           No matching commits
         </div>
-      {:else if isFiltering}
+      {:else if isSearchFiltering}
         {#each filteredCommits as commit (commit.oid)}
           {@const branches = getBranchesForCommit(commit.oid)}
           {@const tags = getTagsForCommit(commit.oid)}
@@ -954,11 +953,34 @@
       {:else}
       {#each $commitGraph.commits as commit, i}
         {@const node = layout?.nodes[i]}
+        {@const isExcludedAuthor = isAuthorFiltering && excludedAuthorSet.has(commit.author.name)}
+        {@const rowLanes = laneActivities[i] ?? new Map()}
+        {#if isExcludedAuthor}
+          <!-- Collapsed row: only graph pass-through lines -->
+          {@const COLLAPSED_HEIGHT = 4}
+          <div class="collapsed-author-row" style="height: {COLLAPSED_HEIGHT}px">
+            <span class="graph-cell" style="height: {COLLAPSED_HEIGHT}px">
+              {#if node}
+                <svg width={graphColumnWidth} height={COLLAPSED_HEIGHT} class="block" style="overflow: visible;">
+                  {#each [...rowLanes] as [lane, activity]}
+                    <line
+                      x1={laneX(lane)} y1={0}
+                      x2={laneX(lane)} y2={COLLAPSED_HEIGHT}
+                      stroke={getGraphColor(activity.colorIndex)}
+                      stroke-width={LINE_WIDTH}
+                      stroke-linecap="round"
+                      opacity="0.4"
+                    />
+                  {/each}
+                </svg>
+              {/if}
+            </span>
+          </div>
+        {:else}
         {@const branches = getBranchesForCommit(commit.oid)}
         {@const tags = getTagsForCommit(commit.oid)}
         {@const commitWorktrees = getWorktreesForCommit(commit.oid)}
         {@const isHead = commit.oid === $commitGraph?.head_oid}
-        {@const rowLanes = laneActivities[i] ?? new Map()}
         <button
           role="option"
           aria-selected={isSelected(commit)}
@@ -1132,6 +1154,7 @@
             </span>
           {/if}
         </button>
+        {/if}
       {/each}
       {/if}
     </div>
@@ -1286,6 +1309,12 @@
   }
   .author-filter-clear:hover {
     color: var(--foreground);
+  }
+
+  .collapsed-author-row {
+    display: grid;
+    grid-template-columns: var(--grid-cols);
+    overflow: hidden;
   }
 
   .commit-row {
