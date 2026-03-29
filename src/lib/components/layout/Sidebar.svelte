@@ -25,7 +25,7 @@
     selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault, tagsExpanded, setTagsExpanded, stagedExpanded, setStagedExpanded, unstagedExpanded, setUnstagedExpanded, untrackedExpanded, setUntrackedExpanded } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault, tagsExpanded, setTagsExpanded, stagedExpanded, setStagedExpanded, unstagedExpanded, setUnstagedExpanded, untrackedExpanded, setUntrackedExpanded, committedExpanded, setCommittedExpanded } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -391,12 +391,20 @@
     >
         <!-- Commit files section -->
         {#if $selectedCommit && $commitFiles && $commitFiles.length > 0}
-          <div class="flex items-center justify-between px-3 py-1.5">
-            <span class="text-[11px] font-semibold text-primary uppercase tracking-wide">
-              Committed ({$commitFiles.length})
-            </span>
+          <div class="group/section flex items-center justify-between px-3 py-1.5">
+            <button
+              class="flex items-center gap-1 cursor-pointer"
+              onclick={() => setCommittedExpanded(!$committedExpanded)}
+              aria-expanded={$committedExpanded}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$committedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              <span class="text-[11px] font-semibold text-primary uppercase tracking-wide">
+                Committed ({$commitFiles.length})
+              </span>
+            </button>
             <span class="text-[10px] text-muted-foreground font-mono">{$selectedCommit.oid.slice(0, 7)}</span>
           </div>
+          {#if $committedExpanded}
           {#if $changesViewMode === 'tree' && commitFileTreeFlat}
             <ul class="list-none">
               {#each commitFileTreeFlat as entry (entry.path + ':' + entry.type)}
@@ -443,6 +451,7 @@
                 </li>
               {/each}
             </ul>
+          {/if}
           {/if}
           {#if totalChanges > 0}
             <div class="my-1.5 mx-3 border-t border-border"></div>

@@ -266,3 +266,9 @@ export async function saveUntrackedExpanded(expanded: boolean): Promise<void> {
   settings.untrackedExpanded = expanded;
   await saveSettings(settings);
 }
+
+export async function saveCommittedExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.committedExpanded = expanded;
+  await saveSettings(settings);
+}

@@ -375,4 +375,5 @@ export interface AppSettings {
   stagedExpanded?: boolean;
   unstagedExpanded?: boolean;
   untrackedExpanded?: boolean;
+  committedExpanded?: boolean;
 }

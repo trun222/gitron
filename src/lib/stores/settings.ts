@@ -36,6 +36,7 @@ export const outputPanelOpen = writable(false);
 export const stagedExpanded = writable(true);
 export const unstagedExpanded = writable(true);
 export const untrackedExpanded = writable(true);
+export const committedExpanded = writable(true);
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -262,6 +263,11 @@ export async function setUntrackedExpanded(expanded: boolean): Promise<void> {
   await settingsApi.saveUntrackedExpanded(expanded);
 }
 
+export async function setCommittedExpanded(expanded: boolean): Promise<void> {
+  committedExpanded.set(expanded);
+  await settingsApi.saveCommittedExpanded(expanded);
+}
+
 // Actions
 export async function loadSettings(): Promise<void> {
   const settings = await settingsApi.getSettings();
@@ -344,6 +350,7 @@ export async function loadSettings(): Promise<void> {
   stagedExpanded.set(settings.stagedExpanded ?? true);
   unstagedExpanded.set(settings.unstagedExpanded ?? true);
   untrackedExpanded.set(settings.untrackedExpanded ?? true);
+  committedExpanded.set(settings.committedExpanded ?? true);
 
   settingsLoaded.set(true);
 }
