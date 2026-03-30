@@ -23,7 +23,7 @@ Gitron is a fast, cross-platform Git GUI that aims to deliver the polish and dep
 
 Gitron runs in two modes from the same codebase: as a **native desktop app** (Tauri v2) or as a **self-hosted web server** you can access from any browser.
 
-> **Status:** Active development (v0.2.0). Core git operations, branching, remotes, and AI features work. Desktop and server modes available.
+> **Status:** Active development (v0.5.0). Core git operations, branching, remotes, AI features, and commit graph filtering work. Desktop and server modes available.
 
 ## Why Gitron?
 
@@ -41,7 +41,7 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 
 ### What works today
 
-- **Commit graph** — resizable, multi-column commit list with keyboard navigation
+- **Commit graph** — resizable, multi-column commit list with keyboard navigation, author filtering to hide noisy commits (e.g. bots), and collapsible committed files
 - **Commit search** — search commits by message, author, or diff content from the command bar
 - **Commit diff viewer** — click any commit to see its changed files in the sidebar, click a file to view its full diff with syntax highlighting and arrow key navigation
 - **Staging panel** — interactive stage/unstage per file with bulk actions, flat or tree view
@@ -57,7 +57,8 @@ Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git G
 - **GitHub integration** — OAuth device flow login, user profile display
 - **Command palette** — Cmd/Ctrl+K to search repos, branches, and actions
 - **Self-hosted server mode** — run Gitron as a web server accessible from any browser, with Docker support
-- **Settings persistence** — recent repositories, column widths saved between sessions
+- **Settings persistence** — recent repositories, column widths saved between sessions, expand-tree-by-default option
+- **Auto-fetch** — configurable auto-fetch intervals (15s, 30s, 1m, 5m) with silent background fetching
 - **Keyboard shortcuts** — graph navigation, staging shortcuts, commit file navigation, command palette
 
 ### Planned
