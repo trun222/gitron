@@ -31,6 +31,17 @@ pub struct Branch {
     pub target_oid: Option<String>,
 }
 
+/// A branch that has been fully merged into the current HEAD
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergedBranch {
+    pub name: String,
+    pub is_remote: bool,
+    /// For remote branches: the remote name (e.g. "origin")
+    pub remote: Option<String>,
+    /// The short branch name without remote prefix (e.g. "feature/foo")
+    pub short_name: String,
+}
+
 /// A tag reference
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
@@ -45,6 +56,15 @@ pub struct Tag {
 pub struct RemoteTagInfo {
     pub name: String,
     pub oid: String,
+}
+
+/// A checkpoint ref created by AI coding tools (Claude Code, T3 Code, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointRef {
+    pub refname: String,
+    pub short_oid: String,
+    /// The tool/prefix group (e.g. "claude", "t3")
+    pub source: String,
 }
 
 /// A stash entry

@@ -15,7 +15,7 @@
   import { verboseGitErrors } from '$lib/stores/settings';
   import Toast from '$lib/components/ui/toast/Toast.svelte';
   import { get } from 'svelte/store';
-  import { BranchConflictDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, ForcePushDialog, GitHubLoginDialog } from '$lib/components/ui/dialog';
+  import { BranchConflictDialog, CleanupBranchesDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, ForcePushDialog, GitHubLoginDialog, PurgeCheckpointsDialog } from '$lib/components/ui/dialog';
   import { initAuth } from '$lib/stores/github';
   import type { Snippet } from 'svelte';
 
@@ -167,8 +167,10 @@
 
 <Toast />
 <BranchConflictDialog />
+<CleanupBranchesDialog />
 <CloneDialog />
 <DeleteBranchDialog />
 <DiscardChangesDialog />
 <ForcePushDialog />
 <GitHubLoginDialog />
+<PurgeCheckpointsDialog />

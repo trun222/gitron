@@ -27,9 +27,15 @@ pub fn build_commit_graph(repo: &Repository, options: &GraphOptions) -> GitResul
         revwalk.push_head().ok(); // May fail on empty repo
 
         if options.include_remotes {
-            // Include all branch tips for a complete graph
+            // Include all branch tips for a complete graph,
+            // but skip checkpoint refs from AI coding tools
             if let Ok(references) = repo.references() {
                 for reference in references.flatten() {
+                    if let Some(name) = reference.name() {
+                        if is_checkpoint_ref(name) {
+                            continue;
+                        }
+                    }
                     if let Some(oid) = reference.target() {
                         revwalk.push(oid).ok();
                     }
@@ -482,6 +488,11 @@ pub fn search_commits(
         if options.include_remotes {
             if let Ok(references) = repo.references() {
                 for reference in references.flatten() {
+                    if let Some(name) = reference.name() {
+                        if is_checkpoint_ref(name) {
+                            continue;
+                        }
+                    }
                     if let Some(oid) = reference.target() {
                         revwalk.push(oid).ok();
                     }
@@ -658,4 +669,14 @@ fn collect_tags(repo: &Repository) -> GitResult<Vec<Tag>> {
     })?;
 
     Ok(tags)
+}
+
+/// Check if a ref name belongs to an AI coding tool checkpoint.
+fn is_checkpoint_ref(refname: &str) -> bool {
+    refname.starts_with("refs/claude/")
+        || refname.starts_with("refs/conductor-checkpoints/")
+        || refname.starts_with("refs/t3/")
+        || refname.starts_with("refs/cursor/")
+        || refname.starts_with("refs/codex/")
+        || refname.starts_with("refs/windsurf/")
 }

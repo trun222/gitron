@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
-use gitron_core::git::{error::GitError, repository, types::*};
+use gitron_core::git::{error::GitError, remote, repository, types::*};
 
 #[derive(Deserialize)]
 pub struct PathRequest {
@@ -103,6 +103,30 @@ pub async fn merge_into(
     let workdir = get_workdir(&req.path)?;
     let result = repository::merge_branch(&workdir, &req.branch_name).map_err(err)?;
     Ok(Json(result))
+}
+
+pub async fn find_merged_branches(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<Vec<MergedBranch>>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    let merged = repository::find_merged_branches(&repo).map_err(err)?;
+    Ok(Json(merged))
+}
+
+#[derive(Deserialize)]
+pub struct CleanupBranchesRequest {
+    path: String,
+    branches: Vec<MergedBranch>,
+}
+
+pub async fn cleanup_merged_branches(
+    Json(req): Json<CleanupBranchesRequest>,
+) -> Result<Json<Vec<String>>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let deleted = remote::cleanup_merged_branches(&workdir, &req.branches)
+        .await
+        .map_err(err)?;
+    Ok(Json(deleted))
 }
 
 fn get_workdir(path: &str) -> Result<String, (StatusCode, String)> {

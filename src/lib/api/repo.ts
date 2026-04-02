@@ -18,6 +18,8 @@ import type {
   RemoteTagInfo,
   OpenRepoResult,
   StashEntry,
+  MergedBranch,
+  CheckpointRef,
 } from './types';
 
 export async function openRepo(path: string): Promise<OpenRepoResult> {
@@ -147,6 +149,14 @@ export async function deleteBranch(path: string, name: string): Promise<Branch[]
   return getTransport().invoke('delete_branch', { path, name });
 }
 
+export async function findMergedBranches(path: string): Promise<MergedBranch[]> {
+  return getTransport().invoke('find_merged_branches', { path });
+}
+
+export async function cleanupMergedBranches(path: string, branches: MergedBranch[]): Promise<string[]> {
+  return getTransport().invoke('cleanup_merged_branches', { path, branches });
+}
+
 export async function resetToCommit(
   path: string,
   commitOid: string,
@@ -177,6 +187,16 @@ export async function popStash(path: string, index: number): Promise<RepoStatus>
 
 export async function dropStash(path: string, index: number): Promise<RepoStatus> {
   return getTransport().invoke('drop_stash', { path, index });
+}
+
+// Checkpoint operations
+
+export async function findCheckpointRefs(path: string): Promise<CheckpointRef[]> {
+  return getTransport().invoke('find_checkpoint_refs', { path });
+}
+
+export async function purgeCheckpointRefs(path: string, refs: CheckpointRef[]): Promise<number> {
+  return getTransport().invoke('purge_checkpoint_refs', { path, refs });
 }
 
 // Remote operations

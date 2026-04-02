@@ -32,6 +32,8 @@ const COMMAND_MAP: Record<string, string> = {
   create_branch: '/api/branch/create',
   checkout_branch: '/api/branch/checkout',
   delete_branch: '/api/branch/delete',
+  find_merged_branches: '/api/branch/merged',
+  cleanup_merged_branches: '/api/branch/cleanup',
   reset_to_commit: '/api/branch/reset',
   rebase_onto: '/api/branch/rebase',
   merge_into: '/api/branch/merge',
@@ -43,6 +45,9 @@ const COMMAND_MAP: Record<string, string> = {
   apply_stash: '/api/stash/apply',
   pop_stash: '/api/stash/pop',
   drop_stash: '/api/stash/drop',
+  // Checkpoint
+  find_checkpoint_refs: '/api/checkpoint/list',
+  purge_checkpoint_refs: '/api/checkpoint/purge',
   // Remote
   list_remotes: '/api/remote/list',
   add_remote: '/api/remote/add',

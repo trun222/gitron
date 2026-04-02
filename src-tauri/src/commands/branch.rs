@@ -1,4 +1,4 @@
-use gitron_core::git::{error::GitError, repository, types::*};
+use gitron_core::git::{error::GitError, remote, repository, types::*};
 
 /// List all branches
 #[tauri::command]
@@ -33,6 +33,29 @@ pub fn delete_branch(path: String, name: String) -> Result<Vec<Branch>, GitError
     let repo = repository::open(&path)?;
     repository::delete_branch(&repo, &name)?;
     repository::list_branches(&repo)
+}
+
+/// Find branches fully merged into HEAD
+#[tauri::command]
+pub fn find_merged_branches(path: String) -> Result<Vec<MergedBranch>, GitError> {
+    let repo = repository::open(&path)?;
+    repository::find_merged_branches(&repo)
+}
+
+/// Clean up merged branches (delete local and remote)
+#[tauri::command]
+pub async fn cleanup_merged_branches(
+    path: String,
+    branches: Vec<MergedBranch>,
+) -> Result<Vec<String>, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    remote::cleanup_merged_branches(&workdir, &branches).await
 }
 
 /// Reset current branch to a specific commit

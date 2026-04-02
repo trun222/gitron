@@ -10,9 +10,11 @@ import type {
   Remote,
   TrackingStatus,
   StashEntry,
+  MergedBranch,
+  CheckpointRef,
 } from '$lib/api/types';
 import * as api from '$lib/api/repo';
-import { trackRepoOpen, excludedAuthors } from '$lib/stores/settings';
+import { trackRepoOpen, excludedAuthors, protectedBranches } from '$lib/stores/settings';
 import { addOutput } from '$lib/stores/output';
 import { addToast } from '$lib/stores/toast';
 import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
@@ -75,6 +77,16 @@ export const deleteBranchConfirm = writable<DeleteBranchConfirmInfo>({
   branchName: '',
   isRemote: false,
 });
+
+// Cleanup merged branches dialog
+export const cleanupBranchesOpen = writable(false);
+export const cleanupBranchesList = writable<MergedBranch[]>([]);
+export const cleanupBranchesLoading = writable(false);
+
+// Purge checkpoint refs dialog
+export const purgeCheckpointsOpen = writable(false);
+export const purgeCheckpointsList = writable<CheckpointRef[]>([]);
+export const purgeCheckpointsLoading = writable(false);
 
 // Branch conflict prompt (shown when checking out a remote branch with existing local)
 export interface BranchConflictInfo {
@@ -712,6 +724,72 @@ export async function deleteRemoteBranch(remoteName: string, branch: string) {
     await refreshAll(path);
   } catch (e) {
     error.set(String(e));
+  }
+}
+
+export async function openCleanupBranches() {
+  const path = get(repoPath);
+  if (!path) return;
+  cleanupBranchesLoading.set(true);
+  cleanupBranchesOpen.set(true);
+  try {
+    const merged = await api.findMergedBranches(path);
+    const protected_ = get(protectedBranches);
+    const filtered = merged.filter((b) =>
+      !protected_.includes(b.name) && !protected_.includes(b.short_name)
+    );
+    cleanupBranchesList.set(filtered);
+  } catch (e) {
+    error.set(String(e));
+    addToast(String(e), 'error');
+    cleanupBranchesOpen.set(false);
+  } finally {
+    cleanupBranchesLoading.set(false);
+  }
+}
+
+export async function confirmCleanupBranches(branches: MergedBranch[]) {
+  const path = get(repoPath);
+  if (!path) return;
+  cleanupBranchesOpen.set(false);
+  try {
+    const deleted = await api.cleanupMergedBranches(path, branches);
+    await refreshAll(path);
+    addToast(`Deleted ${deleted.length} branch${deleted.length === 1 ? '' : 'es'}`, 'success');
+  } catch (e) {
+    error.set(String(e));
+    addToast(String(e), 'error');
+  }
+}
+
+export async function openPurgeCheckpoints() {
+  const path = get(repoPath);
+  if (!path) return;
+  purgeCheckpointsLoading.set(true);
+  purgeCheckpointsOpen.set(true);
+  try {
+    const refs = await api.findCheckpointRefs(path);
+    purgeCheckpointsList.set(refs);
+  } catch (e) {
+    error.set(String(e));
+    addToast(String(e), 'error');
+    purgeCheckpointsOpen.set(false);
+  } finally {
+    purgeCheckpointsLoading.set(false);
+  }
+}
+
+export async function confirmPurgeCheckpoints(refs: CheckpointRef[]) {
+  const path = get(repoPath);
+  if (!path) return;
+  purgeCheckpointsOpen.set(false);
+  try {
+    const deleted = await api.purgeCheckpointRefs(path, refs);
+    await refreshAll(path);
+    addToast(`Purged ${deleted} checkpoint ref${deleted === 1 ? '' : 's'}`, 'success');
+  } catch (e) {
+    error.set(String(e));
+    addToast(String(e), 'error');
   }
 }
 

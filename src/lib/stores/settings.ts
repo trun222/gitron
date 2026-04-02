@@ -35,6 +35,7 @@ export const terminalCursorStyle = writable<TerminalCursorStyle>('block');
 export const terminalScrollback = writable<number>(5000);
 export const treeExpandedByDefault = writable(false);
 export const excludedAuthors = writable<string[]>([]);
+export const protectedBranches = writable<string[]>(['main', 'master', 'develop']);
 export const tagsExpanded = writable(true);
 export const worktreesExpanded = writable(true);
 export const outputPanelOpen = writable(false);
@@ -255,6 +256,29 @@ export async function removeExcludedAuthor(author: string): Promise<void> {
   });
 }
 
+export async function setProtectedBranches(branches: string[]): Promise<void> {
+  protectedBranches.set(branches);
+  await settingsApi.saveProtectedBranches(branches);
+}
+
+export async function addProtectedBranch(branch: string): Promise<void> {
+  protectedBranches.update((current) => {
+    const trimmed = branch.trim();
+    if (!trimmed || current.includes(trimmed)) return current;
+    const next = [...current, trimmed];
+    settingsApi.saveProtectedBranches(next);
+    return next;
+  });
+}
+
+export async function removeProtectedBranch(branch: string): Promise<void> {
+  protectedBranches.update((current) => {
+    const next = current.filter((b) => b !== branch);
+    settingsApi.saveProtectedBranches(next);
+    return next;
+  });
+}
+
 export async function setTagsExpanded(expanded: boolean): Promise<void> {
   tagsExpanded.set(expanded);
   await settingsApi.saveTagsExpanded(expanded);
@@ -377,6 +401,9 @@ export async function loadSettings(): Promise<void> {
 
   // Excluded authors
   excludedAuthors.set(settings.excludedAuthors ?? []);
+
+  // Protected branches
+  protectedBranches.set(settings.protectedBranches ?? ['main', 'master', 'develop']);
 
   // Panel expanded states
   tagsExpanded.set(settings.tagsExpanded ?? true);

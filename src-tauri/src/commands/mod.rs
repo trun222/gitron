@@ -12,6 +12,7 @@ pub mod github;
 pub mod clone;
 pub mod worktree;
 pub mod terminal;
+pub mod checkpoint;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

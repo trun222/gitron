@@ -14,6 +14,7 @@ mod github;
 mod fs;
 mod settings;
 mod terminal;
+mod checkpoint;
 
 use std::sync::Arc;
 
@@ -52,6 +53,8 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/branch/create", post(branch::create_branch))
         .route("/branch/checkout", post(branch::checkout_branch))
         .route("/branch/delete", post(branch::delete_branch))
+        .route("/branch/merged", post(branch::find_merged_branches))
+        .route("/branch/cleanup", post(branch::cleanup_merged_branches))
         .route("/branch/reset", post(branch::reset_to_commit))
         .route("/branch/rebase", post(branch::rebase_onto))
         .route("/branch/merge", post(branch::merge_into))
@@ -63,6 +66,9 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/stash/apply", post(stash::apply_stash))
         .route("/stash/pop", post(stash::pop_stash))
         .route("/stash/drop", post(stash::drop_stash))
+        // Checkpoint
+        .route("/checkpoint/list", post(checkpoint::find_checkpoint_refs))
+        .route("/checkpoint/purge", post(checkpoint::purge_checkpoint_refs))
         // Remote
         .route("/remote/list", post(remote::list_remotes))
         .route("/remote/add", post(remote::add_remote))

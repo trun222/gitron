@@ -4,6 +4,7 @@ use std::sync::Mutex;
 
 use git2::Repository;
 
+use super::cli;
 use super::error::{GitError, GitResult};
 use super::types::*;
 
@@ -95,7 +96,7 @@ pub fn get_status(repo: &Repository) -> GitResult<RepoStatus> {
     let statuses = repo.statuses(Some(
         git2::StatusOptions::new()
             .include_untracked(true)
-            .recurse_untracked_dirs(true)
+            .recurse_untracked_dirs(false)
             .include_ignored(false),
     ))?;
 
@@ -385,6 +386,139 @@ pub fn checkout_branch(repo: &Repository, name: &str) -> GitResult<()> {
     }
 
     Err(GitError::BranchNotFound(name.to_string()))
+}
+
+/// Find branches that are fully merged into the current HEAD.
+/// Returns local and remote branches whose tip is reachable from HEAD.
+/// Excludes the current HEAD branch and the default remote HEAD (e.g. origin/HEAD).
+pub fn find_merged_branches(repo: &Repository) -> GitResult<Vec<MergedBranch>> {
+    let head = repo.head()
+        .map_err(|e| GitError::Other(format!("Cannot resolve HEAD: {}", e)))?;
+    let head_oid = head.peel_to_commit()
+        .map_err(|e| GitError::Other(format!("Cannot peel HEAD to commit: {}", e)))?
+        .id();
+    let head_name = head.shorthand().unwrap_or("").to_string();
+
+    let mut merged = Vec::new();
+
+    for branch_result in repo.branches(None)? {
+        let (branch, branch_type) = branch_result?;
+        let name = match branch.name()? {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+
+        // Skip HEAD branch
+        if branch_type == git2::BranchType::Local && name == head_name {
+            continue;
+        }
+
+        // Skip remote HEAD refs (e.g. origin/HEAD)
+        if name.ends_with("/HEAD") {
+            continue;
+        }
+
+        let target = match branch.get().target() {
+            Some(oid) => oid,
+            None => continue,
+        };
+
+        // A branch is merged if its tip is an ancestor of HEAD
+        // (i.e., HEAD contains all commits from this branch)
+        if target == head_oid {
+            // Same commit as HEAD — merged
+        } else {
+            match repo.merge_base(head_oid, target) {
+                Ok(merge_base) if merge_base == target => {
+                    // Branch tip is ancestor of HEAD — merged
+                }
+                _ => continue, // Not merged or no common ancestor
+            }
+        }
+
+        let is_remote = branch_type == git2::BranchType::Remote;
+        let (remote, short_name) = if is_remote {
+            // Parse "origin/feature/foo" -> ("origin", "feature/foo")
+            if let Some(slash_idx) = name.find('/') {
+                (
+                    Some(name[..slash_idx].to_string()),
+                    name[slash_idx + 1..].to_string(),
+                )
+            } else {
+                (None, name.clone())
+            }
+        } else {
+            (None, name.clone())
+        };
+
+        merged.push(MergedBranch {
+            name: name.clone(),
+            is_remote,
+            remote,
+            short_name,
+        });
+    }
+
+    merged.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(merged)
+}
+
+/// Known ref prefixes created by AI coding tools.
+const CHECKPOINT_REF_PREFIXES: &[(&str, &str)] = &[
+    ("refs/claude/", "Claude Code"),
+    ("refs/conductor-checkpoints/", "Claude Code"),
+    ("refs/t3/", "T3 Code"),
+    ("refs/cursor/", "Cursor"),
+    ("refs/codex/", "Codex"),
+    ("refs/windsurf/", "Windsurf"),
+];
+
+/// Find all checkpoint refs created by AI coding tools.
+pub fn find_checkpoint_refs(workdir: &str) -> GitResult<Vec<CheckpointRef>> {
+    let mut refs = Vec::new();
+
+    for (prefix, source) in CHECKPOINT_REF_PREFIXES {
+        let output = cli::run_git(workdir, &[
+            "for-each-ref",
+            "--format=%(refname) %(objectname:short)",
+            prefix,
+        ])?;
+
+        for line in output.stdout.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let parts: Vec<&str> = line.splitn(2, ' ').collect();
+            let refname = parts[0].to_string();
+            let short_oid = parts.get(1).unwrap_or(&"").to_string();
+
+            refs.push(CheckpointRef {
+                refname,
+                short_oid,
+                source: source.to_string(),
+            });
+        }
+    }
+
+    Ok(refs)
+}
+
+/// Purge checkpoint refs and run garbage collection.
+/// Returns the number of refs deleted.
+pub fn purge_checkpoint_refs(workdir: &str, refs: &[CheckpointRef]) -> GitResult<usize> {
+    let mut deleted = 0;
+
+    for checkpoint_ref in refs {
+        match cli::run_git(workdir, &["update-ref", "-d", &checkpoint_ref.refname]) {
+            Ok(_) => deleted += 1,
+            Err(e) => {
+                eprintln!("Failed to delete ref {}: {}", checkpoint_ref.refname, e);
+            }
+        }
+    }
+
+    Ok(deleted)
 }
 
 /// Delete a local branch

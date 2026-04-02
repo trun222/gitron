@@ -375,6 +375,40 @@ pub async fn delete_remote_branch(workdir: &str, remote: &str, branch: &str) -> 
     Ok(())
 }
 
+/// Clean up merged branches — deletes specified local and remote branches.
+/// Takes a list of MergedBranch entries and deletes them.
+/// Local branches are deleted via git2, remote branches via `git push --delete`.
+/// Returns the names of branches that were successfully deleted.
+pub async fn cleanup_merged_branches(
+    workdir: &str,
+    branches: &[MergedBranch],
+) -> GitResult<Vec<String>> {
+    let repo = repository::open(workdir)?;
+    let mut deleted = Vec::new();
+
+    for branch in branches {
+        if branch.is_remote {
+            if let Some(remote) = &branch.remote {
+                match delete_remote_branch(workdir, remote, &branch.short_name).await {
+                    Ok(_) => deleted.push(branch.name.clone()),
+                    Err(e) => {
+                        eprintln!("Failed to delete remote branch {}: {}", branch.name, e);
+                    }
+                }
+            }
+        } else {
+            match repository::delete_branch(&repo, &branch.name) {
+                Ok(_) => deleted.push(branch.name.clone()),
+                Err(e) => {
+                    eprintln!("Failed to delete local branch {}: {}", branch.name, e);
+                }
+            }
+        }
+    }
+
+    Ok(deleted)
+}
+
 /// Reset a local branch to match a remote branch, then checkout it.
 /// If the local branch doesn't exist, creates it as a tracking branch.
 pub fn checkout_remote_branch(repo: &Repository, remote_branch_name: &str) -> GitResult<()> {

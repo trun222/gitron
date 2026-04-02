@@ -10,6 +10,7 @@
     terminalCursorStyle, setTerminalCursorStyle,
     terminalScrollback, setTerminalScrollback,
     excludedAuthors, removeExcludedAuthor, addExcludedAuthor, setExcludedAuthors,
+    protectedBranches, addProtectedBranch, removeProtectedBranch, setProtectedBranches,
   } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
   import type { AutoFetchInterval, FileWatcherInterval, TerminalCursorStyle } from '$lib/api/types';
@@ -32,6 +33,15 @@
   ];
 
   let newAuthorInput = $state('');
+  let newBranchInput = $state('');
+
+  function handleAddProtectedBranch() {
+    const trimmed = newBranchInput.trim();
+    if (trimmed) {
+      addProtectedBranch(trimmed);
+      newBranchInput = '';
+    }
+  }
 
   function handleAddAuthor() {
     const trimmed = newAuthorInput.trim();
@@ -246,6 +256,45 @@
         onkeydown={(e) => { if (e.key === 'Enter') handleAddAuthor(); }}
       />
       <button class="add-author-btn" onclick={handleAddAuthor} disabled={!newAuthorInput.trim()}>Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3 class="section-title">Protected Branches</h3>
+  <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+    <div class="setting-label">
+      <span class="label-text">Protected branches</span>
+      <span class="label-description">These branches will never appear in the "Clean Up Merged Branches" dialog.</span>
+    </div>
+    {#if $protectedBranches.length > 0}
+      <div class="excluded-authors-list">
+        {#each $protectedBranches as branch}
+          <span class="excluded-author-chip">
+            {branch}
+            <button
+              class="chip-remove"
+              title="Remove"
+              onclick={() => removeProtectedBranch(branch)}
+            >
+              <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+            </button>
+          </span>
+        {/each}
+        <button class="clear-all-btn" onclick={() => setProtectedBranches([])}>Clear all</button>
+      </div>
+    {:else}
+      <span class="no-authors-text">No protected branches</span>
+    {/if}
+    <div class="add-author-row">
+      <input
+        type="text"
+        class="text-input"
+        placeholder="Branch name to protect..."
+        bind:value={newBranchInput}
+        onkeydown={(e) => { if (e.key === 'Enter') handleAddProtectedBranch(); }}
+      />
+      <button class="add-author-btn" onclick={handleAddProtectedBranch} disabled={!newBranchInput.trim()}>Add</button>
     </div>
   </div>
 </div>

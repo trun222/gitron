@@ -36,6 +36,19 @@ export interface RemoteTagInfo {
   oid: string;
 }
 
+export interface MergedBranch {
+  name: string;
+  is_remote: boolean;
+  remote: string | null;
+  short_name: string;
+}
+
+export interface CheckpointRef {
+  refname: string;
+  short_oid: string;
+  source: string;
+}
+
 export interface StashEntry {
   index: number;
   oid: string;
@@ -375,6 +388,7 @@ export interface AppSettings {
   showWorktreesList?: boolean;
   treeExpandedByDefault?: boolean;
   excludedAuthors?: string[];
+  protectedBranches?: string[];
   tagsExpanded?: boolean;
   worktreesExpanded?: boolean;
   outputPanelOpen?: boolean;

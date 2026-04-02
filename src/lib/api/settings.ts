@@ -261,6 +261,12 @@ export async function saveExcludedAuthors(authors: string[]): Promise<void> {
   await saveSettings(settings);
 }
 
+export async function saveProtectedBranches(branches: string[]): Promise<void> {
+  const settings = await getSettings();
+  settings.protectedBranches = branches;
+  await saveSettings(settings);
+}
+
 export async function saveTagsExpanded(expanded: boolean): Promise<void> {
   const settings = await getSettings();
   settings.tagsExpanded = expanded;

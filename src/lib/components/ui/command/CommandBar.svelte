@@ -12,9 +12,11 @@
     forcePushConfirmOpen,
     commitSearchActive, commitSearchQuery, commitSearchLoading, commitSearchDiffs,
     searchCommitsAction, clearCommitSearch,
-    saveStash, listStashes as listStashesAction, applyStash, popStash, dropStash,
+    saveStash, applyStash, popStash, dropStash,
+    commitGraph,
+    openCleanupBranches,
+    openPurgeCheckpoints,
   } from '$lib/stores/repo';
-  import type { StashEntry } from '$lib/api/types';
   import { openCloneDialog } from '$lib/stores/clone';
   import { isTauri } from '$lib/api';
   import {
@@ -34,7 +36,7 @@
   let addRemoteMode = $state(false);
   let commitSearchMode = $state(false);
   let stashMessageMode = $state(false);
-  let stashes = $state<StashEntry[]>([]);
+  let stashes = $derived($commitGraph?.stashes ?? []);
   let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   export function focus() {
@@ -74,12 +76,10 @@
     }, 300);
   });
 
-  async function handleFocus() {
+  function handleFocus() {
     clearTimeout(blurTimeout);
     if (!commitSearchMode) {
       isOpen = true;
-      // Load stashes when opening the dropdown
-      stashes = await listStashesAction();
     }
   }
 
@@ -185,6 +185,20 @@
     search = '';
     inputRef?.blur();
     toggleTerminalPanel();
+  }
+
+  function handleCleanupBranches() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    openCleanupBranches();
+  }
+
+  function handlePurgeCheckpoints() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    openPurgeCheckpoints();
   }
 
   function handleEnterAddRemoteMode() {
@@ -605,6 +619,24 @@
                 >
                   <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   <span>Discard All Changes</span>
+                </Command.Item>
+                <Command.Item
+                  value="cleanup-merged-branches"
+                  keywords={['cleanup', 'clean', 'merged', 'branches', 'delete', 'prune', 'stale', 'old']}
+                  onSelect={handleCleanupBranches}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+                  <span>Clean Up Merged Branches...</span>
+                </Command.Item>
+                <Command.Item
+                  value="purge-checkpoint-refs"
+                  keywords={['purge', 'checkpoint', 'clean', 'ai', 'claude', 't3', 'cursor', 'codex', 'windsurf', 'refs', 'garbage']}
+                  onSelect={handlePurgeCheckpoints}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Purge Checkpoint Refs...</span>
                 </Command.Item>
                 <Command.Item
                   value="open-terminal"

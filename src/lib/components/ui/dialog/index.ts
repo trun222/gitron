@@ -1,7 +1,9 @@
 export { default as BranchConflictDialog } from './BranchConflictDialog.svelte';
+export { default as CleanupBranchesDialog } from './CleanupBranchesDialog.svelte';
 export { default as CloneDialog } from './CloneDialog.svelte';
 export { default as DeleteBranchDialog } from './DeleteBranchDialog.svelte';
 export { default as DiscardChangesDialog } from './DiscardChangesDialog.svelte';
 export { default as ForcePushDialog } from './ForcePushDialog.svelte';
 export { default as GitHubLoginDialog } from './GitHubLoginDialog.svelte';
 export { default as GitHubUserMenu } from './GitHubUserMenu.svelte';
+export { default as PurgeCheckpointsDialog } from './PurgeCheckpointsDialog.svelte';
