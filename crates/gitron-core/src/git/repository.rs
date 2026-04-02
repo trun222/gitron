@@ -304,13 +304,45 @@ pub fn create_branch<'repo>(
 
 /// Helper: checkout a tree object and set HEAD to the given ref
 pub fn do_checkout(repo: &Repository, refname: &str) -> GitResult<()> {
+    // Block checkout if there are uncommitted changes
+    let statuses = repo.statuses(Some(
+        git2::StatusOptions::new()
+            .include_untracked(false)
+            .include_ignored(false),
+    ))?;
+    let dirty = statuses.iter().any(|e| {
+        let s = e.status();
+        s.is_index_new() || s.is_index_modified() || s.is_index_deleted()
+            || s.is_index_renamed() || s.is_index_typechange()
+            || s.is_wt_modified() || s.is_wt_deleted()
+            || s.is_wt_renamed() || s.is_wt_typechange()
+    });
+    if dirty {
+        return Err(GitError::Other(
+            "Cannot checkout — you have uncommitted changes. Commit or stash them first.".into()
+        ));
+    }
+
     let obj = repo
         .revparse_single(refname)
         .map_err(|_| GitError::BranchNotFound(refname.to_string()))?;
+    // Set HEAD first — this will fail if the branch is checked out in a
+    // worktree, before we touch the working tree or index.
+    repo.set_head(refname).map_err(|e| {
+        if e.message().contains("linked repository") || e.message().contains("current HEAD") {
+            let branch = refname.trim_start_matches("refs/heads/");
+            GitError::Other(format!(
+                "Cannot checkout '{}' — it is checked out in a linked worktree",
+                branch
+            ))
+        } else {
+            GitError::from(e)
+        }
+    })?;
+    // Force-checkout updates both the working directory and the index.
     let mut checkout = git2::build::CheckoutBuilder::new();
-    checkout.safe();
+    checkout.force();
     repo.checkout_tree(&obj, Some(&mut checkout))?;
-    repo.set_head(refname)?;
     Ok(())
 }
 

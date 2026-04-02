@@ -153,6 +153,7 @@
   }
 
   // --- Lane activity precomputation ---
+  // Derived purely from edges: marks which lanes have vertical lines at each row.
   interface LaneActivity {
     hasTop: boolean;
     hasBottom: boolean;
@@ -175,10 +176,12 @@
       return rowMap.get(lane)!;
     }
 
+    // Mark lanes from edges
     for (let row = 0; row < layout.nodes.length; row++) {
       const node = layout.nodes[row];
       for (const edge of node.edges) {
         if (edge.from_lane === edge.to_lane) {
+          // Straight edge: mark the lane from this row to the parent row
           const lane = edge.from_lane;
           ensure(row, lane, edge.color_index).hasBottom = true;
           for (let r = row + 1; r < edge.to_row; r++) {
@@ -190,6 +193,7 @@
             ensure(edge.to_row, lane, edge.color_index).hasTop = true;
           }
         } else {
+          // Cross-lane edge: mark the to_lane from the next row to the parent row
           const lane = edge.to_lane;
           const startRow = row + 1;
           const endRow = edge.to_row;
