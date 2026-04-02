@@ -11,11 +11,13 @@ pub mod tag;
 pub mod github;
 pub mod clone;
 pub mod worktree;
+pub mod terminal;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use gitron_core::cache::repo_state::RepoStateCache;
+use gitron_core::pty::PtyManager;
 use gitron_core::watcher::manager::WatcherManager;
 
 /// Shared application state
@@ -24,6 +26,7 @@ pub struct AppState {
     pub cache: RepoStateCache,
     pub repo_path: Mutex<Option<PathBuf>>,
     pub poll_interval_ms: Mutex<u64>,
+    pub pty_manager: PtyManager,
 }
 
 impl AppState {
@@ -33,6 +36,7 @@ impl AppState {
             cache: RepoStateCache::new(),
             repo_path: Mutex::new(None),
             poll_interval_ms: Mutex::new(0),
+            pty_manager: PtyManager::new(),
         }
     }
 }

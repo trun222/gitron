@@ -332,6 +332,7 @@ export type FileWatcherInterval = 0 | 1000 | 2000 | 3000 | 5000; // ms; 0 = nati
 export type ZoomLevel = 0.8 | 0.9 | 1.0 | 1.1 | 1.25 | 1.5;
 export type EditorFontSize = 12 | 13 | 14 | 16;
 export type MonoFont = 'default' | 'fira-code' | 'jetbrains-mono' | 'cascadia-code' | 'sf-mono' | 'menlo';
+export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
 
 // Persistence types (frontend-only, used by tauri-plugin-store)
 
@@ -366,6 +367,11 @@ export interface AppSettings {
   changesViewMode?: ChangesViewMode;
   verboseGitErrors?: boolean;
   terminalApp?: string;
+  terminalShell?: string;
+  terminalFontSize?: number;
+  terminalFontFamily?: string;
+  terminalCursorStyle?: TerminalCursorStyle;
+  terminalScrollback?: number;
   showWorktreesList?: boolean;
   treeExpandedByDefault?: boolean;
   excludedAuthors?: string[];

@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from '$lib/api/types';
+import type { AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
 import * as repoApi from '$lib/api/repo';
 import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
@@ -28,6 +28,11 @@ export const showWorktreesList = writable(false);
 export const changesViewMode = writable<ChangesViewMode>('file');
 export const verboseGitErrors = writable(false);
 export const terminalApp = writable<string>('');
+export const terminalShell = writable<string>('');
+export const terminalFontSize = writable<number>(14);
+export const terminalFontFamily = writable<string>('');
+export const terminalCursorStyle = writable<TerminalCursorStyle>('block');
+export const terminalScrollback = writable<number>(5000);
 export const treeExpandedByDefault = writable(false);
 export const excludedAuthors = writable<string[]>([]);
 export const tagsExpanded = writable(true);
@@ -198,6 +203,31 @@ export async function setTerminalApp(app: string): Promise<void> {
   await settingsApi.saveTerminalApp(app);
 }
 
+export async function setTerminalShell(shell: string): Promise<void> {
+  terminalShell.set(shell);
+  await settingsApi.saveTerminalShell(shell);
+}
+
+export async function setTerminalFontSize(size: number): Promise<void> {
+  terminalFontSize.set(size);
+  await settingsApi.saveTerminalFontSize(size);
+}
+
+export async function setTerminalFontFamily(font: string): Promise<void> {
+  terminalFontFamily.set(font);
+  await settingsApi.saveTerminalFontFamily(font);
+}
+
+export async function setTerminalCursorStyle(style: TerminalCursorStyle): Promise<void> {
+  terminalCursorStyle.set(style);
+  await settingsApi.saveTerminalCursorStyle(style);
+}
+
+export async function setTerminalScrollback(lines: number): Promise<void> {
+  terminalScrollback.set(lines);
+  await settingsApi.saveTerminalScrollback(lines);
+}
+
 export async function setTreeExpandedByDefault(enabled: boolean): Promise<void> {
   treeExpandedByDefault.set(enabled);
   await settingsApi.saveTreeExpandedByDefault(enabled);
@@ -334,8 +364,13 @@ export async function loadSettings(): Promise<void> {
   // Verbose git errors
   verboseGitErrors.set(settings.verboseGitErrors ?? false);
 
-  // Terminal app
+  // Terminal settings
   terminalApp.set(settings.terminalApp ?? '');
+  terminalShell.set(settings.terminalShell ?? '');
+  terminalFontSize.set(settings.terminalFontSize ?? 14);
+  terminalFontFamily.set(settings.terminalFontFamily ?? '');
+  terminalCursorStyle.set(settings.terminalCursorStyle ?? 'block');
+  terminalScrollback.set(settings.terminalScrollback ?? 5000);
 
   // Tree expanded by default
   treeExpandedByDefault.set(settings.treeExpandedByDefault ?? false);
@@ -347,6 +382,9 @@ export async function loadSettings(): Promise<void> {
   tagsExpanded.set(settings.tagsExpanded ?? true);
   worktreesExpanded.set(settings.worktreesExpanded ?? true);
   outputPanelOpen.set(settings.outputPanelOpen ?? false);
+  // Also initialize the unified bottom panel state
+  const { bottomPanelOpen: _bottomPanelOpen } = await import('$lib/stores/terminal');
+  _bottomPanelOpen.set(settings.outputPanelOpen ?? false);
   stagedExpanded.set(settings.stagedExpanded ?? true);
   unstagedExpanded.set(settings.unstagedExpanded ?? true);
   untrackedExpanded.set(settings.untrackedExpanded ?? true);

@@ -3,7 +3,7 @@ pub mod tauri_impls;
 
 use std::sync::Arc;
 
-use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, worktree, AppState};
+use commands::{ai as ai_cmd, branch, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, terminal, worktree, AppState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -87,6 +87,10 @@ pub fn run() {
             ai_cmd::ai_generate_commit_message,
             ai_cmd::ai_get_settings,
             ai_cmd::ai_save_settings,
+            terminal::terminal_spawn,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_kill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

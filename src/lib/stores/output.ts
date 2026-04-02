@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
-import { autoShowOutput, outputPanelOpen as _outputPanelOpen, toggleOutputPanel as _toggleOutputPanel, setOutputPanelOpen } from '$lib/stores/settings';
+import { autoShowOutput } from '$lib/stores/settings';
+import { bottomPanelOpen, activeBottomTab } from '$lib/stores/terminal';
 
 export interface OutputEntry {
   id: number;
@@ -13,7 +14,6 @@ export interface OutputEntry {
 let nextId = 0;
 
 export const outputEntries = writable<OutputEntry[]>([]);
-export const outputPanelOpen = _outputPanelOpen;
 
 export const hasEntries = derived(outputEntries, ($entries) => $entries.length > 0);
 
@@ -36,7 +36,10 @@ export function addOutput(
   };
 
   outputEntries.update((entries) => [...entries, entry]);
-  if (get(autoShowOutput)) setOutputPanelOpen(true);
+  if (get(autoShowOutput)) {
+    bottomPanelOpen.set(true);
+    activeBottomTab.set('output');
+  }
 }
 
 export function clearOutput() {
@@ -44,5 +47,18 @@ export function clearOutput() {
 }
 
 export function toggleOutputPanel() {
-  _toggleOutputPanel();
+  const isOpen = get(bottomPanelOpen);
+  const tab = get(activeBottomTab);
+
+  if (isOpen && tab === 'output') {
+    // Already showing output — close the panel
+    bottomPanelOpen.set(false);
+  } else {
+    // Open the panel and switch to output tab
+    bottomPanelOpen.set(true);
+    activeBottomTab.set('output');
+  }
 }
+
+// Re-export for backward compatibility with StatusBar etc.
+export { bottomPanelOpen as outputPanelOpen };

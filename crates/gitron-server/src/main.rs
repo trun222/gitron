@@ -14,6 +14,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 use gitron_core::cache::repo_state::RepoStateCache;
+use gitron_core::pty::PtyManager;
 use gitron_core::watcher::manager::WatcherManager;
 
 use crate::file_store::FileCredentialStore;
@@ -52,6 +53,7 @@ pub struct ServerState {
     pub repo_path: Mutex<Option<PathBuf>>,
     pub poll_interval_ms: Mutex<u64>,
     pub auth_token: Option<String>,
+    pub pty_manager: PtyManager,
 }
 
 #[tokio::main]
@@ -79,6 +81,7 @@ async fn main() {
         repo_path: Mutex::new(None),
         poll_interval_ms: Mutex::new(0),
         auth_token: cli.token.clone(),
+        pty_manager: PtyManager::new(),
     });
 
     // Build API routes

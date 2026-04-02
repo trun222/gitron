@@ -3,7 +3,7 @@
   import Sidebar from './Sidebar.svelte';
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
-  import OutputPanel from './OutputPanel.svelte';
+  import BottomPanel from './BottomPanel.svelte';
   import {
     error, repoPath, hasRepo,
     pullFromRemote, pushToRemote, fetchFromRemote,
@@ -11,6 +11,7 @@
     refreshAll,
   } from '$lib/stores/repo';
   import { toggleOutputPanel } from '$lib/stores/output';
+  import { toggleTerminalPanel, bottomPanelOpen, activeBottomTab } from '$lib/stores/terminal';
   import { verboseGitErrors } from '$lib/stores/settings';
   import Toast from '$lib/components/ui/toast/Toast.svelte';
   import { get } from 'svelte/store';
@@ -93,10 +94,17 @@
         return;
       }
 
-      // Cmd+` — Toggle output panel
-      if (mod && e.key === '`') {
+      // Cmd+` — Toggle output panel (in bottom panel)
+      if (e.metaKey && !e.ctrlKey && e.key === '`') {
         e.preventDefault();
         toggleOutputPanel();
+        return;
+      }
+
+      // Ctrl+` — Toggle terminal panel
+      if (e.ctrlKey && !e.metaKey && e.key === '`') {
+        e.preventDefault();
+        toggleTerminalPanel();
         return;
       }
     }
@@ -153,7 +161,7 @@
       {@render children()}
     </main>
   </div>
-  <OutputPanel />
+  <BottomPanel />
   <StatusBar />
 </div>
 

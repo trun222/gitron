@@ -1,7 +1,18 @@
 <script lang="ts">
-  import { autoFetchInterval, setAutoFetchInterval, fileWatcherInterval, setFileWatcherInterval, verboseGitErrors, setVerboseGitErrors, terminalApp, setTerminalApp, excludedAuthors, removeExcludedAuthor, addExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
+  import {
+    autoFetchInterval, setAutoFetchInterval,
+    fileWatcherInterval, setFileWatcherInterval,
+    verboseGitErrors, setVerboseGitErrors,
+    terminalApp, setTerminalApp,
+    terminalShell, setTerminalShell,
+    terminalFontSize, setTerminalFontSize,
+    terminalFontFamily, setTerminalFontFamily,
+    terminalCursorStyle, setTerminalCursorStyle,
+    terminalScrollback, setTerminalScrollback,
+    excludedAuthors, removeExcludedAuthor, addExcludedAuthor, setExcludedAuthors,
+  } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
-  import type { AutoFetchInterval, FileWatcherInterval } from '$lib/api/types';
+  import type { AutoFetchInterval, FileWatcherInterval, TerminalCursorStyle } from '$lib/api/types';
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
     { value: 0, label: 'Off' },
@@ -82,9 +93,90 @@
   </div>
 </div>
 
+<div class="section">
+  <h3 class="section-title">Integrated Terminal</h3>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Shell</span>
+      <span class="label-description">Shell to use in the integrated terminal. Leave empty for system default ($SHELL).</span>
+    </div>
+    <input
+      type="text"
+      class="text-input"
+      placeholder="e.g. /bin/zsh, /bin/bash"
+      value={$terminalShell}
+      onchange={(e) => setTerminalShell((e.target as HTMLInputElement).value)}
+    />
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Font size</span>
+      <span class="label-description">Font size in the terminal panel</span>
+    </div>
+    <select
+      class="select-input"
+      value={$terminalFontSize}
+      onchange={(e) => setTerminalFontSize(Number((e.target as HTMLSelectElement).value))}
+    >
+      <option value={10}>10</option>
+      <option value={11}>11</option>
+      <option value={12}>12</option>
+      <option value={13}>13</option>
+      <option value={14}>14</option>
+      <option value={16}>16</option>
+      <option value={18}>18</option>
+      <option value={20}>20</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Font family</span>
+      <span class="label-description">Custom font family. Leave empty to use the monospace font setting.</span>
+    </div>
+    <input
+      type="text"
+      class="text-input"
+      placeholder="e.g. Fira Code, JetBrains Mono"
+      value={$terminalFontFamily}
+      onchange={(e) => setTerminalFontFamily((e.target as HTMLInputElement).value)}
+    />
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Cursor style</span>
+      <span class="label-description">Shape of the cursor in the terminal</span>
+    </div>
+    <select
+      class="select-input"
+      value={$terminalCursorStyle}
+      onchange={(e) => setTerminalCursorStyle((e.target as HTMLSelectElement).value as TerminalCursorStyle)}
+    >
+      <option value="block">Block</option>
+      <option value="underline">Underline</option>
+      <option value="bar">Bar</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">
+      <span class="label-text">Scrollback buffer</span>
+      <span class="label-description">Number of lines kept in scroll history</span>
+    </div>
+    <select
+      class="select-input"
+      value={$terminalScrollback}
+      onchange={(e) => setTerminalScrollback(Number((e.target as HTMLSelectElement).value))}
+    >
+      <option value={1000}>1,000</option>
+      <option value={5000}>5,000</option>
+      <option value={10000}>10,000</option>
+      <option value={50000}>50,000</option>
+    </select>
+  </div>
+</div>
+
 {#if isTauri()}
 <div class="section">
-  <h3 class="section-title">Terminal</h3>
+  <h3 class="section-title">External Terminal</h3>
   <div class="setting-row">
     <div class="setting-label">
       <span class="label-text">Terminal application</span>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { repoInfo, repoPath, currentBranch, stagedCount, unstagedCount, hasRepo, trackingStatus } from '$lib/stores/repo';
-  import { hasEntries, toggleOutputPanel, outputPanelOpen } from '$lib/stores/output';
+  import { hasEntries, toggleOutputPanel } from '$lib/stores/output';
+  import { toggleTerminalPanel, bottomPanelOpen, activeBottomTab, terminalSessionId } from '$lib/stores/terminal';
 </script>
 
 <footer class="flex items-center justify-between h-6 px-3 bg-card border-t border-border text-muted-foreground text-[11px]">
@@ -44,7 +45,7 @@
       {/if}
       {#if $hasEntries}
         <button
-          class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer {$outputPanelOpen ? 'text-foreground' : ''}"
+          class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer {$bottomPanelOpen && $activeBottomTab === 'output' ? 'text-foreground' : ''}"
           onclick={toggleOutputPanel}
           title="Toggle output panel (Cmd+`)"
         >
@@ -54,6 +55,17 @@
           Output
         </button>
       {/if}
+      <button
+        class="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer {$bottomPanelOpen && $activeBottomTab === 'terminal' ? 'text-foreground' : ''}"
+        onclick={toggleTerminalPanel}
+        title="Toggle terminal (Ctrl+`)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        Terminal
+        {#if $terminalSessionId}
+          <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        {/if}
+      </button>
     </div>
   {:else}
     <div class="flex items-center">

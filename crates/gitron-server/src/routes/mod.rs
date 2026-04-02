@@ -13,6 +13,7 @@ mod ai;
 mod github;
 mod fs;
 mod settings;
+mod terminal;
 
 use std::sync::Arc;
 
@@ -105,6 +106,8 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/fs/list", post(fs::list_directory))
         // Settings
         .route("/settings", get(settings::get_settings).post(settings::save_settings))
+        // Terminal (WebSocket)
+        .route("/terminal", get(terminal::terminal_ws))
         // SSE events
         .route("/events", get(events))
         .with_state(state)

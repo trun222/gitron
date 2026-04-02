@@ -8,6 +8,7 @@
         { keys: ['Cmd', 'K'], description: 'Open command bar' },
         { keys: ['Cmd', 'R'], description: 'Refresh repository' },
         { keys: ['Cmd', '`'], description: 'Toggle output panel' },
+        { keys: ['Ctrl', '`'], description: 'Toggle terminal' },
         { keys: ['/'], description: 'Search commits' },
         { keys: ['?'], description: 'Show keyboard shortcuts' },
         { keys: ['Cmd', ','], description: 'Open settings' },

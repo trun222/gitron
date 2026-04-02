@@ -17,3 +17,4 @@ log = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 reqwest = { workspace = true }
+portable-pty = { workspace = true }

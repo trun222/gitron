@@ -6,3 +6,4 @@ pub mod ai;
 pub mod github;
 pub mod cache;
 pub mod watcher;
+pub mod pty;

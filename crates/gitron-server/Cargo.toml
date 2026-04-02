@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 gitron-core = { path = "../gitron-core" }
-axum = { version = "0.8", features = ["macros"] }
+axum = { version = "0.8", features = ["macros", "ws"] }
 tokio = { workspace = true }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
 serde = { workspace = true }
@@ -19,3 +19,4 @@ clap = { version = "4", features = ["derive"] }
 log = { workspace = true }
 env_logger = { workspace = true }
 tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = "0.3"

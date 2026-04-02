@@ -1,5 +1,5 @@
 import { isTauri } from '$lib/api';
-import type { AppSettings, AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, ThemeMode, ZoomLevel } from './types';
+import type { AppSettings, AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from './types';
 
 const MAX_RECENT_REPOS = 20;
 
@@ -216,6 +216,36 @@ export async function saveVerboseGitErrors(enabled: boolean): Promise<void> {
 export async function saveTerminalApp(app: string): Promise<void> {
   const settings = await getSettings();
   settings.terminalApp = app || undefined;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalShell(shell: string): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalShell = shell || undefined;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalFontSize(size: number): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalFontSize = size;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalFontFamily(font: string): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalFontFamily = font || undefined;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalCursorStyle(style: TerminalCursorStyle): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalCursorStyle = style;
+  await saveSettings(settings);
+}
+
+export async function saveTerminalScrollback(lines: number): Promise<void> {
+  const settings = await getSettings();
+  settings.terminalScrollback = lines;
   await saveSettings(settings);
 }
 

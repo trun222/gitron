@@ -33,3 +33,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 
 # HTTP client
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# PTY (pseudo-terminal)
+portable-pty = "0.9"
