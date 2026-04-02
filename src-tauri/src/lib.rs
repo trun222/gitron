@@ -47,6 +47,8 @@ pub fn run() {
             branch::rebase_onto,
             branch::merge_into,
             commit::create_commit,
+            stash::save_stash,
+            stash::list_stashes,
             stash::apply_stash,
             stash::pop_stash,
             stash::drop_stash,

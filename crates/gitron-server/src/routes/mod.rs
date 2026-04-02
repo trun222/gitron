@@ -58,6 +58,8 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         // Commit
         .route("/commit", post(commit::create_commit))
         // Stash
+        .route("/stash/save", post(stash::save_stash))
+        .route("/stash/list", post(stash::list_stashes))
         .route("/stash/apply", post(stash::apply_stash))
         .route("/stash/pop", post(stash::pop_stash))
         .route("/stash/drop", post(stash::drop_stash))

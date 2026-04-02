@@ -8,10 +8,11 @@
     refreshWorktrees,
     createWorktree,
     deleteWorktree,
+    deleteAllWorktrees,
     toggleWorktreeLock,
     pruneStaleWorktrees,
   } from '$lib/stores/worktree';
-  import { repoPath } from '$lib/stores/repo';
+  import { repoPath, jumpToCommit } from '$lib/stores/repo';
   import { terminalApp, worktreesExpanded, setWorktreesExpanded } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
   import type { WorktreeInfo } from '$lib/api/types';
@@ -26,6 +27,8 @@
 
   // Remove confirmation
   let removeConfirm = $state<{ path: string; name: string; force: boolean } | null>(null);
+  let removeAllConfirm = $state(false);
+  let removeAllRunning = $state(false);
 
   // Context menu
   interface ContextMenuItem {
@@ -133,6 +136,13 @@
     removeConfirm = null;
   }
 
+  async function confirmRemoveAll() {
+    removeAllRunning = true;
+    await deleteAllWorktrees(false);
+    removeAllRunning = false;
+    removeAllConfirm = false;
+  }
+
   function openAddDialog() {
     const rp = $repoPath ?? '';
     const parentDir = rp.split('/').slice(0, -1).join('/');
@@ -227,14 +237,26 @@
           Worktrees ({$worktrees.length})
         </span>
       </button>
-      <button
-        class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
-        onclick={openAddDialog}
-        aria-label="Add worktree"
-        title="Add worktree"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      </button>
+      <div class="flex items-center gap-0.5">
+        {#if $linkedWorktrees.length > 0}
+          <button
+            class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+            onclick={() => removeAllConfirm = true}
+            aria-label="Remove all worktrees"
+            title="Remove all worktrees"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        {/if}
+        <button
+          class="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+          onclick={openAddDialog}
+          aria-label="Add worktree"
+          title="Add worktree"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+      </div>
     </div>
     {#if $worktreesExpanded}
       <ul class="list-none overflow-y-auto max-h-[30vh]">
@@ -242,6 +264,7 @@
           <li>
             <button
               class="flex items-center gap-2 w-full px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors text-left"
+              onclick={() => { if (wt.head_oid) jumpToCommit(wt.head_oid); }}
               oncontextmenu={(e) => handleContextMenu(e, wt)}
               title={wt.path}
             >
@@ -386,6 +409,38 @@
         onclick={confirmRemove}
       >
         {removeConfirm.force ? 'Force Remove' : 'Remove'}
+      </button>
+    </div>
+  </div>
+{/if}
+
+<!-- Remove All Confirmation Dialog -->
+{#if removeAllConfirm}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40 bg-black/50" onclick={() => removeAllConfirm = false}></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] rounded-lg border border-border bg-popover shadow-xl p-4"
+    onclick={(e) => e.stopPropagation()}
+  >
+    <h3 class="text-sm font-semibold text-foreground mb-2">Remove All Worktrees</h3>
+    <p class="text-xs text-muted-foreground mb-3">
+      Remove all {$linkedWorktrees.length} linked worktree{$linkedWorktrees.length === 1 ? '' : 's'}? The main worktree will not be affected.
+    </p>
+    <div class="flex justify-end gap-2">
+      <button
+        class="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        onclick={() => removeAllConfirm = false}
+        disabled={removeAllRunning}
+      >
+        Cancel
+      </button>
+      <button
+        class="text-xs px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors cursor-pointer"
+        onclick={confirmRemoveAll}
+        disabled={removeAllRunning}
+      >
+        {removeAllRunning ? 'Removing...' : 'Remove All'}
       </button>
     </div>
   </div>

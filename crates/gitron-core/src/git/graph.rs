@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use chrono::{TimeZone, Utc};
 use git2::Repository;
@@ -152,6 +153,28 @@ fn commit_to_type(commit: &git2::Commit) -> Commit {
     }
 }
 
+/// Hash a branch name to a color index, resolving collisions by probing.
+/// When all colors are taken, wraps back to the hashed index (colors will repeat).
+fn hash_branch_to_color(name: &str, num_colors: usize, used: &HashSet<usize>) -> usize {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    name.hash(&mut hasher);
+    let hash = hasher.finish() as usize;
+    let base = hash % num_colors;
+
+    // If fewer branches than colors, find an unused slot starting from the hash position
+    if used.len() < num_colors {
+        for offset in 0..num_colors {
+            let candidate = (base + offset) % num_colors;
+            if !used.contains(&candidate) {
+                return candidate;
+            }
+        }
+    }
+
+    // All colors taken — just use the hash directly (colors will repeat)
+    base
+}
+
 /// Compute graph layout: branch attribution, color assignment, and lane allocation
 fn compute_graph_layout(
     commits: &[Commit],
@@ -225,42 +248,48 @@ fn compute_graph_layout(
         }
     }
 
-    // --- Color assignment (stable: alphabetical, not HEAD-first) ---
-    let mut color_sorted_branches: Vec<&Branch> = branches
-        .iter()
-        .filter(|b| b.target_oid.is_some())
-        .collect();
-    color_sorted_branches.sort_by(|a, b| {
-        let tier = |br: &Branch| -> u8 {
-            if matches!(br.name.as_str(), "main" | "master" | "develop") {
-                0
-            } else if !br.is_remote {
-                1
-            } else {
-                2
-            }
-        };
-        tier(a).cmp(&tier(b)).then_with(|| a.name.cmp(&b.name))
-    });
+    // --- Color assignment (hash-based: each branch name deterministically maps to a color) ---
+    const NUM_COLORS: usize = 14;
 
     let mut branch_color_map: HashMap<String, usize> = HashMap::new();
-    let mut next_color: usize = 0;
+    let mut used_colors: HashSet<usize> = HashSet::new();
 
-    for branch in &color_sorted_branches {
-        if !branch_color_map.contains_key(&branch.name) {
-            branch_color_map.insert(branch.name.clone(), next_color);
-            next_color += 1;
+    // Collect all branch names that need colors (real branches + orphans)
+    let mut all_branch_names: Vec<String> = branches
+        .iter()
+        .filter(|b| b.target_oid.is_some())
+        .map(|b| b.name.clone())
+        .collect();
+
+    for attr in &attribution {
+        if let Some(ref name) = attr {
+            if !all_branch_names.contains(name) {
+                all_branch_names.push(name.clone());
+            }
         }
     }
 
-    // Assign colors to orphan branches
-    for attr in &attribution {
-        if let Some(ref name) = attr {
-            if !branch_color_map.contains_key(name) {
-                branch_color_map.insert(name.clone(), next_color);
-                next_color += 1;
+    // Sort for deterministic collision resolution order:
+    // main/master/develop first, then local branches, then remote, then orphans
+    all_branch_names.sort_by(|a, b| {
+        let tier = |name: &str| -> u8 {
+            if matches!(name, "main" | "master" | "develop") {
+                0
+            } else if name.starts_with('~') {
+                3
+            } else if name.contains('/') {
+                2
+            } else {
+                1
             }
-        }
+        };
+        tier(a).cmp(&tier(b)).then_with(|| a.cmp(b))
+    });
+
+    for name in &all_branch_names {
+        let color = hash_branch_to_color(name, NUM_COLORS, &used_colors);
+        used_colors.insert(color);
+        branch_color_map.insert(name.clone(), color);
     }
 
     // --- Streaming lane allocator ---

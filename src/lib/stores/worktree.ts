@@ -114,6 +114,21 @@ export async function toggleWorktreeLock(
   }
 }
 
+export async function deleteAllWorktrees(force: boolean): Promise<boolean> {
+  const path = get(repoPath);
+  if (!path) return false;
+
+  const linked = get(linkedWorktrees);
+  if (linked.length === 0) return true;
+
+  let allOk = true;
+  for (const wt of linked) {
+    const ok = await deleteWorktree(wt.path, force);
+    if (!ok) allOk = false;
+  }
+  return allOk;
+}
+
 export async function pruneStaleWorktrees(): Promise<void> {
   const path = get(repoPath);
   if (!path) return;

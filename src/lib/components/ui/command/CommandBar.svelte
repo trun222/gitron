@@ -12,7 +12,9 @@
     forcePushConfirmOpen,
     commitSearchActive, commitSearchQuery, commitSearchLoading, commitSearchDiffs,
     searchCommitsAction, clearCommitSearch,
+    saveStash, listStashes as listStashesAction, applyStash, popStash, dropStash,
   } from '$lib/stores/repo';
+  import type { StashEntry } from '$lib/api/types';
   import { openCloneDialog } from '$lib/stores/clone';
   import { isTauri } from '$lib/api';
   import {
@@ -31,6 +33,8 @@
   let blurTimeout: ReturnType<typeof setTimeout> | undefined;
   let addRemoteMode = $state(false);
   let commitSearchMode = $state(false);
+  let stashMessageMode = $state(false);
+  let stashes = $state<StashEntry[]>([]);
   let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   export function focus() {
@@ -70,10 +74,12 @@
     }, 300);
   });
 
-  function handleFocus() {
+  async function handleFocus() {
     clearTimeout(blurTimeout);
     if (!commitSearchMode) {
       isOpen = true;
+      // Load stashes when opening the dropdown
+      stashes = await listStashesAction();
     }
   }
 
@@ -270,6 +276,41 @@
     await pruneStaleWorktrees();
   }
 
+  function handleEnterStashMessageMode() {
+    stashMessageMode = true;
+    search = '';
+  }
+
+  async function handleSaveStash() {
+    const msg = search.trim();
+    isOpen = false;
+    search = '';
+    stashMessageMode = false;
+    inputRef?.blur();
+    await saveStash(msg || undefined);
+  }
+
+  async function handleApplyStash(index: number) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await applyStash(index);
+  }
+
+  async function handlePopStash(index: number) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await popStash(index);
+  }
+
+  async function handleDropStash(index: number) {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    await dropStash(index);
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       if (commitSearchMode) {
@@ -277,6 +318,11 @@
         search = '';
         clearCommitSearch();
         inputRef?.blur();
+        return;
+      }
+      if (stashMessageMode) {
+        stashMessageMode = false;
+        search = '';
         return;
       }
       if (addRemoteMode) {
@@ -292,6 +338,10 @@
       e.preventDefault();
       handleAddRemote();
     }
+    if (e.key === 'Enter' && stashMessageMode) {
+      e.preventDefault();
+      handleSaveStash();
+    }
   }
 </script>
 
@@ -306,7 +356,7 @@
       onfocus={handleFocus}
       onblur={handleBlur}
       onkeydown={handleKeydown}
-      placeholder={commitSearchMode ? ($commitSearchDiffs ? "Search commits + diffs..." : "Search commit messages...") : addRemoteMode ? "https://url.git or name https://url.git" : "Type a command... (Cmd+K)"}
+      placeholder={commitSearchMode ? ($commitSearchDiffs ? "Search commits + diffs..." : "Search commit messages...") : stashMessageMode ? "Stash message (optional, Enter to save)" : addRemoteMode ? "https://url.git or name https://url.git" : "Type a command... (Cmd+K)"}
       class="w-full px-3 py-1.5 rounded-md border border-input bg-background text-foreground text-sm outline-none focus:border-primary transition-colors {commitSearchMode ? 'pr-[180px]' : ''}"
     />
     {#if commitSearchMode}
@@ -341,7 +391,7 @@
         </button>
       </div>
     {/if}
-    {#if isOpen && !addRemoteMode && !commitSearchMode}
+    {#if isOpen && !addRemoteMode && !commitSearchMode && !stashMessageMode}
       <Command.List
         class="absolute top-full left-0 right-0 mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50"
       >
@@ -566,6 +616,72 @@
                   <span>Toggle Terminal</span>
                   <kbd class="ml-auto text-xs text-muted-foreground border border-border rounded px-1 py-0.5 font-mono">Ctrl+`</kbd>
                 </Command.Item>
+              </Command.GroupItems>
+            </Command.Group>
+
+            <Command.Separator class="my-1 h-px bg-border" />
+            <Command.Group>
+              <Command.GroupHeading class="px-2 pb-1.5 pt-2 text-xs text-muted-foreground">
+                Stashes
+              </Command.GroupHeading>
+              <Command.GroupItems>
+                <Command.Item
+                  value="stash-save"
+                  keywords={['stash', 'save', 'shelve', 'store', 'wip']}
+                  onSelect={handleEnterStashMessageMode}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-primary" viewBox="0 0 16 16" width="14" height="14">
+                    <path fill="currentColor" d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" />
+                  </svg>
+                  <span>Stash Changes...</span>
+                </Command.Item>
+                {#each stashes as st (st.index)}
+                  <Command.Item
+                    value={`stash-apply:${st.index}`}
+                    keywords={[st.message, 'stash', 'apply', st.short_oid]}
+                    onSelect={() => handleApplyStash(st.index)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z" />
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">stash@&lbrace;{st.index}&rbrace;</span>
+                      <span class="truncate text-xs text-muted-foreground">{st.message}</span>
+                    </div>
+                    <span class="ml-auto text-xs text-muted-foreground">Apply</span>
+                  </Command.Item>
+                  <Command.Item
+                    value={`stash-pop:${st.index}`}
+                    keywords={[st.message, 'stash', 'pop', st.short_oid]}
+                    onSelect={() => handlePopStash(st.index)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                  >
+                    <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="14" height="14">
+                      <path fill="currentColor" d="M8 14a.75.75 0 0 1-.75-.75V6.56L5.53 8.28a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0l3 3a.75.75 0 1 1-1.06 1.06L8.75 6.56v6.69A.75.75 0 0 1 8 14Z" />
+                      <path fill="currentColor" d="M2.5 2.75a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z" />
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">stash@&lbrace;{st.index}&rbrace;</span>
+                      <span class="truncate text-xs text-muted-foreground">{st.message}</span>
+                    </div>
+                    <span class="ml-auto text-xs text-muted-foreground">Pop</span>
+                  </Command.Item>
+                  <Command.Item
+                    value={`stash-drop:${st.index}`}
+                    keywords={[st.message, 'stash', 'drop', 'delete', 'remove', st.short_oid]}
+                    onSelect={() => handleDropStash(st.index)}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent text-destructive"
+                  >
+                    <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="truncate font-medium">stash@&lbrace;{st.index}&rbrace;</span>
+                      <span class="truncate text-xs text-muted-foreground">{st.message}</span>
+                    </div>
+                    <span class="ml-auto text-xs text-muted-foreground">Drop</span>
+                  </Command.Item>
+                {/each}
               </Command.GroupItems>
             </Command.Group>
 

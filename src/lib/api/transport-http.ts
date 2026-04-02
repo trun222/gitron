@@ -38,6 +38,8 @@ const COMMAND_MAP: Record<string, string> = {
   // Commit
   create_commit: '/api/commit',
   // Stash
+  save_stash: '/api/stash/save',
+  list_stashes: '/api/stash/list',
   apply_stash: '/api/stash/apply',
   pop_stash: '/api/stash/pop',
   drop_stash: '/api/stash/drop',

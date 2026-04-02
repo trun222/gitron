@@ -17,6 +17,7 @@ import type {
   MergeResult,
   RemoteTagInfo,
   OpenRepoResult,
+  StashEntry,
 } from './types';
 
 export async function openRepo(path: string): Promise<OpenRepoResult> {
@@ -156,6 +157,14 @@ export async function resetToCommit(
 
 export async function createCommit(path: string, message: string): Promise<CommitResult> {
   return getTransport().invoke('create_commit', { path, message });
+}
+
+export async function saveStash(path: string, message?: string): Promise<RepoStatus> {
+  return getTransport().invoke('save_stash', { path, message: message || null });
+}
+
+export async function listStashes(path: string): Promise<StashEntry[]> {
+  return getTransport().invoke('list_stashes', { path });
 }
 
 export async function applyStash(path: string, index: number): Promise<RepoStatus> {

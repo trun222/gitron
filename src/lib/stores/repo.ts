@@ -9,6 +9,7 @@ import type {
   FileStatus,
   Remote,
   TrackingStatus,
+  StashEntry,
 } from '$lib/api/types';
 import * as api from '$lib/api/repo';
 import { trackRepoOpen, excludedAuthors } from '$lib/stores/settings';
@@ -608,8 +609,8 @@ export async function mergeInto(branchName: string) {
   }
 }
 
-// Jump to a tag's commit in the graph
-export function jumpToTag(targetOid: string) {
+// Jump to a specific commit in the graph (select + scroll)
+export function jumpToCommit(targetOid: string) {
   const graph = get(commitGraph);
   if (!graph) return;
   const commit = graph.commits.find((c) => c.oid === targetOid);
@@ -714,6 +715,31 @@ export async function deleteRemoteBranch(remoteName: string, branch: string) {
   }
 }
 
+export async function saveStash(message?: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.saveStash(path, message);
+    repoStatus.set(status);
+    await refreshAll(path);
+    addToast('Stash saved', 'success');
+  } catch (e) {
+    error.set(String(e));
+    addToast(String(e), 'error');
+  }
+}
+
+export async function listStashes(): Promise<StashEntry[]> {
+  const path = get(repoPath);
+  if (!path) return [];
+  try {
+    return await api.listStashes(path);
+  } catch (e) {
+    error.set(String(e));
+    return [];
+  }
+}
+
 export async function applyStash(index: number) {
   const path = get(repoPath);
   if (!path) return;
@@ -721,8 +747,10 @@ export async function applyStash(index: number) {
     const status = await api.applyStash(path, index);
     repoStatus.set(status);
     await refreshAll(path);
+    addToast('Stash applied', 'success');
   } catch (e) {
     error.set(String(e));
+    addToast(String(e), 'error');
   }
 }
 
@@ -733,8 +761,10 @@ export async function popStash(index: number) {
     const status = await api.popStash(path, index);
     repoStatus.set(status);
     await refreshAll(path);
+    addToast('Stash popped', 'success');
   } catch (e) {
     error.set(String(e));
+    addToast(String(e), 'error');
   }
 }
 
@@ -745,8 +775,10 @@ export async function dropStash(index: number) {
     const status = await api.dropStash(path, index);
     repoStatus.set(status);
     await refreshAll(path);
+    addToast('Stash dropped', 'success');
   } catch (e) {
     error.set(String(e));
+    addToast(String(e), 'error');
   }
 }
 

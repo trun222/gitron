@@ -414,6 +414,50 @@ pub fn reset_to_commit(repo: &Repository, commit_oid: &str, reset_type: &str) ->
     Ok(())
 }
 
+/// Save (create) a new stash with an optional message.
+/// Stashes all dirty working-directory and index state.
+pub fn save_stash(repo: &mut Repository, message: Option<&str>) -> GitResult<()> {
+    let sig = repo.signature()
+        .map_err(|e| GitError::Other(format!("Failed to get signature for stash: {}", e)))?;
+    let flags = git2::StashFlags::DEFAULT;
+    let msg = message.filter(|m| !m.is_empty());
+    repo.stash_save(&sig, msg.unwrap_or(""), Some(flags))
+        .map_err(|e| GitError::Other(format!("Failed to save stash: {}", e)))?;
+    Ok(())
+}
+
+/// List all stash entries.
+pub fn list_stashes(repo: &Repository) -> GitResult<Vec<StashEntry>> {
+    let reflog = match repo.reflog("refs/stash") {
+        Ok(log) => log,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let mut stashes = Vec::new();
+    for (index, entry) in reflog.iter().enumerate() {
+        let oid = entry.id_new();
+        let oid_str = oid.to_string();
+        let short_oid = oid_str[..7.min(oid_str.len())].to_string();
+        let message = entry.message().unwrap_or("").to_string();
+
+        let base_oid = if let Ok(commit) = repo.find_commit(oid) {
+            commit.parent_id(0).map(|id| id.to_string()).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        stashes.push(StashEntry {
+            index,
+            oid: oid_str,
+            short_oid,
+            message,
+            base_oid,
+        });
+    }
+
+    Ok(stashes)
+}
+
 /// Apply a stash by index (does not remove it)
 pub fn apply_stash(repo: &mut Repository, index: usize) -> GitResult<()> {
     repo.stash_apply(index, None)
