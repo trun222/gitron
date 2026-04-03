@@ -14,6 +14,7 @@
   import { toggleTerminalPanel, bottomPanelOpen, activeBottomTab } from '$lib/stores/terminal';
   import { verboseGitErrors } from '$lib/stores/settings';
   import Toast from '$lib/components/ui/toast/Toast.svelte';
+  import ConflictBanner from './ConflictBanner.svelte';
   import { get } from 'svelte/store';
   import { BranchConflictDialog, CleanupBranchesDialog, CloneDialog, DeleteBranchDialog, DiscardChangesDialog, ForcePushDialog, GitHubLoginDialog, PurgeCheckpointsDialog } from '$lib/components/ui/dialog';
   import { initAuth } from '$lib/stores/github';
@@ -116,6 +117,7 @@
 
 <div class="flex flex-col h-screen overflow-hidden bg-background text-foreground">
   <Toolbar />
+  <ConflictBanner />
   {#if $error}
     <div class="flex flex-col border-b border-destructive/30 bg-destructive/15 text-destructive text-sm">
       <div class="flex items-center gap-2 px-4 py-2">

@@ -3,6 +3,7 @@ import { getTransport } from '$lib/api';
 import type { StatusChangedPayload, RefsChangedPayload } from '$lib/api/types';
 import { repoStatus, repoPath, refreshAll } from '$lib/stores/repo';
 import { refreshTrackingStatus, refreshRemoteTags } from '$lib/stores/repo';
+import { refreshWorktrees } from '$lib/stores/worktree';
 
 let unlisteners: (() => void)[] = [];
 
@@ -29,6 +30,7 @@ export async function startWatcherListeners(): Promise<void> {
       if (path) refreshAll(path);
       refreshTrackingStatus();
       refreshRemoteTags();
+      refreshWorktrees();
     }
   );
 

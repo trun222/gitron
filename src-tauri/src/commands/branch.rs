@@ -91,3 +91,55 @@ pub fn merge_into(path: String, branch_name: String) -> Result<MergeResult, GitE
     }; // repo dropped here before CLI calls
     repository::merge_branch(&workdir, &branch_name)
 }
+
+/// Continue a rebase in progress
+#[tauri::command]
+pub fn rebase_continue(path: String) -> Result<RebaseResult, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    repository::rebase_continue(&workdir)
+}
+
+/// Abort a rebase in progress
+#[tauri::command]
+pub fn rebase_abort(path: String) -> Result<RebaseResult, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    repository::rebase_abort(&workdir)
+}
+
+/// Abort a merge in progress
+#[tauri::command]
+pub fn merge_abort(path: String) -> Result<MergeResult, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    repository::merge_abort(&workdir)
+}
+
+/// Abort a cherry-pick in progress
+#[tauri::command]
+pub fn cherry_pick_abort(path: String) -> Result<OperationOutput, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    repository::cherry_pick_abort(&workdir)
+}

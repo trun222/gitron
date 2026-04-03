@@ -2,7 +2,7 @@
   import {
     commitGraph, selectedCommit, selectCommit,
     checkoutBranch, deleteBranchConfirm, createBranchAtCommit,
-    resetToCommit, currentBranch,
+    resetToCommit, currentBranch, repoStatus,
     applyStash, popStash, dropStash,
     rebaseOnto, mergeInto,
     createTagAtCommit, deleteTag, moveTag, pushTag, deleteRemoteTag,
@@ -595,9 +595,10 @@
       { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
     ];
     if (current && !branch.is_head && !branch.is_remote) {
+      const opInProgress = $repoStatus?.state !== 'Clean';
       items.push(
-        { id: 'rebase-onto', label: `Rebase ${current} onto ${branch.name}` },
-        { id: 'merge-into', label: `Merge ${current} into ${branch.name}` },
+        { id: 'rebase-onto', label: `Rebase ${current} onto ${branch.name}`, disabled: opInProgress },
+        { id: 'merge-into', label: `Merge ${current} into ${branch.name}`, disabled: opInProgress },
       );
     }
     items.push(

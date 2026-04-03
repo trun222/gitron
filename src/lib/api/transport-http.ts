@@ -37,6 +37,13 @@ const COMMAND_MAP: Record<string, string> = {
   reset_to_commit: '/api/branch/reset',
   rebase_onto: '/api/branch/rebase',
   merge_into: '/api/branch/merge',
+  rebase_continue: '/api/branch/rebase-continue',
+  rebase_abort: '/api/branch/rebase-abort',
+  merge_abort: '/api/branch/merge-abort',
+  cherry_pick_abort: '/api/branch/cherry-pick-abort',
+  // Conflict
+  get_conflicted_file: '/api/conflict/file',
+  write_resolved_file: '/api/conflict/resolve',
   // Commit
   create_commit: '/api/commit',
   // Stash

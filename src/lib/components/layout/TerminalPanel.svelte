@@ -24,7 +24,12 @@
   let containerRef: HTMLDivElement | undefined = $state();
   let terminal: import('@xterm/xterm').Terminal | undefined;
   let fitAddon: import('@xterm/addon-fit').FitAddon | undefined;
-  let initialized = false;
+  let initialized = $state(false);
+
+  // Auto-start terminal when the component mounts (i.e. terminal tab becomes active)
+  onMount(() => {
+    initAndSpawn();
+  });
 
   // Reactive: refit when panel becomes visible
   $effect(() => {
@@ -43,10 +48,7 @@
     initialized = false;
   });
 
-  /**
-   * Initialize xterm.js and spawn a PTY session.
-   * Called by the "Start Terminal" button or auto-spawn.
-   */
+  /** Initialize xterm.js and spawn a PTY session. */
   async function initAndSpawn() {
     if (!containerRef) return;
     if (get(terminalConnecting)) return;
@@ -153,18 +155,9 @@
 </script>
 
 <div class="terminal-panel">
-  {#if $terminalConnecting}
+  {#if $terminalConnecting && !initialized}
     <div class="terminal-status">
       <span class="text-muted-foreground text-xs">Starting terminal...</span>
-    </div>
-  {:else if !$terminalSessionId && !initialized}
-    <div class="terminal-status">
-      <button
-        class="restart-btn"
-        onclick={initAndSpawn}
-      >
-        Start Terminal
-      </button>
     </div>
   {:else if !$terminalSessionId && initialized}
     <div class="terminal-status-overlay">

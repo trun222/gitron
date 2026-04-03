@@ -7,6 +7,7 @@ import type {
   Branch,
   FileDiff,
   FileStatus,
+  ConflictedFileContent,
   Remote,
   TrackingStatus,
   StashEntry,
@@ -20,7 +21,7 @@ import { addToast } from '$lib/stores/toast';
 import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
 
 // File selection types
-export type FileSection = 'staged' | 'unstaged' | 'untracked';
+export type FileSection = 'staged' | 'unstaged' | 'untracked' | 'conflicted';
 
 export interface SelectedFileInfo {
   path: string;
@@ -34,6 +35,7 @@ export const repoStatus = writable<RepoStatus | null>(null);
 export const commitGraph = writable<CommitGraph | null>(null);
 export const selectedCommit = writable<Commit | null>(null);
 export const selectedFileDiff = writable<FileDiff | null>(null);
+export const selectedConflictFile = writable<ConflictedFileContent | null>(null);
 export const selectedFile = writable<SelectedFileInfo | null>(null);
 export const loading = writable(false);
 export const error = writable<string | null>(null);
@@ -116,12 +118,18 @@ export const unstagedCount = derived(
   repoStatus,
   ($status) => ($status?.unstaged.length ?? 0) + ($status?.untracked.length ?? 0)
 );
+export const conflictedCount = derived(repoStatus, ($status) => $status?.conflicted.length ?? 0);
+export const isConflictState = derived(
+  repoStatus,
+  ($status) => $status !== null && $status.state !== 'Clean'
+);
 
 // Helpers
 function getAllFiles(): SelectedFileInfo[] {
   const status = get(repoStatus);
   if (!status) return [];
   return [
+    ...status.conflicted.map((p) => ({ path: p, section: 'conflicted' as const })),
     ...status.staged.map((f) => ({ path: f.path, section: 'staged' as const })),
     ...status.unstaged.map((f) => ({ path: f.path, section: 'unstaged' as const })),
     ...status.untracked.map((p) => ({ path: p, section: 'untracked' as const })),
@@ -326,7 +334,15 @@ export async function selectFile(path: string, section: FileSection) {
   selectedFile.set({ path, section });
   selectedCommit.set(null);
   selectedFileDiff.set(null);
-  if (section === 'staged') {
+  selectedConflictFile.set(null);
+  if (section === 'conflicted') {
+    try {
+      const content = await api.getConflictedFile(repoPathVal, path);
+      selectedConflictFile.set(content);
+    } catch (e) {
+      error.set(String(e));
+    }
+  } else if (section === 'staged') {
     await viewStagedFileDiff(repoPathVal, path);
   } else {
     await viewFileDiff(repoPathVal, path);
@@ -336,6 +352,7 @@ export async function selectFile(path: string, section: FileSection) {
 export function clearFileSelection() {
   selectedFile.set(null);
   selectedFileDiff.set(null);
+  selectedConflictFile.set(null);
 }
 
 export function selectNextFile() {
@@ -586,6 +603,11 @@ export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixe
 export async function rebaseOnto(ontoBranch: string) {
   const path = get(repoPath);
   if (!path) return;
+  const status = get(repoStatus);
+  if (status && status.state !== 'Clean') {
+    error.set(`Cannot rebase while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
+    return;
+  }
   try {
     const result = await api.rebaseOnto(path, ontoBranch);
     addOutput('rebase', result.output.stdout, result.output.stderr, result.success);
@@ -605,6 +627,11 @@ export async function rebaseOnto(ontoBranch: string) {
 export async function mergeInto(branchName: string) {
   const path = get(repoPath);
   if (!path) return;
+  const status = get(repoStatus);
+  if (status && status.state !== 'Clean') {
+    error.set(`Cannot merge while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
+    return;
+  }
   try {
     const result = await api.mergeInto(path, branchName);
     addOutput('merge', result.output.stdout, result.output.stderr, result.success);
@@ -616,6 +643,105 @@ export async function mergeInto(branchName: string) {
     const info = await api.getRepoInfo(path);
     repoInfo.set(info);
     await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+// Conflict resolution actions
+
+export async function rebaseContinue() {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.rebaseContinue(path);
+    addOutput('rebase --continue', result.output.stdout, result.output.stderr, result.success);
+    if (result.conflicted) {
+      error.set(`Rebase still has conflicts. Resolve remaining conflicts and try again.`);
+    } else if (!result.success) {
+      error.set(`Rebase continue failed:\n${result.output.stderr || result.output.stdout}`);
+    } else {
+      error.set(null);
+      addToast('Rebase completed successfully', 'success');
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function rebaseAbort() {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.rebaseAbort(path);
+    addOutput('rebase --abort', result.output.stdout, result.output.stderr, result.success);
+    if (!result.success) {
+      error.set(`Rebase abort failed:\n${result.output.stderr || result.output.stdout}`);
+    } else {
+      error.set(null);
+      addToast('Rebase aborted', 'info');
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function mergeAbort() {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.mergeAbort(path);
+    addOutput('merge --abort', result.output.stdout, result.output.stderr, result.success);
+    if (!result.success) {
+      error.set(`Merge abort failed:\n${result.output.stderr || result.output.stdout}`);
+    } else {
+      error.set(null);
+      addToast('Merge aborted', 'info');
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function cherryPickAbort() {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    await api.cherryPickAbort(path);
+    error.set(null);
+    addToast('Cherry-pick aborted', 'info');
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
+export async function writeResolvedFile(filePath: string, content: string) {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const status = await api.writeResolvedFile(path, filePath, content);
+    repoStatus.set(status);
+    selectedConflictFile.set(null);
+    selectedFileDiff.set(null);
+    // Move selection to next conflicted file if any
+    if (status.conflicted.length > 0) {
+      selectFile(status.conflicted[0], 'conflicted');
+    } else {
+      clearFileSelection();
+    }
+    addToast(`Resolved: ${filePath}`, 'success');
   } catch (e) {
     error.set(String(e));
   }
@@ -1022,6 +1148,11 @@ export async function pullFromRemote(remoteName?: string) {
   const path = get(repoPath);
   if (!path) return;
   if (get(networkOperation)) return;
+  const status = get(repoStatus);
+  if (status && status.state !== 'Clean') {
+    error.set(`Cannot pull while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
+    return;
+  }
   const remote = remoteName ?? get(defaultRemote)?.name;
   if (!remote) {
     error.set('No remote configured');

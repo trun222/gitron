@@ -15,6 +15,8 @@ import type {
   CloneResult,
   RebaseResult,
   MergeResult,
+  OperationOutput,
+  ConflictedFileContent,
   RemoteTagInfo,
   OpenRepoResult,
   StashEntry,
@@ -268,6 +270,30 @@ export async function rebaseOnto(path: string, ontoBranch: string): Promise<Reba
 
 export async function mergeInto(path: string, branchName: string): Promise<MergeResult> {
   return getTransport().invoke('merge_into', { path, branchName });
+}
+
+export async function rebaseContinue(path: string): Promise<RebaseResult> {
+  return getTransport().invoke('rebase_continue', { path });
+}
+
+export async function rebaseAbort(path: string): Promise<RebaseResult> {
+  return getTransport().invoke('rebase_abort', { path });
+}
+
+export async function mergeAbort(path: string): Promise<MergeResult> {
+  return getTransport().invoke('merge_abort', { path });
+}
+
+export async function cherryPickAbort(path: string): Promise<OperationOutput> {
+  return getTransport().invoke('cherry_pick_abort', { path });
+}
+
+export async function getConflictedFile(path: string, filePath: string): Promise<ConflictedFileContent> {
+  return getTransport().invoke('get_conflicted_file', { path, filePath });
+}
+
+export async function writeResolvedFile(path: string, filePath: string, content: string): Promise<RepoStatus> {
+  return getTransport().invoke('write_resolved_file', { path, filePath, content });
 }
 
 export async function checkoutRemoteBranch(

@@ -15,6 +15,7 @@ mod fs;
 mod settings;
 mod terminal;
 mod checkpoint;
+mod conflict;
 
 use std::sync::Arc;
 
@@ -58,6 +59,13 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/branch/reset", post(branch::reset_to_commit))
         .route("/branch/rebase", post(branch::rebase_onto))
         .route("/branch/merge", post(branch::merge_into))
+        .route("/branch/rebase-continue", post(branch::rebase_continue))
+        .route("/branch/rebase-abort", post(branch::rebase_abort))
+        .route("/branch/merge-abort", post(branch::merge_abort))
+        .route("/branch/cherry-pick-abort", post(branch::cherry_pick_abort))
+        // Conflict
+        .route("/conflict/file", post(conflict::get_conflicted_file))
+        .route("/conflict/resolve", post(conflict::write_resolved_file))
         // Commit
         .route("/commit", post(commit::create_commit))
         // Stash

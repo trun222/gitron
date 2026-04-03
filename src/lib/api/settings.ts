@@ -285,6 +285,12 @@ export async function saveOutputPanelOpen(open: boolean): Promise<void> {
   await saveSettings(settings);
 }
 
+export async function saveConflictedExpanded(expanded: boolean): Promise<void> {
+  const settings = await getSettings();
+  settings.conflictedExpanded = expanded;
+  await saveSettings(settings);
+}
+
 export async function saveStagedExpanded(expanded: boolean): Promise<void> {
   const settings = await getSettings();
   settings.stagedExpanded = expanded;

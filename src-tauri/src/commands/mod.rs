@@ -13,6 +13,7 @@ pub mod clone;
 pub mod worktree;
 pub mod terminal;
 pub mod checkpoint;
+pub mod conflict;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

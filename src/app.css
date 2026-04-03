@@ -55,6 +55,10 @@
   --color-git-deleted-bg: rgba(210, 15, 57, 0.1);
   --color-git-modified-foreground: #ffffff;
   --color-git-added-foreground: #ffffff;
+  --color-git-conflict: #e64553;
+  --color-git-conflict-bg: rgba(230, 69, 83, 0.1);
+  --color-git-conflict-ours: #1e88e5;
+  --color-git-conflict-theirs: #8e24aa;
 
   /* Graph lane colors (light theme) */
   --color-graph-0: #1e88e5;
@@ -110,6 +114,10 @@
   --color-git-deleted-bg: rgba(243, 139, 168, 0.1);
   --color-git-modified-foreground: oklch(0.178 0.012 285);
   --color-git-added-foreground: oklch(0.178 0.012 285);
+  --color-git-conflict: #f38ba8;
+  --color-git-conflict-bg: rgba(243, 139, 168, 0.15);
+  --color-git-conflict-ours: #89b4fa;
+  --color-git-conflict-theirs: #cba6f7;
 
   /* Graph lane colors (dark theme — brighter for dark backgrounds) */
   --color-graph-0: #4fc3f7;
@@ -172,6 +180,10 @@
   --color-git-deleted-bg: rgba(255, 46, 99, 0.12);
   --color-git-modified-foreground: oklch(0.13 0.02 250);
   --color-git-added-foreground: oklch(0.13 0.02 250);
+  --color-git-conflict: #FF2E63;
+  --color-git-conflict-bg: rgba(255, 46, 99, 0.15);
+  --color-git-conflict-ours: #00BFFF;
+  --color-git-conflict-theirs: #BF00FF;
 
   /* Graph lane colors — full neon set */
   --color-graph-0: #00FFFF;
@@ -298,6 +310,10 @@
   --color-git-deleted-bg: var(--color-git-deleted-bg);
   --color-git-modified-foreground: var(--color-git-modified-foreground);
   --color-git-added-foreground: var(--color-git-added-foreground);
+  --color-git-conflict: var(--color-git-conflict);
+  --color-git-conflict-bg: var(--color-git-conflict-bg);
+  --color-git-conflict-ours: var(--color-git-conflict-ours);
+  --color-git-conflict-theirs: var(--color-git-conflict-theirs);
 
   /* Graph lane colors */
   --color-graph-0: var(--color-graph-0);

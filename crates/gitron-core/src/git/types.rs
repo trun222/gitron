@@ -132,6 +132,17 @@ pub struct BranchColorEntry {
     pub color_index: usize,
 }
 
+/// The current state of the repository (e.g., mid-rebase, mid-merge)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RepoState {
+    Clean,
+    Merging,
+    Rebasing,
+    RebasingInteractive,
+    CherryPicking,
+    Reverting,
+}
+
 /// Repository status summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepoStatus {
@@ -139,6 +150,7 @@ pub struct RepoStatus {
     pub unstaged: Vec<FileStatus>,
     pub untracked: Vec<String>,
     pub conflicted: Vec<String>,
+    pub state: RepoState,
 }
 
 /// Status of a single file
@@ -355,6 +367,27 @@ pub struct WorktreeRemoveResult {
 pub struct WorktreePruneResult {
     pub pruned: Vec<String>,
     pub output: OperationOutput,
+}
+
+/// A conflict section within a file (between <<<<<<< and >>>>>>>)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictSection {
+    pub ours: Vec<String>,
+    pub theirs: Vec<String>,
+    pub ours_label: String,
+    pub theirs_label: String,
+    pub start_line: u32,
+    pub end_line: u32,
+}
+
+/// Content of a conflicted file with parsed conflict sections
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictedFileContent {
+    pub path: String,
+    pub raw_content: String,
+    pub lines: Vec<String>,
+    pub conflict_sections: Vec<ConflictSection>,
+    pub is_binary: bool,
 }
 
 /// Options for graph queries

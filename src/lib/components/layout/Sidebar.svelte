@@ -25,7 +25,7 @@
     selectCommitFile,
   } from '$lib/stores/repo';
   import type { FileSection } from '$lib/stores/repo';
-  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault, tagsExpanded, setTagsExpanded, stagedExpanded, setStagedExpanded, unstagedExpanded, setUnstagedExpanded, untrackedExpanded, setUntrackedExpanded, committedExpanded, setCommittedExpanded } from '$lib/stores/settings';
+  import { sidebarCollapsed, toggleSidebar, showTagsList, showWorktreesList, changesViewMode, setChangesViewMode, treeExpandedByDefault, tagsExpanded, setTagsExpanded, conflictedExpanded, setConflictedExpanded, stagedExpanded, setStagedExpanded, unstagedExpanded, setUnstagedExpanded, untrackedExpanded, setUntrackedExpanded, committedExpanded, setCommittedExpanded } from '$lib/stores/settings';
   import {
     aiGenerating,
     aiError,
@@ -461,6 +461,46 @@
         {#if $repoStatus}
           {#if $changesViewMode === 'tree' && treeSections}
             <!-- TREE VIEW -->
+            <!-- CONFLICTED (tree) -->
+            {#if $repoStatus.conflicted.length > 0}
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setConflictedExpanded(!$conflictedExpanded)}
+                  aria-expanded={$conflictedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$conflictedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold uppercase tracking-wide" style="color: var(--color-git-conflict);">
+                    Conflicted ({$repoStatus.conflicted.length})
+                  </span>
+                </button>
+              </div>
+              {#if $conflictedExpanded}
+              <ul class="list-none">
+                {#each $repoStatus.conflicted as file}
+                  <li
+                    class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'conflicted') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    onclick={() => handleFileClick(file, 'conflicted')}
+                    role="option"
+                    aria-selected={isSelected(file, 'conflicted')}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0" style="color: var(--color-git-conflict); background: var(--color-git-conflict-bg);">
+                      C
+                    </span>
+                    <span class="truncate text-foreground flex-1">{file}</span>
+                    <button
+                      class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-[10px] leading-none"
+                      onclick={(e) => handleStageClick(e, file)}
+                      aria-label="Mark {file} as resolved"
+                      title="Mark as resolved (stage)"
+                    >
+                      ✓
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+              {/if}
+            {/if}
             <!-- STAGED (tree) -->
             {#if $repoStatus.staged.length > 0}
               <div class="group/section flex items-center justify-between px-3 py-1.5">
@@ -647,11 +687,51 @@
               {/if}
             {/if}
 
-            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
+            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0 && $repoStatus.conflicted.length === 0}
               <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
             {/if}
           {:else}
             <!-- FLAT FILE VIEW -->
+            <!-- CONFLICTED -->
+            {#if $repoStatus.conflicted.length > 0}
+              <div class="group/section flex items-center justify-between px-3 py-1.5">
+                <button
+                  class="flex items-center gap-1 cursor-pointer"
+                  onclick={() => setConflictedExpanded(!$conflictedExpanded)}
+                  aria-expanded={$conflictedExpanded}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground transition-transform duration-150 opacity-0 group-hover/section:opacity-100" style="transform: rotate({$conflictedExpanded ? '90deg' : '0deg'})"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span class="text-[11px] font-semibold uppercase tracking-wide" style="color: var(--color-git-conflict);">
+                    Conflicted ({$repoStatus.conflicted.length})
+                  </span>
+                </button>
+              </div>
+              {#if $conflictedExpanded}
+              <ul class="list-none">
+                {#each $repoStatus.conflicted as file}
+                  <li
+                    class="group flex items-center gap-2 px-3 py-1 text-xs cursor-pointer hover:bg-accent transition-colors {isSelected(file, 'conflicted') ? 'bg-accent ring-1 ring-primary/30' : ''}"
+                    onclick={() => handleFileClick(file, 'conflicted')}
+                    role="option"
+                    aria-selected={isSelected(file, 'conflicted')}
+                  >
+                    <span class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0" style="color: var(--color-git-conflict); background: var(--color-git-conflict-bg);">
+                      C
+                    </span>
+                    <span class="truncate text-foreground flex-1">{file}</span>
+                    <button
+                      class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-[10px] leading-none"
+                      onclick={(e) => handleStageClick(e, file)}
+                      aria-label="Mark {file} as resolved"
+                      title="Mark as resolved (stage)"
+                    >
+                      ✓
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+              {/if}
+            {/if}
             <!-- STAGED -->
             {#if $repoStatus.staged.length > 0}
               <div class="group/section flex items-center justify-between px-3 py-1.5">
@@ -793,7 +873,7 @@
               {/if}
             {/if}
 
-            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0}
+            {#if $repoStatus.staged.length === 0 && $repoStatus.unstaged.length === 0 && $repoStatus.untracked.length === 0 && $repoStatus.conflicted.length === 0}
               <p class="text-muted-foreground text-sm text-center p-4">Working tree clean</p>
             {/if}
           {/if}

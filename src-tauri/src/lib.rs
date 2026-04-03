@@ -3,7 +3,7 @@ pub mod tauri_impls;
 
 use std::sync::Arc;
 
-use commands::{ai as ai_cmd, branch, checkpoint, clone, commit, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, terminal, worktree, AppState};
+use commands::{ai as ai_cmd, branch, checkpoint, clone, commit, conflict, diff, github as github_cmd, graph, remote, repo, staging, stash, tag, terminal, worktree, AppState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +48,12 @@ pub fn run() {
             branch::reset_to_commit,
             branch::rebase_onto,
             branch::merge_into,
+            branch::rebase_continue,
+            branch::rebase_abort,
+            branch::merge_abort,
+            branch::cherry_pick_abort,
+            conflict::get_conflicted_file,
+            conflict::write_resolved_file,
             commit::create_commit,
             stash::save_stash,
             stash::list_stashes,

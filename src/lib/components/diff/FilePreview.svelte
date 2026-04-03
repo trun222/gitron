@@ -3,6 +3,7 @@
     selectedFileDiff,
     selectedFile,
     selectedCommitFile,
+    selectedConflictFile,
     clearFileSelection,
     selectNextFile,
     selectPrevFile,
@@ -10,10 +11,11 @@
     selectPrevCommitFile,
     stageSelectedFile,
     unstageSelectedFile,
+    writeResolvedFile,
   } from '$lib/stores/repo';
   import { getHighlighter, detectLanguage, tokenizeLine } from '$lib/highlight';
   import type { Highlighter } from 'shiki';
-  import type { DiffLineType, FileStatusType } from '$lib/api/types';
+  import type { DiffLineType, FileStatusType, ConflictSection } from '$lib/api/types';
 
   let { onClose }: { onClose?: () => void } = $props();
 
@@ -93,6 +95,172 @@
   }
 
   let isCommitView = $derived($selectedCommitFile !== null);
+  let isConflictView = $derived($selectedConflictFile !== null);
+
+  // Conflict resolution state: per-line inclusion tracking
+  interface SectionResolution {
+    oursIncluded: boolean[];
+    theirsIncluded: boolean[];
+  }
+  let resolutions = $state<SectionResolution[]>([]);
+
+  // Reset resolutions when conflict file changes
+  $effect(() => {
+    if ($selectedConflictFile) {
+      resolutions = $selectedConflictFile.conflict_sections.map((s) => ({
+        oursIncluded: new Array(s.ours.length).fill(false),
+        theirsIncluded: new Array(s.theirs.length).fill(false),
+      }));
+    }
+  });
+
+  let allResolved = $derived(
+    $selectedConflictFile !== null &&
+    $selectedConflictFile.conflict_sections.length > 0 &&
+    resolutions.length === $selectedConflictFile.conflict_sections.length &&
+    resolutions.every((r) => r.oursIncluded.some((v) => v) || r.theirsIncluded.some((v) => v))
+  );
+
+  function toggleOursLine(sectionIdx: number, lineIdx: number) {
+    resolutions = resolutions.map((r, i) => {
+      if (i !== sectionIdx) return r;
+      const next = [...r.oursIncluded];
+      next[lineIdx] = !next[lineIdx];
+      return { ...r, oursIncluded: next };
+    });
+  }
+
+  function toggleTheirsLine(sectionIdx: number, lineIdx: number) {
+    resolutions = resolutions.map((r, i) => {
+      if (i !== sectionIdx) return r;
+      const next = [...r.theirsIncluded];
+      next[lineIdx] = !next[lineIdx];
+      return { ...r, theirsIncluded: next };
+    });
+  }
+
+  function acceptCurrent(sectionIdx: number) {
+    const section = $selectedConflictFile?.conflict_sections[sectionIdx];
+    if (!section) return;
+    resolutions = resolutions.map((r, i) => {
+      if (i !== sectionIdx) return r;
+      return {
+        oursIncluded: new Array(section.ours.length).fill(true),
+        theirsIncluded: new Array(section.theirs.length).fill(false),
+      };
+    });
+  }
+
+  function acceptIncoming(sectionIdx: number) {
+    const section = $selectedConflictFile?.conflict_sections[sectionIdx];
+    if (!section) return;
+    resolutions = resolutions.map((r, i) => {
+      if (i !== sectionIdx) return r;
+      return {
+        oursIncluded: new Array(section.ours.length).fill(false),
+        theirsIncluded: new Array(section.theirs.length).fill(true),
+      };
+    });
+  }
+
+  function acceptBoth(sectionIdx: number) {
+    const section = $selectedConflictFile?.conflict_sections[sectionIdx];
+    if (!section) return;
+    resolutions = resolutions.map((r, i) => {
+      if (i !== sectionIdx) return r;
+      return {
+        oursIncluded: new Array(section.ours.length).fill(true),
+        theirsIncluded: new Array(section.theirs.length).fill(true),
+      };
+    });
+  }
+
+  function buildResolvedContent(): string {
+    const file = $selectedConflictFile;
+    if (!file) return '';
+    const lines = file.lines;
+    const sections = file.conflict_sections;
+    const result: string[] = [];
+    let lineIdx = 0;
+
+    for (const [sectionIdx, section] of sections.entries()) {
+      // Add lines before this conflict section (start_line is 1-based)
+      while (lineIdx < section.start_line - 1) {
+        result.push(lines[lineIdx]);
+        lineIdx++;
+      }
+
+      // Add included lines: ours first, then theirs
+      const res = resolutions[sectionIdx];
+      for (let i = 0; i < section.ours.length; i++) {
+        if (res.oursIncluded[i]) result.push(section.ours[i]);
+      }
+      for (let i = 0; i < section.theirs.length; i++) {
+        if (res.theirsIncluded[i]) result.push(section.theirs[i]);
+      }
+
+      // Skip past the conflict marker lines (end_line is 1-based, inclusive)
+      lineIdx = section.end_line;
+    }
+
+    // Add remaining lines after the last conflict
+    while (lineIdx < lines.length) {
+      result.push(lines[lineIdx]);
+      lineIdx++;
+    }
+
+    return result.join('\n') + '\n';
+  }
+
+  function handleMarkResolved() {
+    const file = $selectedConflictFile;
+    if (!file || !allResolved) return;
+    const content = buildResolvedContent();
+    writeResolvedFile(file.path, content);
+  }
+
+  // Conflict navigation
+  let conflictScrollContainer: HTMLDivElement | undefined = $state();
+
+  function scrollToConflict(idx: number) {
+    const el = conflictScrollContainer?.querySelector(`[data-conflict-idx="${idx}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  let totalConflicts = $derived($selectedConflictFile?.conflict_sections.length ?? 0);
+
+  function nextConflict() {
+    if (!conflictScrollContainer || totalConflicts === 0) return;
+    // Find which conflict is currently closest to the top of the viewport
+    const container = conflictScrollContainer;
+    const scrollY = container.scrollTop;
+    const sections = $selectedConflictFile?.conflict_sections ?? [];
+    for (let i = 0; i < sections.length; i++) {
+      const el = container.querySelector(`[data-conflict-idx="${i}"]`) as HTMLElement | null;
+      if (el && el.offsetTop > scrollY + 10) {
+        scrollToConflict(i);
+        return;
+      }
+    }
+    // Wrap to first
+    scrollToConflict(0);
+  }
+
+  function prevConflict() {
+    if (!conflictScrollContainer || totalConflicts === 0) return;
+    const container = conflictScrollContainer;
+    const scrollY = container.scrollTop;
+    const sections = $selectedConflictFile?.conflict_sections ?? [];
+    for (let i = sections.length - 1; i >= 0; i--) {
+      const el = container.querySelector(`[data-conflict-idx="${i}"]`) as HTMLElement | null;
+      if (el && el.offsetTop < scrollY - 10) {
+        scrollToConflict(i);
+        return;
+      }
+    }
+    // Wrap to last
+    scrollToConflict(sections.length - 1);
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     const target = e.target as HTMLElement;
@@ -121,6 +289,9 @@
     } else if (e.key === 'Escape') {
       e.preventDefault();
       handleClose();
+    } else if (isConflictView) {
+      // Skip stage/unstage shortcuts in conflict view
+      return;
     } else if (e.key === 's' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       stageSelectedFile();
@@ -376,6 +547,199 @@
               <!-- Syntax-highlighted content -->
               <span class="whitespace-pre pl-2 pr-4"
                 >{#each tokenizeLineCached(highlighter, item.content, language) as token}<span
+                    style:color={token.color}>{token.content}</span
+                  >{/each}</span
+              >
+            </div>
+          {/if}
+        {/each}
+      {/if}
+    </div>
+  {:else if $selectedConflictFile}
+    <!-- Conflict file header -->
+    <div
+      class="flex items-center justify-between px-4 py-2 border-b border-border bg-card shrink-0"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span
+          class="text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0"
+          style="color: var(--color-git-conflict); background: var(--color-git-conflict-bg);"
+        >
+          C
+        </span>
+        <span class="text-sm font-mono truncate">{$selectedConflictFile.path}</span>
+        <span class="text-[10px] uppercase tracking-wide" style="color: var(--color-git-conflict);">conflicted</span>
+      </div>
+      <div class="flex items-center gap-2">
+        {#if totalConflicts > 1}
+          <div class="flex items-center gap-1 text-muted-foreground">
+            <button
+              class="p-1 hover:text-foreground transition-colors cursor-pointer"
+              onclick={prevConflict}
+              title="Previous conflict"
+              aria-label="Previous conflict"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </button>
+            <span class="text-[10px] tabular-nums">{totalConflicts}</span>
+            <button
+              class="p-1 hover:text-foreground transition-colors cursor-pointer"
+              onclick={nextConflict}
+              title="Next conflict"
+              aria-label="Next conflict"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        {/if}
+        <button
+          onclick={handleMarkResolved}
+          class="text-xs px-3 py-1 rounded font-medium transition-colors"
+          style="background: var(--color-git-conflict); color: var(--background);"
+          class:opacity-50={!allResolved}
+          disabled={!allResolved}
+          title={allResolved ? 'Write resolved content and stage file' : 'Resolve all conflict sections first'}
+        >
+          Mark as Resolved
+        </button>
+        <button
+          onclick={handleClose}
+          class="text-muted-foreground hover:text-foreground p-1 shrink-0 cursor-pointer"
+          aria-label="Close file preview"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Conflict file content -->
+    <div bind:this={conflictScrollContainer} class="flex-1 overflow-auto min-h-0 font-mono leading-5" style="font-size: var(--editor-font-size)">
+      {#if $selectedConflictFile.is_binary}
+        <p class="text-muted-foreground text-sm text-center p-8">Binary file conflict — resolve externally or choose a version</p>
+      {:else}
+        {@const sections = $selectedConflictFile.conflict_sections}
+        {@const lines = $selectedConflictFile.lines}
+        {@const sectionStarts = new Set(sections.map(s => s.start_line - 1))}
+        {#each lines as line, lineIdx}
+          {@const sectionIdx = sections.findIndex(s => lineIdx >= s.start_line - 1 && lineIdx <= s.end_line - 1)}
+          {#if sectionIdx >= 0}
+            {@const section = sections[sectionIdx]}
+            {@const isStart = lineIdx === section.start_line - 1}
+            {#if isStart}
+              {@const res = resolutions[sectionIdx]}
+              <!-- Conflict section block -->
+              <div class="border-y" style="border-color: var(--color-git-conflict);" data-conflict-idx={sectionIdx}>
+                <!-- Action bar -->
+                <div class="flex items-center gap-2 px-4 py-1.5" style="background: var(--color-git-conflict-bg);">
+                  <span class="text-[11px] font-medium" style="color: var(--color-git-conflict);">
+                    Conflict {sectionIdx + 1}/{sections.length}
+                  </span>
+                  <span class="flex-1"></span>
+                  <button
+                    class="text-[11px] px-2 py-0.5 rounded transition-colors font-medium hover:opacity-80"
+                    style="color: var(--color-git-conflict-ours);"
+                    onclick={() => acceptCurrent(sectionIdx)}
+                  >
+                    Accept Current
+                  </button>
+                  <button
+                    class="text-[11px] px-2 py-0.5 rounded transition-colors font-medium hover:opacity-80"
+                    style="color: var(--color-git-conflict-theirs);"
+                    onclick={() => acceptIncoming(sectionIdx)}
+                  >
+                    Accept Incoming
+                  </button>
+                  <button
+                    class="text-[11px] px-2 py-0.5 rounded transition-colors font-medium hover:opacity-80"
+                    style="color: var(--color-git-conflict);"
+                    onclick={() => acceptBoth(sectionIdx)}
+                  >
+                    Accept Both
+                  </button>
+                </div>
+                <!-- Current (ours) label + lines with checkboxes -->
+                <div class="text-[10px] px-4 py-0.5 font-medium select-none" style="color: var(--color-git-conflict-ours); background: color-mix(in srgb, var(--color-git-conflict-ours) 8%, transparent);">
+                  Current: {section.ours_label || 'HEAD'}
+                </div>
+                {#each section.ours as oursLine, oursIdx}
+                  {@const included = res?.oursIncluded[oursIdx] ?? false}
+                  <div
+                    class="flex min-w-fit cursor-pointer transition-opacity"
+                    style="background: color-mix(in srgb, var(--color-git-conflict-ours) 8%, transparent);"
+                    class:opacity-40={!included}
+                    onclick={() => toggleOursLine(sectionIdx, oursIdx)}
+                    role="checkbox"
+                    aria-checked={included}
+                  >
+                    <div class="w-1 shrink-0" style="background: var(--color-git-conflict-ours);"></div>
+                    <div class="w-6 flex items-center justify-center shrink-0 select-none" style="color: var(--color-git-conflict-ours);">
+                      <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                        {#if included}
+                          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                        {:else}
+                          <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Z" opacity="0.15" />
+                        {/if}
+                      </svg>
+                    </div>
+                    <span class="whitespace-pre pr-4"
+                      >{#each tokenizeLineCached(highlighter, oursLine, language) as token}<span
+                          style:color={token.color}>{token.content}</span
+                        >{/each}</span
+                    >
+                  </div>
+                {/each}
+                <!-- Incoming (theirs) label + lines with checkboxes -->
+                <div class="text-[10px] px-4 py-0.5 font-medium select-none" style="color: var(--color-git-conflict-theirs); background: color-mix(in srgb, var(--color-git-conflict-theirs) 8%, transparent);">
+                  Incoming: {section.theirs_label || 'incoming'}
+                </div>
+                {#each section.theirs as theirsLine, theirsIdx}
+                  {@const included = res?.theirsIncluded[theirsIdx] ?? false}
+                  <div
+                    class="flex min-w-fit cursor-pointer transition-opacity"
+                    style="background: color-mix(in srgb, var(--color-git-conflict-theirs) 8%, transparent);"
+                    class:opacity-40={!included}
+                    onclick={() => toggleTheirsLine(sectionIdx, theirsIdx)}
+                    role="checkbox"
+                    aria-checked={included}
+                  >
+                    <div class="w-1 shrink-0" style="background: var(--color-git-conflict-theirs);"></div>
+                    <div class="w-6 flex items-center justify-center shrink-0 select-none" style="color: var(--color-git-conflict-theirs);">
+                      <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                        {#if included}
+                          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                        {:else}
+                          <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Z" opacity="0.15" />
+                        {/if}
+                      </svg>
+                    </div>
+                    <span class="whitespace-pre pr-4"
+                      >{#each tokenizeLineCached(highlighter, theirsLine, language) as token}<span
+                          style:color={token.color}>{token.content}</span
+                        >{/each}</span
+                    >
+                  </div>
+                {/each}
+              </div>
+            {/if}
+            <!-- Lines within the conflict marker range are rendered as part of the block above -->
+          {:else}
+            <!-- Normal (non-conflict) line -->
+            <div class="flex min-w-fit">
+              <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
+                <span class="w-12 text-right pr-2 text-muted-foreground/30">
+                  {lineIdx + 1}
+                </span>
+                <span class="w-6 text-center text-muted-foreground/30"> </span>
+              </div>
+              <span class="whitespace-pre pl-2 pr-4"
+                >{#each tokenizeLineCached(highlighter, line, language) as token}<span
                     style:color={token.color}>{token.content}</span
                   >{/each}</span
               >

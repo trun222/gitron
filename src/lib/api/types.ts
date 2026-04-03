@@ -96,11 +96,20 @@ export interface BranchColorEntry {
   color_index: number;
 }
 
+export type RepoState =
+  | 'Clean'
+  | 'Merging'
+  | 'Rebasing'
+  | 'RebasingInteractive'
+  | 'CherryPicking'
+  | 'Reverting';
+
 export interface RepoStatus {
   staged: FileStatus[];
   unstaged: FileStatus[];
   untracked: string[];
   conflicted: string[];
+  state: RepoState;
 }
 
 export interface FileStatus {
@@ -214,6 +223,25 @@ export interface MergeResult {
   success: boolean;
   conflicted: boolean;
   output: OperationOutput;
+}
+
+// Conflict types (matching crates/gitron-core/src/git/types.rs)
+
+export interface ConflictSection {
+  ours: string[];
+  theirs: string[];
+  ours_label: string;
+  theirs_label: string;
+  start_line: number;
+  end_line: number;
+}
+
+export interface ConflictedFileContent {
+  path: string;
+  raw_content: string;
+  lines: string[];
+  conflict_sections: ConflictSection[];
+  is_binary: boolean;
 }
 
 // Worktree types (matching crates/gitron-core/src/git/types.rs)
@@ -392,6 +420,7 @@ export interface AppSettings {
   tagsExpanded?: boolean;
   worktreesExpanded?: boolean;
   outputPanelOpen?: boolean;
+  conflictedExpanded?: boolean;
   stagedExpanded?: boolean;
   unstagedExpanded?: boolean;
   untrackedExpanded?: boolean;

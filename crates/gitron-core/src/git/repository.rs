@@ -167,11 +167,24 @@ pub fn get_status(repo: &Repository) -> GitResult<RepoStatus> {
         }
     }
 
+    let state = match repo.state() {
+        git2::RepositoryState::Merge => RepoState::Merging,
+        git2::RepositoryState::Rebase
+        | git2::RepositoryState::RebaseMerge => RepoState::Rebasing,
+        git2::RepositoryState::RebaseInteractive => RepoState::RebasingInteractive,
+        git2::RepositoryState::CherryPick
+        | git2::RepositoryState::CherryPickSequence => RepoState::CherryPicking,
+        git2::RepositoryState::Revert
+        | git2::RepositoryState::RevertSequence => RepoState::Reverting,
+        _ => RepoState::Clean,
+    };
+
     Ok(RepoStatus {
         staged,
         unstaged,
         untracked,
         conflicted,
+        state,
     })
 }
 
@@ -838,6 +851,179 @@ pub fn merge_branch(workdir: &str, branch: &str) -> GitResult<MergeResult> {
             stdout: output.stdout,
             stderr: output.stderr,
         },
+    })
+}
+
+/// Read a conflicted file from the working directory and parse its conflict markers
+pub fn get_conflicted_file(repo: &Repository, file_path: &str) -> GitResult<ConflictedFileContent> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?;
+    let full_path = workdir.join(file_path);
+
+    // Check if binary
+    let bytes = std::fs::read(&full_path)
+        .map_err(|e| GitError::Other(format!("Failed to read file '{}': {}", file_path, e)))?;
+
+    let is_binary = bytes.iter().take(8192).any(|&b| b == 0);
+    if is_binary {
+        return Ok(ConflictedFileContent {
+            path: file_path.to_string(),
+            raw_content: String::new(),
+            lines: Vec::new(),
+            conflict_sections: Vec::new(),
+            is_binary: true,
+        });
+    }
+
+    let content = String::from_utf8_lossy(&bytes).to_string();
+    let lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
+    let conflict_sections = parse_conflict_markers(&lines);
+
+    Ok(ConflictedFileContent {
+        path: file_path.to_string(),
+        raw_content: content,
+        lines,
+        conflict_sections,
+        is_binary: false,
+    })
+}
+
+/// Parse conflict markers in file lines, returning structured ConflictSections
+fn parse_conflict_markers(lines: &[String]) -> Vec<ConflictSection> {
+    let mut sections = Vec::new();
+    let mut i = 0;
+
+    while i < lines.len() {
+        if lines[i].starts_with("<<<<<<<") {
+            let start_line = (i + 1) as u32; // 1-based
+            let ours_label = lines[i]
+                .strip_prefix("<<<<<<<")
+                .unwrap_or("")
+                .trim()
+                .to_string();
+
+            let mut ours = Vec::new();
+            i += 1;
+
+            // Collect "ours" lines until =======
+            while i < lines.len() && !lines[i].starts_with("=======") {
+                ours.push(lines[i].clone());
+                i += 1;
+            }
+
+            if i >= lines.len() {
+                break; // Malformed — no separator found
+            }
+
+            i += 1; // skip =======
+
+            let mut theirs = Vec::new();
+            // Collect "theirs" lines until >>>>>>>
+            while i < lines.len() && !lines[i].starts_with(">>>>>>>") {
+                theirs.push(lines[i].clone());
+                i += 1;
+            }
+
+            if i >= lines.len() {
+                break; // Malformed — no end marker found
+            }
+
+            let end_line = (i + 1) as u32; // 1-based
+            let theirs_label = lines[i]
+                .strip_prefix(">>>>>>>")
+                .unwrap_or("")
+                .trim()
+                .to_string();
+
+            sections.push(ConflictSection {
+                ours,
+                theirs,
+                ours_label,
+                theirs_label,
+                start_line,
+                end_line,
+            });
+        }
+        i += 1;
+    }
+
+    sections
+}
+
+/// Write resolved content to a file in the working directory
+pub fn write_file_content(repo: &Repository, file_path: &str, content: &str) -> GitResult<()> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::Other("Bare repository".into()))?;
+    let full_path = workdir.join(file_path);
+    std::fs::write(&full_path, content)
+        .map_err(|e| GitError::Other(format!("Failed to write file '{}': {}", file_path, e)))
+}
+
+/// Continue a rebase in progress (after conflicts are resolved)
+pub fn rebase_continue(workdir: &str) -> GitResult<RebaseResult> {
+    let output = super::cli::run_git_raw(
+        workdir,
+        &["-c", "core.editor=true", "rebase", "--continue"],
+    )?;
+
+    let conflicted = output.exit_code != 0
+        && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
+
+    Ok(RebaseResult {
+        success: output.exit_code == 0,
+        conflicted,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
+/// Abort a rebase in progress
+pub fn rebase_abort(workdir: &str) -> GitResult<RebaseResult> {
+    let output = super::cli::run_git_raw(workdir, &["rebase", "--abort"])?;
+
+    Ok(RebaseResult {
+        success: output.exit_code == 0,
+        conflicted: false,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
+/// Abort a merge in progress
+pub fn merge_abort(workdir: &str) -> GitResult<MergeResult> {
+    let output = super::cli::run_git_raw(workdir, &["merge", "--abort"])?;
+
+    Ok(MergeResult {
+        success: output.exit_code == 0,
+        conflicted: false,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
+/// Abort a cherry-pick in progress
+pub fn cherry_pick_abort(workdir: &str) -> GitResult<OperationOutput> {
+    let output = super::cli::run_git_raw(workdir, &["cherry-pick", "--abort"])?;
+
+    if output.exit_code != 0 {
+        return Err(GitError::CliError {
+            command: "git cherry-pick --abort".to_string(),
+            stderr: output.stderr,
+            exit_code: output.exit_code,
+        });
+    }
+
+    Ok(OperationOutput {
+        stdout: output.stdout,
+        stderr: output.stderr,
     })
 }
 

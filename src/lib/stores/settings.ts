@@ -39,6 +39,7 @@ export const protectedBranches = writable<string[]>(['main', 'master', 'develop'
 export const tagsExpanded = writable(true);
 export const worktreesExpanded = writable(true);
 export const outputPanelOpen = writable(false);
+export const conflictedExpanded = writable(true);
 export const stagedExpanded = writable(true);
 export const unstagedExpanded = writable(true);
 export const untrackedExpanded = writable(true);
@@ -302,6 +303,11 @@ export async function toggleOutputPanel(): Promise<void> {
   });
 }
 
+export async function setConflictedExpanded(expanded: boolean): Promise<void> {
+  conflictedExpanded.set(expanded);
+  await settingsApi.saveConflictedExpanded(expanded);
+}
+
 export async function setStagedExpanded(expanded: boolean): Promise<void> {
   stagedExpanded.set(expanded);
   await settingsApi.saveStagedExpanded(expanded);
@@ -412,6 +418,7 @@ export async function loadSettings(): Promise<void> {
   // Also initialize the unified bottom panel state
   const { bottomPanelOpen: _bottomPanelOpen } = await import('$lib/stores/terminal');
   _bottomPanelOpen.set(settings.outputPanelOpen ?? false);
+  conflictedExpanded.set(settings.conflictedExpanded ?? true);
   stagedExpanded.set(settings.stagedExpanded ?? true);
   unstagedExpanded.set(settings.unstagedExpanded ?? true);
   untrackedExpanded.set(settings.untrackedExpanded ?? true);

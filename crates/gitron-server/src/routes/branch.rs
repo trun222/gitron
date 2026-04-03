@@ -129,6 +129,38 @@ pub async fn cleanup_merged_branches(
     Ok(Json(deleted))
 }
 
+pub async fn rebase_continue(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<RebaseResult>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let result = repository::rebase_continue(&workdir).map_err(err)?;
+    Ok(Json(result))
+}
+
+pub async fn rebase_abort(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<RebaseResult>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let result = repository::rebase_abort(&workdir).map_err(err)?;
+    Ok(Json(result))
+}
+
+pub async fn merge_abort(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<MergeResult>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let result = repository::merge_abort(&workdir).map_err(err)?;
+    Ok(Json(result))
+}
+
+pub async fn cherry_pick_abort(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<OperationOutput>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let result = repository::cherry_pick_abort(&workdir).map_err(err)?;
+    Ok(Json(result))
+}
+
 fn get_workdir(path: &str) -> Result<String, (StatusCode, String)> {
     let repo = repository::open(path).map_err(err)?;
     let workdir = repo
