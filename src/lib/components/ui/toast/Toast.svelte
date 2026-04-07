@@ -58,29 +58,35 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 10px 14px;
+    border-radius: 8px;
     font-size: 13px;
+    font-weight: 500;
     line-height: 1.4;
     pointer-events: auto;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
     animation: toast-in 0.2s ease-out;
-    max-width: 400px;
+    max-width: 420px;
+    border: 1px solid;
+    backdrop-filter: blur(12px);
   }
 
   .toast-success {
-    background-color: var(--color-git-added);
-    color: var(--color-background);
+    background-color: oklch(0.22 0.04 145);
+    border-color: var(--color-git-added);
+    color: var(--color-git-added);
   }
 
   .toast-error {
-    background-color: var(--color-destructive);
-    color: var(--color-background);
+    background-color: oklch(0.22 0.04 25);
+    border-color: var(--color-destructive);
+    color: var(--color-destructive);
   }
 
   .toast-info {
-    background-color: var(--color-accent);
-    color: var(--color-background);
+    background-color: oklch(0.22 0.03 260);
+    border-color: var(--color-primary);
+    color: var(--color-foreground);
   }
 
   .toast-icon {

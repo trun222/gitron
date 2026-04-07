@@ -212,6 +212,31 @@
     return result.join('\n') + '\n';
   }
 
+  // Live preview of resolved content
+  let previewContent = $derived.by(() => {
+    if (!$selectedConflictFile || resolutions.length === 0) return '';
+    // Only compute if any section has at least one line toggled
+    const anyToggled = resolutions.some((r) => r.oursIncluded.some((v) => v) || r.theirsIncluded.some((v) => v));
+    if (!anyToggled) return '';
+    return buildResolvedContent();
+  });
+
+  let previewLines = $derived(previewContent ? previewContent.split('\n') : []);
+
+  // Bracket balance warning
+  let bracketWarning = $derived.by((): string | null => {
+    if (!previewContent) return null;
+    const openBrace = (previewContent.match(/\{/g) || []).length;
+    const closeBrace = (previewContent.match(/\}/g) || []).length;
+    if (openBrace !== closeBrace) return `Unbalanced braces: ${openBrace} opening, ${closeBrace} closing`;
+    const openParen = (previewContent.match(/\(/g) || []).length;
+    const closeParen = (previewContent.match(/\)/g) || []).length;
+    if (openParen !== closeParen) return `Unbalanced parentheses: ${openParen} opening, ${closeParen} closing`;
+    return null;
+  });
+
+  let previewOpen = $state(false);
+
   function handleMarkResolved() {
     const file = $selectedConflictFile;
     if (!file || !allResolved) return;
@@ -571,7 +596,7 @@
         <span class="text-[10px] uppercase tracking-wide" style="color: var(--color-git-conflict);">conflicted</span>
       </div>
       <div class="flex items-center gap-2">
-        {#if totalConflicts > 1}
+        {#if totalConflicts > 0}
           <div class="flex items-center gap-1 text-muted-foreground">
             <button
               class="p-1 hover:text-foreground transition-colors cursor-pointer"
@@ -596,13 +621,33 @@
             </button>
           </div>
         {/if}
+        {#if bracketWarning}
+          <span
+            class="shrink-0"
+            style="color: var(--color-git-modified);"
+            title={bracketWarning}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+              <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
+            </svg>
+          </span>
+        {/if}
+        <button
+          class="text-[11px] px-2 py-0.5 rounded transition-colors font-medium cursor-pointer"
+          class:text-foreground={previewOpen}
+          class:text-muted-foreground={!previewOpen}
+          onclick={() => previewOpen = !previewOpen}
+          title="Toggle resolved file preview"
+        >
+          Preview
+        </button>
         <button
           onclick={handleMarkResolved}
           class="text-xs px-3 py-1 rounded font-medium transition-colors"
           style="background: var(--color-git-conflict); color: var(--background);"
           class:opacity-50={!allResolved}
           disabled={!allResolved}
-          title={allResolved ? 'Write resolved content and stage file' : 'Resolve all conflict sections first'}
+          title={bracketWarning && allResolved ? bracketWarning : allResolved ? 'Write resolved content and stage file' : 'Resolve all conflict sections first'}
         >
           Mark as Resolved
         </button>
@@ -748,6 +793,51 @@
         {/each}
       {/if}
     </div>
+    <!-- Resolved preview pane -->
+    {#if previewOpen && previewContent}
+      <div class="border-t border-border flex flex-col" style="max-height: 40%; min-height: 120px;">
+        <div class="flex items-center justify-between px-4 py-1.5 bg-card border-b border-border shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Resolved Preview</span>
+            {#if bracketWarning}
+              <span class="text-[11px] flex items-center gap-1" style="color: var(--color-git-modified);">
+                <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                  <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
+                </svg>
+                {bracketWarning}
+              </span>
+            {/if}
+          </div>
+          <button
+            class="text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+            onclick={() => previewOpen = false}
+            aria-label="Close preview"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto font-mono leading-5" style="font-size: var(--editor-font-size)">
+          {#each previewLines as line, idx}
+            <div class="flex min-w-fit">
+              <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
+                <span class="w-12 text-right pr-2 text-muted-foreground/30">
+                  {idx + 1}
+                </span>
+                <span class="w-6"></span>
+              </div>
+              <span class="whitespace-pre pl-2 pr-4"
+                >{#each tokenizeLineCached(highlighter, line, language) as token}<span
+                    style:color={token.color}>{token.content}</span
+                  >{/each}</span
+              >
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   {:else if $selectedFile}
     <!-- Loading state -->
     <div class="flex items-center justify-center flex-1">

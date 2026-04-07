@@ -130,26 +130,47 @@
     }
   }
 
-  async function confirmRemove() {
+  function confirmRemove() {
     if (!removeConfirm) return;
-    await deleteWorktree(removeConfirm.path, removeConfirm.force);
+    const { path, force } = removeConfirm;
     removeConfirm = null;
+    deleteWorktree(path, force);
   }
 
   async function confirmRemoveAll() {
-    removeAllRunning = true;
-    await deleteAllWorktrees(false);
-    removeAllRunning = false;
     removeAllConfirm = false;
+    deleteAllWorktrees(false);
   }
 
-  function openAddDialog() {
+  function worktreeBasePath(): string {
     const rp = $repoPath ?? '';
-    const parentDir = rp.split('/').slice(0, -1).join('/');
-    const repoName = rp.split('/').pop() ?? 'repo';
-    addPath = `${parentDir}/${repoName}-worktree`;
+    return rp.split('/').slice(0, -1).join('/');
+  }
+
+  function defaultWorktreePath(branch: string): string {
+    const base = worktreeBasePath();
+    const repoName = ($repoPath ?? '').split('/').pop() ?? 'repo';
+    const suffix = branch
+      ? branch.replace(/\//g, '-')
+      : 'worktree';
+    return `${base}/${repoName}-${suffix}`;
+  }
+
+  // Auto-update path when branch name changes
+  $effect(() => {
+    if ($showAddWorktreeDialog && addBranchMode !== 'detached') {
+      const base = worktreeBasePath();
+      // Only update if path still looks like a default (starts with base dir)
+      if (addPath.startsWith(base + '/')) {
+        addPath = defaultWorktreePath(addBranchName);
+      }
+    }
+  });
+
+  function openAddDialog() {
     addBranchMode = 'new';
     addBranchName = '';
+    addPath = defaultWorktreePath('');
     addError = null;
     addCreating = false;
     showAddWorktreeDialog.set(true);
@@ -162,12 +183,9 @@
   // React to external open requests (e.g. from command palette)
   $effect(() => {
     if ($showAddWorktreeDialog && !addPath) {
-      const rp = $repoPath ?? '';
-      const parentDir = rp.split('/').slice(0, -1).join('/');
-      const repoName = rp.split('/').pop() ?? 'repo';
-      addPath = `${parentDir}/${repoName}-worktree`;
       addBranchMode = 'new';
       addBranchName = '';
+      addPath = defaultWorktreePath('');
       addError = null;
       addCreating = false;
     }
