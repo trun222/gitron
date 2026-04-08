@@ -96,7 +96,7 @@ pub fn get_status(repo: &Repository) -> GitResult<RepoStatus> {
     let statuses = repo.statuses(Some(
         git2::StatusOptions::new()
             .include_untracked(true)
-            .recurse_untracked_dirs(false)
+            .recurse_untracked_dirs(true)
             .include_ignored(false),
     ))?;
 
@@ -195,10 +195,13 @@ pub fn stage_file(repo: &Repository, path: &str) -> GitResult<()> {
 
     // Check if file exists in workdir — if not, it was deleted
     let workdir = repo.workdir().ok_or(GitError::Other("Bare repository".into()))?;
-    if workdir.join(file_path).exists() {
-        index.add_path(file_path)?;
-    } else {
+    let abs = workdir.join(file_path);
+    if !abs.exists() {
         index.remove_path(file_path)?;
+    } else if abs.is_dir() {
+        index.add_all([file_path].iter(), git2::IndexAddOption::DEFAULT, None)?;
+    } else {
+        index.add_path(file_path)?;
     }
 
     index.write()?;
@@ -219,10 +222,13 @@ pub fn stage_files(repo: &Repository, paths: &[String]) -> GitResult<()> {
 
     for path in paths {
         let file_path = Path::new(path);
-        if workdir.join(file_path).exists() {
-            index.add_path(file_path)?;
-        } else {
+        let abs = workdir.join(file_path);
+        if !abs.exists() {
             index.remove_path(file_path)?;
+        } else if abs.is_dir() {
+            index.add_all([file_path].iter(), git2::IndexAddOption::DEFAULT, None)?;
+        } else {
+            index.add_path(file_path)?;
         }
     }
 
