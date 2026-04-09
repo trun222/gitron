@@ -1,6 +1,6 @@
 {
   "name": "gitron",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Open-source, AI-native Git GUI built with Rust and Svelte",
   "type": "module",
   "scripts": {
