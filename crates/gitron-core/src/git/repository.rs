@@ -10,8 +10,12 @@ use super::types::*;
 use crate::watcher::manager::{pause_watcher, resume_watcher};
 
 /// Run a closure with the file watcher paused to prevent ref lock races.
+/// Includes a settling delay to let any in-flight event processing complete.
 fn with_watcher_paused<T>(f: impl FnOnce() -> T) -> T {
     pause_watcher();
+    // Wait for any in-flight watcher event processing to finish.
+    // The event consumer has a 100ms coalescing sleep — this ensures it sees the pause flag.
+    std::thread::sleep(std::time::Duration::from_millis(250));
     let result = f();
     resume_watcher();
     result

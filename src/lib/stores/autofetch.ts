@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { hasRepo, networkOperation, fetchFromRemote } from '$lib/stores/repo';
+import { hasRepo, networkOperation, fetchFromRemote, isConflictState } from '$lib/stores/repo';
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -8,7 +8,8 @@ export function startAutoFetch(intervalSeconds: number): void {
   if (intervalSeconds <= 0) return;
 
   timer = setInterval(() => {
-    if (get(hasRepo) && !get(networkOperation)) {
+    // Skip auto-fetch during rebase/merge/cherry-pick to avoid ref lock races
+    if (get(hasRepo) && !get(networkOperation) && !get(isConflictState)) {
       fetchFromRemote(undefined, { silent: true });
     }
   }, intervalSeconds * 1000);

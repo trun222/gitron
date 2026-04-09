@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { getTransport } from '$lib/api';
 import type { StatusChangedPayload, RefsChangedPayload } from '$lib/api/types';
-import { repoStatus, repoPath, refreshAll } from '$lib/stores/repo';
+import { repoStatus, repoPath, refreshAll, isConflictState, refreshStatus } from '$lib/stores/repo';
 import { refreshTrackingStatus, refreshRemoteTags } from '$lib/stores/repo';
 import { refreshWorktrees } from '$lib/stores/worktree';
 
@@ -25,12 +25,20 @@ export async function startWatcherListeners(): Promise<void> {
     (payload) => {
       // Set status immediately from the payload (always correct)
       repoStatus.set(payload.status);
-      // Re-fetch graph via refreshAll so excluded authors are applied
       const path = get(repoPath);
-      if (path) refreshAll(path);
-      refreshTrackingStatus();
-      refreshRemoteTags();
-      refreshWorktrees();
+      if (path) {
+        // During rebase/merge/cherry-pick, only refresh status — skip graph rebuild
+        // to avoid concurrent git2 repo access that races with git CLI ref updates.
+        // The explicit refreshAll() after rebaseContinue/mergeAbort/etc. handles the full refresh.
+        if (get(isConflictState)) {
+          refreshStatus(path);
+        } else {
+          refreshAll(path);
+          refreshTrackingStatus();
+          refreshRemoteTags();
+          refreshWorktrees();
+        }
+      }
     }
   );
 

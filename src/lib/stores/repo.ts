@@ -679,7 +679,8 @@ export async function rebaseContinue() {
     const result = await api.rebaseContinue(path);
     addOutput('rebase --continue', result.output.stdout, result.output.stderr, result.success);
     if (result.conflicted) {
-      error.set(`Rebase still has conflicts. Resolve remaining conflicts and try again.`);
+      // Don't show error banner — the conflict banner already indicates this
+      error.set(null);
     } else if (!result.success) {
       error.set(`Rebase continue failed:\n${result.output.stderr || result.output.stdout}`);
     } else {

@@ -2,6 +2,7 @@
   import {
     hasRepo,
     repoStatus,
+    isConflictState,
     stagedCount,
     unstagedCount,
     repoPath,
@@ -944,16 +945,16 @@
           <input
             type="text"
             class="flex-1 min-w-0 bg-input text-foreground text-xs rounded-md border border-border px-2 py-1.5 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Commit title"
+            placeholder={$isConflictState ? "Commit disabled during rebase/merge" : "Commit title"}
             bind:value={commitTitle}
             onkeydown={handleCommitKeydown}
-            disabled={committing || $aiGenerating}
+            disabled={committing || $aiGenerating || $isConflictState}
           />
           {#if $hasConfiguredProvider}
             <button
               class="w-7 h-7 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 {$aiGenerating ? 'text-primary animate-pulse' : 'text-muted-foreground hover:text-primary hover:bg-accent'}"
               onclick={handleAIGenerate}
-              disabled={$aiGenerating || committing}
+              disabled={$aiGenerating || committing || $isConflictState}
               aria-label="Generate commit message with AI"
               title="Generate commit message with AI"
             >
@@ -973,14 +974,14 @@
           placeholder="Description (optional)"
           bind:value={commitBody}
           onkeydown={handleCommitKeydown}
-          disabled={committing || $aiGenerating}
+          disabled={committing || $aiGenerating || $isConflictState}
         ></textarea>
         <button
-          class="w-full text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer {commitTitle.trim() && !committing ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-muted text-muted-foreground cursor-not-allowed'}"
+          class="w-full text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer {commitTitle.trim() && !committing && !$isConflictState ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-muted text-muted-foreground cursor-not-allowed'}"
           onclick={handleCommit}
-          disabled={!commitTitle.trim() || committing}
+          disabled={!commitTitle.trim() || committing || $isConflictState}
         >
-          {committing ? 'Committing...' : `Commit (${$stagedCount})`}
+          {$isConflictState ? 'Use Continue Rebase instead' : committing ? 'Committing...' : `Commit (${$stagedCount})`}
         </button>
         {#if commitError}
           <p class="text-[11px] text-destructive">{commitError}</p>
