@@ -185,7 +185,7 @@ fn hash_branch_to_color(name: &str, num_colors: usize, used: &HashSet<usize>) ->
 fn compute_graph_layout(
     commits: &[Commit],
     branches: &[Branch],
-    _head_branch: &Option<String>,
+    head_branch: &Option<String>,
 ) -> GraphLayout {
     // Build oid → index lookup
     let oid_to_index: HashMap<&str, usize> = commits
@@ -345,6 +345,12 @@ fn compute_graph_layout(
             let free_row = needed_until.max(last_row);
             free_at_row.entry(free_row).or_default().push(bname.clone());
         }
+    }
+
+    // Reserve lane 0 for the current (HEAD) branch so it's always the visual trunk
+    if let Some(ref hb) = head_branch {
+        active_lanes.push(Some(hb.clone()));
+        branch_to_lane.insert(hb.clone(), 0);
     }
 
     let mut nodes: Vec<GraphNode> = Vec::with_capacity(commits.len());
