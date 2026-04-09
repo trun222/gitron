@@ -368,3 +368,7 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

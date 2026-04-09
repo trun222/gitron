@@ -151,6 +151,10 @@ pub struct RepoStatus {
     pub untracked: Vec<String>,
     pub conflicted: Vec<String>,
     pub state: RepoState,
+    /// Current step in a rebase/cherry-pick sequence (1-based), if any
+    pub operation_step: Option<u32>,
+    /// Total steps in a rebase/cherry-pick sequence, if any
+    pub operation_total: Option<u32>,
 }
 
 /// Status of a single file

@@ -159,7 +159,7 @@
   {/if}
   <div class="flex flex-1 overflow-hidden">
     <Sidebar />
-    <main class="flex-1 overflow-auto flex flex-col">
+    <main class="flex-1 overflow-hidden flex flex-col">
       {@render children()}
     </main>
   </div>

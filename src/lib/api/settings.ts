@@ -1,5 +1,5 @@
 import { isTauri } from '$lib/api';
-import type { AppSettings, AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from './types';
+import type { AppSettings, AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnVisibility, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from './types';
 
 const MAX_RECENT_REPOS = 20;
 
@@ -312,5 +312,11 @@ export async function saveUntrackedExpanded(expanded: boolean): Promise<void> {
 export async function saveCommittedExpanded(expanded: boolean): Promise<void> {
   const settings = await getSettings();
   settings.committedExpanded = expanded;
+  await saveSettings(settings);
+}
+
+export async function saveColumnVisibility(visibility: GraphColumnVisibility): Promise<void> {
+  const settings = await getSettings();
+  settings.graphColumnVisibility = visibility;
   await saveSettings(settings);
 }

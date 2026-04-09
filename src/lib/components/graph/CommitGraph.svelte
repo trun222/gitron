@@ -11,10 +11,10 @@
     refreshAll, repoPath,
   } from '$lib/stores/repo';
   import { get } from 'svelte/store';
-  import { graphColumnWidths, saveGraphColumnWidths, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
+  import { graphColumnWidths, saveGraphColumnWidths, graphColumnVisibility, toggleColumnVisibility, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { linkedWorktrees } from '$lib/stores/worktree';
   import { gravatarUrl } from '$lib/utils/gravatar';
-  import type { Commit, Branch, Tag, StashEntry, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
+  import type { Commit, Branch, Tag, StashEntry, GraphColumnVisibility, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
 
   const GRAPH_COLOR_COUNT = 14;
   const ROW_HEIGHT = 30;
@@ -95,8 +95,20 @@
     return Math.max(colWidths.graph, layout.max_lanes * LANE_WIDTH + LANE_PADDING * 2);
   });
 
+  // Column visibility state from the store
+  let colVis: GraphColumnVisibility = $state({ graph: true, message: true, author: true, date: true, sha: true });
+  $effect(() => {
+    colVis = { ...$graphColumnVisibility };
+  });
+
   function getGridTemplate(): string {
-    return `${graphColumnWidth}px 1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
+    const parts: string[] = [];
+    parts.push(colVis.graph ? `${graphColumnWidth}px` : '0px');
+    parts.push(colVis.message ? '1fr' : '0px');
+    parts.push(colVis.author ? `${colWidths.author}px` : '0px');
+    parts.push(colVis.date ? `${colWidths.date}px` : '0px');
+    parts.push(colVis.sha ? `${colWidths.sha}px` : '0px');
+    return parts.join(' ');
   }
 
   // --- Column resize ---
@@ -361,7 +373,12 @@
   });
 
   function getSearchGridTemplate(): string {
-    return `1fr ${colWidths.author}px ${colWidths.date}px ${colWidths.sha}px`;
+    const parts: string[] = [];
+    parts.push(colVis.message ? '1fr' : '0px');
+    parts.push(colVis.author ? `${colWidths.author}px` : '0px');
+    parts.push(colVis.date ? `${colWidths.date}px` : '0px');
+    parts.push(colVis.sha ? `${colWidths.sha}px` : '0px');
+    return parts.join(' ');
   }
 
   function selectedIndex(): number {
@@ -816,21 +833,43 @@
     requestAnimationFrame(() => node.focus());
   }
 
+  // --- Column visibility context menu ---
+  let columnMenu: { x: number; y: number } | null = $state(null);
+
+  const COLUMN_LABELS: { key: keyof GraphColumnVisibility; label: string }[] = [
+    { key: 'graph', label: 'Graph' },
+    { key: 'message', label: 'Message' },
+    { key: 'author', label: 'Author' },
+    { key: 'date', label: 'Date' },
+    { key: 'sha', label: 'SHA' },
+  ];
+
+  function handleHeaderContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    columnMenu = { x: e.clientX, y: e.clientY };
+  }
+
+  function closeColumnMenu() {
+    columnMenu = null;
+  }
+
   // Close overlays on scroll
   function handleListScroll() {
     closeContextMenu();
     closeBranchPrompt();
     closeTagPrompt();
+    closeColumnMenu();
   }
 
   // Close overlays on Escape
   $effect(() => {
-    if (contextMenu || branchPrompt || tagPrompt) {
+    if (contextMenu || branchPrompt || tagPrompt || columnMenu) {
       const handler = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           closeContextMenu();
           closeBranchPrompt();
           closeTagPrompt();
+          closeColumnMenu();
         }
       };
       document.addEventListener('keydown', handler);
@@ -856,14 +895,28 @@
       </svg>
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+    <div class="commit-row px-2 py-1.5 bg-card border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wide" oncontextmenu={handleHeaderContextMenu}>
       {#if !isFiltering}
-        <span class="text-center header-cell">Graph<span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span></span>
+        <span class="text-center header-cell" class:hidden-col={!colVis.graph}>
+          {#if colVis.graph}Graph{/if}
+          <span class="resize-handle" role="separator" onmousedown={startResize('graph')}></span>
+        </span>
       {/if}
-      <span class="text-center header-cell">Message<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span></span>
-      <span class="text-center header-cell">Author<span class="resize-handle" role="separator" onmousedown={startResizePair('author', 'date')}></span></span>
-      <span class="text-center header-cell">Date<span class="resize-handle" role="separator" onmousedown={startResizePair('date', 'sha')}></span></span>
-      <span class="text-center">SHA</span>
+      <span class="text-center header-cell" class:hidden-col={!colVis.message}>
+        {#if colVis.message}Message{/if}
+        {#if colVis.message && colVis.author}<span class="resize-handle" role="separator" onmousedown={startResize('author', true)}></span>{/if}
+      </span>
+      <span class="text-center header-cell" class:hidden-col={!colVis.author}>
+        {#if colVis.author}Author{/if}
+        {#if colVis.author && colVis.date}<span class="resize-handle" role="separator" onmousedown={startResizePair('author', 'date')}></span>{/if}
+      </span>
+      <span class="text-center header-cell" class:hidden-col={!colVis.date}>
+        {#if colVis.date}Date{/if}
+        {#if colVis.date && colVis.sha}<span class="resize-handle" role="separator" onmousedown={startResizePair('date', 'sha')}></span>{/if}
+      </span>
+      <span class="text-center" class:hidden-col={!colVis.sha}>
+        {#if colVis.sha}SHA{/if}
+      </span>
     </div>
 
     {#if isAuthorFiltering}
@@ -912,23 +965,31 @@
             oncontextmenu={(e) => handleCommitContextMenu(e, commit)}
           >
             <!-- Message column -->
-            <span class="min-w-0 overflow-hidden truncate text-left">{commit.summary}</span>
-
-            <span class="author-cell text-muted-foreground text-center">
-              <img
-                class="avatar"
-                src={gravatarUrl(commit.author.email, 40)}
-                alt=""
-                loading="lazy"
-                onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
-              />
-              <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
-              </svg>
-              <span class="truncate">{commit.author.name}</span>
+            <span class="min-w-0 overflow-hidden truncate text-left" class:hidden-col={!colVis.message}>
+              {#if colVis.message}{commit.summary}{/if}
             </span>
-            <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
-            <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
+
+            <span class="author-cell text-muted-foreground text-center" class:hidden-col={!colVis.author}>
+              {#if colVis.author}
+                <img
+                  class="avatar"
+                  src={gravatarUrl(commit.author.email, 40)}
+                  alt=""
+                  loading="lazy"
+                  onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
+                />
+                <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
+                </svg>
+                <span class="truncate">{commit.author.name}</span>
+              {/if}
+            </span>
+            <span class="text-muted-foreground text-xs text-center" class:hidden-col={!colVis.date}>
+              {#if colVis.date}{formatDate(commit.timestamp)}{/if}
+            </span>
+            <span class="font-mono text-[11px] text-muted-foreground text-center" class:hidden-col={!colVis.sha}>
+              {#if colVis.sha}{commit.short_oid}{/if}
+            </span>
 
             <!-- Branch, tag & worktree labels in search mode -->
             {#if branches.length > 0 || tags.length > 0 || commitWorktrees.length > 0}
@@ -985,8 +1046,8 @@
           oncontextmenu={(e) => handleCommitContextMenu(e, commit)}
         >
           <!-- Graph column -->
-          <span class="graph-cell" style="height: {ROW_HEIGHT}px">
-            {#if node}
+          <span class="graph-cell" class:hidden-col={!colVis.graph} style="height: {ROW_HEIGHT}px">
+            {#if node && colVis.graph}
               <svg width={graphColumnWidth} height={ROW_HEIGHT} class="block" style="overflow: visible;" filter={isTronEnhanced ? 'url(#tron-glow)' : null}>
                 {#each [...rowLanes] as [lane, activity]}
                   {#if lane !== node.lane}
@@ -1130,24 +1191,32 @@
           </span>
 
           <!-- Message column -->
-          <span class="min-w-0 overflow-hidden truncate text-left">{commit.summary}</span>
-
-          <span class="author-cell text-muted-foreground text-center">
-            <img
-              class="avatar"
-              src={gravatarUrl(commit.author.email, 40)}
-              alt=""
-              loading="lazy"
-              onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
-            />
-            <!-- Fallback: person silhouette -->
-            <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
-            </svg>
-            <span class="truncate">{commit.author.name}</span>
+          <span class="min-w-0 overflow-hidden truncate text-left" class:hidden-col={!colVis.message}>
+            {#if colVis.message}{commit.summary}{/if}
           </span>
-          <span class="text-muted-foreground text-xs text-center">{formatDate(commit.timestamp)}</span>
-          <span class="font-mono text-[11px] text-muted-foreground text-center">{commit.short_oid}</span>
+
+          <span class="author-cell text-muted-foreground text-center" class:hidden-col={!colVis.author}>
+            {#if colVis.author}
+              <img
+                class="avatar"
+                src={gravatarUrl(commit.author.email, 40)}
+                alt=""
+                loading="lazy"
+                onerror={(e) => { const img = e.currentTarget as HTMLImageElement; img.style.display = 'none'; (img.nextElementSibling as HTMLElement)?.style.setProperty('display', ''); }}
+              />
+              <!-- Fallback: person silhouette -->
+              <svg class="avatar-fallback" style="display: none" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.72 4.72a.75.75 0 0 1-1.06 1.06A6.97 6.97 0 0 0 8 12a6.97 6.97 0 0 0-4.66 1.78.75.75 0 0 1-1.06-1.06A8.46 8.46 0 0 1 8 10.5c2.2 0 4.2.84 5.72 2.22Z"/>
+              </svg>
+              <span class="truncate">{commit.author.name}</span>
+            {/if}
+          </span>
+          <span class="text-muted-foreground text-xs text-center" class:hidden-col={!colVis.date}>
+            {#if colVis.date}{formatDate(commit.timestamp)}{/if}
+          </span>
+          <span class="font-mono text-[11px] text-muted-foreground text-center" class:hidden-col={!colVis.sha}>
+            {#if colVis.sha}{commit.short_oid}{/if}
+          </span>
         </button>
       {/each}
       {/if}
@@ -1158,6 +1227,37 @@
     </div>
   {/if}
 </div>
+
+<!-- Column visibility context menu -->
+{#if columnMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" onclick={closeColumnMenu} oncontextmenu={(e) => { e.preventDefault(); closeColumnMenu(); }}></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed z-50 min-w-[160px] rounded-lg border border-border bg-popover shadow-lg py-1"
+    style="left: {columnMenu.x}px; top: {columnMenu.y}px"
+    use:adjustMenuPosition
+    onclick={(e) => e.stopPropagation()}
+  >
+    <div class="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Columns</div>
+    {#each COLUMN_LABELS as col}
+      <button
+        type="button"
+        class="context-menu-item w-full text-left px-3 py-1.5 text-sm outline-none transition-colors text-popover-foreground hover:bg-accent cursor-pointer flex items-center gap-2"
+        onclick={() => toggleColumnVisibility(col.key)}
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="opacity: {colVis[col.key] ? 1 : 0.2}">
+          {#if colVis[col.key]}
+            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+          {:else}
+            <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          {/if}
+        </svg>
+        <span>{col.label}</span>
+      </button>
+    {/each}
+  </div>
+{/if}
 
 <!-- Context menu overlay -->
 {#if contextMenu}
@@ -1474,6 +1574,14 @@
     align-items: center;
     gap: 4px;
     pointer-events: auto;
+  }
+
+  .hidden-col {
+    overflow: hidden;
+    padding: 0 !important;
+    margin: 0;
+    border: none;
+    visibility: hidden;
   }
 
   .context-menu-item:disabled {

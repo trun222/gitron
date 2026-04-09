@@ -110,6 +110,8 @@ export interface RepoStatus {
   untracked: string[];
   conflicted: string[];
   state: RepoState;
+  operation_step: number | null;
+  operation_total: number | null;
 }
 
 export interface FileStatus {
@@ -391,6 +393,14 @@ export interface GraphColumnWidths {
   sha: number;
 }
 
+export interface GraphColumnVisibility {
+  graph: boolean;
+  message: boolean;
+  author: boolean;
+  date: boolean;
+  sha: boolean;
+}
+
 export interface AppSettings {
   lastActiveRepo: string | null;
   recentRepos: RecentRepo[];
@@ -425,4 +435,5 @@ export interface AppSettings {
   unstagedExpanded?: boolean;
   untrackedExpanded?: boolean;
   committedExpanded?: boolean;
+  graphColumnVisibility?: GraphColumnVisibility;
 }

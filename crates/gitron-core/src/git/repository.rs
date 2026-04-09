@@ -7,6 +7,15 @@ use git2::Repository;
 use super::cli;
 use super::error::{GitError, GitResult};
 use super::types::*;
+use crate::watcher::manager::{pause_watcher, resume_watcher};
+
+/// Run a closure with the file watcher paused to prevent ref lock races.
+fn with_watcher_paused<T>(f: impl FnOnce() -> T) -> T {
+    pause_watcher();
+    let result = f();
+    resume_watcher();
+    result
+}
 
 /// Global cache: maps input path → resolved .git directory.
 /// After the first `discover()`, subsequent opens use `Repository::open()` directly.
@@ -179,13 +188,62 @@ pub fn get_status(repo: &Repository) -> GitResult<RepoStatus> {
         _ => RepoState::Clean,
     };
 
+    // Read rebase/cherry-pick sequence progress if applicable
+    let (operation_step, operation_total) = read_sequence_progress(repo);
+
     Ok(RepoStatus {
         staged,
         unstaged,
         untracked,
         conflicted,
         state,
+        operation_step,
+        operation_total,
     })
+}
+
+/// Read rebase/cherry-pick sequence progress from .git state files.
+/// Returns (current_step, total_steps) — both 1-based.
+fn read_sequence_progress(repo: &Repository) -> (Option<u32>, Option<u32>) {
+    let git_dir = repo.path(); // .git directory
+
+    // Try rebase-merge (interactive rebase) first, then rebase-apply (am/rebase)
+    for subdir in &["rebase-merge", "rebase-apply"] {
+        let dir = git_dir.join(subdir);
+        if dir.exists() {
+            let step = std::fs::read_to_string(dir.join("msgnum"))
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok());
+            let total = std::fs::read_to_string(dir.join("end"))
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok());
+            if step.is_some() && total.is_some() {
+                return (step, total);
+            }
+        }
+    }
+
+    // Cherry-pick sequence: .git/sequencer/todo lists remaining picks
+    let seq_dir = git_dir.join("sequencer");
+    if seq_dir.exists() {
+        let todo = seq_dir.join("todo");
+        if todo.exists() {
+            if let Ok(content) = std::fs::read_to_string(&todo) {
+                let total_remaining = content.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')).count() as u32;
+                // sequencer doesn't track "msgnum" directly; approximate from done file
+                let done_count = std::fs::read_to_string(seq_dir.join("done"))
+                    .ok()
+                    .map(|c| c.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')).count() as u32)
+                    .unwrap_or(0);
+                let total = done_count + total_remaining;
+                if total > 0 {
+                    return (Some(done_count + 1), Some(total));
+                }
+            }
+        }
+    }
+
+    (None, None)
 }
 
 /// Stage a file by path
@@ -828,7 +886,7 @@ pub async fn clone_repo(url: &str, dest: &str) -> GitResult<CloneResult> {
 
 /// Rebase current branch onto the given branch (uses CLI)
 pub fn rebase_onto(workdir: &str, onto_branch: &str) -> GitResult<RebaseResult> {
-    let output = super::cli::run_git_raw(workdir, &["rebase", onto_branch])?;
+    let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["rebase", onto_branch]))?;
 
     let conflicted = output.exit_code != 0
         && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
@@ -845,7 +903,7 @@ pub fn rebase_onto(workdir: &str, onto_branch: &str) -> GitResult<RebaseResult> 
 
 /// Merge a branch into the current branch (uses CLI)
 pub fn merge_branch(workdir: &str, branch: &str) -> GitResult<MergeResult> {
-    let output = super::cli::run_git_raw(workdir, &["merge", branch])?;
+    let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["merge", branch]))?;
 
     let conflicted = output.exit_code != 0
         && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
@@ -969,10 +1027,10 @@ pub fn write_file_content(repo: &Repository, file_path: &str, content: &str) -> 
 
 /// Continue a rebase in progress (after conflicts are resolved)
 pub fn rebase_continue(workdir: &str) -> GitResult<RebaseResult> {
-    let output = super::cli::run_git_raw(
+    let output = with_watcher_paused(|| super::cli::run_git_raw(
         workdir,
         &["-c", "core.editor=true", "rebase", "--continue"],
-    )?;
+    ))?;
 
     let conflicted = output.exit_code != 0
         && (output.stderr.contains("CONFLICT") || output.stdout.contains("CONFLICT"));
@@ -989,7 +1047,7 @@ pub fn rebase_continue(workdir: &str) -> GitResult<RebaseResult> {
 
 /// Abort a rebase in progress
 pub fn rebase_abort(workdir: &str) -> GitResult<RebaseResult> {
-    let output = super::cli::run_git_raw(workdir, &["rebase", "--abort"])?;
+    let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["rebase", "--abort"]))?;
 
     Ok(RebaseResult {
         success: output.exit_code == 0,
@@ -1003,7 +1061,7 @@ pub fn rebase_abort(workdir: &str) -> GitResult<RebaseResult> {
 
 /// Abort a merge in progress
 pub fn merge_abort(workdir: &str) -> GitResult<MergeResult> {
-    let output = super::cli::run_git_raw(workdir, &["merge", "--abort"])?;
+    let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["merge", "--abort"]))?;
 
     Ok(MergeResult {
         success: output.exit_code == 0,
@@ -1017,7 +1075,7 @@ pub fn merge_abort(workdir: &str) -> GitResult<MergeResult> {
 
 /// Abort a cherry-pick in progress
 pub fn cherry_pick_abort(workdir: &str) -> GitResult<OperationOutput> {
-    let output = super::cli::run_git_raw(workdir, &["cherry-pick", "--abort"])?;
+    let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["cherry-pick", "--abort"]))?;
 
     if output.exit_code != 0 {
         return Err(GitError::CliError {

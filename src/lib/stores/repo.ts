@@ -327,10 +327,13 @@ export async function viewStagedFileDiff(path: string, filePath: string) {
   }
 }
 
-// File selection
+// File selection — tracks current request to avoid races
+let selectFileSeq = 0;
+
 export async function selectFile(path: string, section: FileSection) {
   const repoPathVal = get(repoPath);
   if (!repoPathVal) return;
+  const seq = ++selectFileSeq;
   selectedFile.set({ path, section });
   selectedCommit.set(null);
   selectedFileDiff.set(null);
@@ -338,14 +341,33 @@ export async function selectFile(path: string, section: FileSection) {
   if (section === 'conflicted') {
     try {
       const content = await api.getConflictedFile(repoPathVal, path);
+      if (seq !== selectFileSeq) return; // superseded by newer selection
       selectedConflictFile.set(content);
     } catch (e) {
+      if (seq !== selectFileSeq) return;
       error.set(String(e));
+      selectedFile.set(null);
     }
   } else if (section === 'staged') {
-    await viewStagedFileDiff(repoPathVal, path);
+    try {
+      const diff = await api.getStagedFileDiff(repoPathVal, path);
+      if (seq !== selectFileSeq) return;
+      selectedFileDiff.set(diff);
+    } catch (e) {
+      if (seq !== selectFileSeq) return;
+      error.set(String(e));
+      selectedFile.set(null);
+    }
   } else {
-    await viewFileDiff(repoPathVal, path);
+    try {
+      const diff = await api.getFileDiff(repoPathVal, path);
+      if (seq !== selectFileSeq) return;
+      selectedFileDiff.set(diff);
+    } catch (e) {
+      if (seq !== selectFileSeq) return;
+      error.set(String(e));
+      selectedFile.set(null);
+    }
   }
 }
 
@@ -737,7 +759,7 @@ export async function writeResolvedFile(filePath: string, content: string) {
     selectedFileDiff.set(null);
     // Move selection to next conflicted file if any
     if (status.conflicted.length > 0) {
-      selectFile(status.conflicted[0], 'conflicted');
+      await selectFile(status.conflicted[0], 'conflicted');
     } else {
       clearFileSelection();
     }

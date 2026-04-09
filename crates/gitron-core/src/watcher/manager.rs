@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use tokio::sync::mpsc;
@@ -12,6 +13,21 @@ use crate::event::EventEmitter;
 use crate::git::{graph, repository, types::*};
 
 use super::handler::{self, RepoChangeEvent, WatcherHandle};
+
+/// Global flag to suppress watcher processing during git CLI operations.
+/// Set this before running destructive git CLI commands (rebase, merge, etc.)
+/// to prevent the watcher from racing with ref updates.
+static WATCHER_PAUSED: AtomicBool = AtomicBool::new(false);
+
+/// Pause watcher event processing. Call before git CLI operations.
+pub fn pause_watcher() {
+    WATCHER_PAUSED.store(true, Ordering::SeqCst);
+}
+
+/// Resume watcher event processing. Call after git CLI operations complete.
+pub fn resume_watcher() {
+    WATCHER_PAUSED.store(false, Ordering::SeqCst);
+}
 
 /// Manages the file watcher lifecycle: start, stop, restart.
 pub struct WatcherManager {
@@ -73,6 +89,11 @@ async fn event_consumer(
                 RepoChangeEvent::WorkdirChanged => has_workdir = true,
                 RepoChangeEvent::HeadChanged | RepoChangeEvent::RefsChanged => has_refs = true,
             }
+        }
+
+        // Skip processing if watcher is paused (git CLI operation in progress)
+        if WATCHER_PAUSED.load(Ordering::SeqCst) {
+            continue;
         }
 
         if has_refs {

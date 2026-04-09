@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from '$lib/api/types';
+import type { AutoFetchInterval, ChangesViewMode, EditorFontSize, FileWatcherInterval, GraphColumnVisibility, GraphColumnWidths, MonoFont, RecentRepo, TerminalCursorStyle, ThemeMode, ZoomLevel } from '$lib/api/types';
 import * as settingsApi from '$lib/api/settings';
 import * as repoApi from '$lib/api/repo';
 import { startAutoFetch, stopAutoFetch } from '$lib/stores/autofetch';
@@ -44,6 +44,13 @@ export const stagedExpanded = writable(true);
 export const unstagedExpanded = writable(true);
 export const untrackedExpanded = writable(true);
 export const committedExpanded = writable(true);
+export const graphColumnVisibility = writable<GraphColumnVisibility>({
+  graph: true,
+  message: true,
+  author: true,
+  date: true,
+  sha: true,
+});
 
 // Derived: pinned first, then by lastOpened descending
 export const sortedRecentRepos = derived(recentRepos, ($repos) => {
@@ -424,6 +431,11 @@ export async function loadSettings(): Promise<void> {
   untrackedExpanded.set(settings.untrackedExpanded ?? true);
   committedExpanded.set(settings.committedExpanded ?? true);
 
+  // Column visibility
+  if (settings.graphColumnVisibility) {
+    graphColumnVisibility.set(settings.graphColumnVisibility);
+  }
+
   settingsLoaded.set(true);
 }
 
@@ -447,6 +459,22 @@ export async function togglePin(path: string): Promise<void> {
 export async function saveGraphColumnWidths(widths: GraphColumnWidths): Promise<void> {
   graphColumnWidths.set(widths);
   await settingsApi.saveColumnWidths(widths);
+}
+
+export async function saveGraphColumnVisibility(visibility: GraphColumnVisibility): Promise<void> {
+  graphColumnVisibility.set(visibility);
+  await settingsApi.saveColumnVisibility(visibility);
+}
+
+export async function toggleColumnVisibility(column: keyof GraphColumnVisibility): Promise<void> {
+  graphColumnVisibility.update((current) => {
+    const next = { ...current, [column]: !current[column] };
+    // Prevent hiding all columns — message must stay visible
+    const anyVisible = Object.values(next).some(Boolean);
+    if (!anyVisible) return current;
+    settingsApi.saveColumnVisibility(next);
+    return next;
+  });
 }
 
 export async function toggleSidebar(): Promise<void> {
