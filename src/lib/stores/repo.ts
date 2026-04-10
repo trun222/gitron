@@ -17,7 +17,7 @@ import type {
 import * as api from '$lib/api/repo';
 import { trackRepoOpen, excludedAuthors, protectedBranches } from '$lib/stores/settings';
 import { addOutput } from '$lib/stores/output';
-import { addToast } from '$lib/stores/toast';
+import { addToast, updateToast } from '$lib/stores/toast';
 import { startWatcherListeners, stopWatcherListeners } from '$lib/stores/watcher';
 
 // File selection types
@@ -84,6 +84,9 @@ export const deleteBranchConfirm = writable<DeleteBranchConfirmInfo>({
 export const cleanupBranchesOpen = writable(false);
 export const cleanupBranchesList = writable<MergedBranch[]>([]);
 export const cleanupBranchesLoading = writable(false);
+
+// Delete all branches dialog
+export const deleteAllBranchesOpen = writable(false);
 
 // Purge checkpoint refs dialog
 export const purgeCheckpointsOpen = writable(false);
@@ -800,6 +803,7 @@ export async function deleteTag(name: string) {
   try {
     await api.deleteTag(path, name);
     await refreshAll(path);
+    addToast(`Deleted tag '${name}'`, 'success');
   } catch (e) {
     error.set(String(e));
   }
@@ -827,10 +831,12 @@ export async function pushTag(tagName: string, force?: boolean) {
   try {
     const result = await api.pushTag(path, remote.name, tagName, force);
     addOutput('push-tag', result.output.stdout, result.output.stderr, true);
+    addToast(`Pushed tag '${tagName}' to ${remote.name}`, 'success');
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     error.set(String(e));
     addOutput('push-tag', '', String(e), false);
+    addToast(`Failed to push tag '${tagName}'`, 'error');
   }
 }
 
@@ -845,10 +851,12 @@ export async function deleteRemoteTag(tagName: string) {
   try {
     await api.deleteRemoteTag(path, remote.name, tagName);
     addOutput('delete-remote-tag', `Deleted remote tag '${tagName}'`, '', true);
+    addToast(`Deleted remote tag '${tagName}' from ${remote.name}`, 'success');
     refreshRemoteTags(); // fire-and-forget
   } catch (e) {
     error.set(String(e));
     addOutput('delete-remote-tag', '', String(e), false);
+    addToast(`Failed to delete remote tag '${tagName}'`, 'error');
   }
 }
 
@@ -908,6 +916,54 @@ export async function confirmCleanupBranches(branches: MergedBranch[]) {
   } catch (e) {
     error.set(String(e));
     addToast(String(e), 'error');
+  }
+}
+
+export async function confirmDeleteAllBranches(branches: Branch[]) {
+  const path = get(repoPath);
+  if (!path) return;
+  deleteAllBranchesOpen.set(false);
+
+  const total = branches.length;
+  if (total === 0) return;
+
+  const toastId = addToast(`Deleting branches (0/${total})...`, 'info', 0);
+
+  let deleted = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const branch of branches) {
+    const displayName = branch.name;
+    updateToast(toastId, `Deleting "${displayName}" (${deleted + failed + 1}/${total})...`);
+
+    try {
+      if (branch.is_remote) {
+        const slashIdx = branch.name.indexOf('/');
+        if (slashIdx > 0) {
+          const remote = branch.name.substring(0, slashIdx);
+          const branchName = branch.name.substring(slashIdx + 1);
+          await api.deleteRemoteBranch(path, remote, branchName);
+        } else {
+          throw new Error(`Invalid remote branch format: ${branch.name}`);
+        }
+      } else {
+        await api.deleteBranch(path, branch.name);
+      }
+      deleted++;
+    } catch (e) {
+      failed++;
+      errors.push(`${displayName}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  await refreshAll(path);
+
+  if (failed === 0) {
+    updateToast(toastId, `Deleted all ${deleted} branch${deleted === 1 ? '' : 'es'}`, 'success', 4000);
+  } else {
+    updateToast(toastId, `Deleted ${deleted}/${total} branch${total === 1 ? '' : 'es'}, ${failed} failed`, 'error', 6000);
+    addOutput('Delete all branches', `Deleted ${deleted}/${total}`, errors.join('\n'), false);
   }
 }
 

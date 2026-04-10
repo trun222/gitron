@@ -16,6 +16,7 @@
     commitGraph,
     openCleanupBranches,
     openPurgeCheckpoints,
+    deleteAllBranchesOpen,
   } from '$lib/stores/repo';
   import { openCloneDialog } from '$lib/stores/clone';
   import { isTauri } from '$lib/api';
@@ -192,6 +193,13 @@
     search = '';
     inputRef?.blur();
     openCleanupBranches();
+  }
+
+  function handleDeleteAllBranches() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    deleteAllBranchesOpen.set(true);
   }
 
   function handlePurgeCheckpoints() {
@@ -628,6 +636,15 @@
                 >
                   <svg class="shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
                   <span>Clean Up Merged Branches...</span>
+                </Command.Item>
+                <Command.Item
+                  value="delete-all-branches"
+                  keywords={['delete', 'all', 'branches', 'remove', 'bulk', 'nuke', 'clean']}
+                  onSelect={handleDeleteAllBranches}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-destructive" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Delete All Branches...</span>
                 </Command.Item>
                 <Command.Item
                   value="purge-checkpoint-refs"

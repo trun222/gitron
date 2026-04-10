@@ -300,8 +300,8 @@
     return map;
   });
 
-  // Remote-only tag ghosts: tags that exist on remote at a different OID than local.
-  // These show as dimmed pills at the remote's commit, like remote-only branches.
+  // Remote-only tag ghosts: tags that exist on remote but either don't exist locally
+  // or point to a different OID than the local tag. Shown as dimmed pills at the remote's commit.
   interface RemoteTagGhost {
     name: string;
     oid: string;
@@ -314,8 +314,8 @@
 
     for (const [name, remoteOid] of $remoteTagMap) {
       const localOid = localByName.get(name);
-      // Show ghost only when local tag exists but points elsewhere (tag was moved)
-      if (localOid && localOid !== remoteOid) {
+      // Show ghost when local tag doesn't exist or points to a different OID
+      if (!localOid || localOid !== remoteOid) {
         const arr = map.get(remoteOid);
         if (arr) arr.push({ name, oid: remoteOid });
         else map.set(remoteOid, [{ name, oid: remoteOid }]);
@@ -671,6 +671,29 @@
       y: e.clientY,
       tagName: tag.name,
       commitOid: tag.target_oid,
+      items,
+    };
+  }
+
+  function handleGhostTagContextMenu(e: MouseEvent, ghost: RemoteTagGhost) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    const localTags = $commitGraph?.tags ?? [];
+    const hasLocal = localTags.some((t) => t.name === ghost.name);
+    const items: (MenuAction | 'separator')[] = [
+      { id: 'delete-remote-tag', label: 'Delete from remote', danger: true },
+      'separator',
+      { id: 'copy-tag-name', label: 'Copy tag name' },
+    ];
+    if (hasLocal) {
+      items.push('separator', { id: 'delete-tag', label: 'Delete local tag', danger: true });
+    }
+    contextMenu = {
+      x: e.clientX,
+      y: e.clientY,
+      tagName: ghost.name,
+      commitOid: ghost.oid,
       items,
     };
   }
@@ -1169,7 +1192,13 @@
                     </span>
                   {/each}
                   {#each getRemoteTagGhostsForCommit(commit.oid) as ghost}
-                    <span class="tag-pill tag-pill-remote" title="{ghost.name} (remote)">
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <span
+                      class="tag-pill tag-pill-remote"
+                      title="{ghost.name} (remote)"
+                      onclick={(e) => e.stopPropagation()}
+                      oncontextmenu={(e) => handleGhostTagContextMenu(e, ghost)}
+                    >
                       <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
                       <span class="pill-text">{ghost.name}</span>
                       <svg class="branch-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 11a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5Zm-.4-3.8A3.5 3.5 0 0 1 11 5.5a.5.5 0 0 0 .5.5 2.5 2.5 0 0 1 0 5h-7a3 3 0 0 1-.4-5.8ZM8 3a4.5 4.5 0 0 0-4.38 3.48A4 4 0 0 0 4.5 14h7a3.5 3.5 0 0 0 .83-6.9A4.49 4.49 0 0 0 8 3Z"/></svg>
@@ -1330,6 +1359,10 @@
     <input
       class="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md outline-none focus:border-primary transition-colors"
       placeholder="Branch name..."
+      autocapitalize="off"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
       bind:value={newBranchName}
       onkeydown={handleBranchPromptKeydown}
       use:autoFocusAction
@@ -1351,6 +1384,10 @@
     <input
       class="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md outline-none focus:border-primary transition-colors"
       placeholder="Tag name..."
+      autocapitalize="off"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
       bind:value={newTagName}
       onkeydown={handleTagPromptKeydown}
       use:autoFocusAction
