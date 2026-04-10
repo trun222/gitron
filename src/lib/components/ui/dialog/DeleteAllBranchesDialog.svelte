@@ -7,13 +7,18 @@
     currentBranch,
     confirmDeleteAllBranches,
   } from '$lib/stores/repo';
+  import { protectedBranches } from '$lib/stores/settings';
   import type { Branch } from '$lib/api/types';
+
+  function isProtected(name: string): boolean {
+    return $protectedBranches.some((p) => name === p || name.endsWith('/' + p));
+  }
 
   let selected = $state<Set<string>>(new Set());
 
-  // All deletable branches: local (non-HEAD) + remote
-  let deletableLocal = $derived($localBranches.filter((b) => !b.is_head));
-  let deletableRemote = $derived($remoteBranches);
+  // All deletable branches: local (non-HEAD, non-protected) + remote (non-protected)
+  let deletableLocal = $derived($localBranches.filter((b) => !b.is_head && !isProtected(b.name)));
+  let deletableRemote = $derived($remoteBranches.filter((b) => !isProtected(b.name) && !b.name.endsWith('/HEAD')));
   let allBranches = $derived([...deletableLocal, ...deletableRemote]);
 
   // Reset selection when the dialog opens — all selected by default

@@ -13,6 +13,7 @@
     protectedBranches, addProtectedBranch, removeProtectedBranch, setProtectedBranches,
   } from '$lib/stores/settings';
   import { isTauri } from '$lib/api';
+  import { localBranches, remoteBranches } from '$lib/stores/repo';
   import type { AutoFetchInterval, FileWatcherInterval, TerminalCursorStyle } from '$lib/api/types';
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
@@ -33,13 +34,43 @@
   ];
 
   let newAuthorInput = $state('');
-  let newBranchInput = $state('');
+  let branchDropdownOpen = $state(false);
+  let branchSearchQuery = $state('');
 
-  function handleAddProtectedBranch() {
-    const trimmed = newBranchInput.trim();
-    if (trimmed) {
-      addProtectedBranch(trimmed);
-      newBranchInput = '';
+  // Unique short branch names from both local and remote branches
+  let availableBranchNames = $derived(() => {
+    const names = new Set<string>();
+    for (const b of $localBranches) {
+      names.add(b.name);
+    }
+    for (const b of $remoteBranches) {
+      // Strip remote prefix (e.g. "origin/main" → "main")
+      const slashIdx = b.name.indexOf('/');
+      if (slashIdx > 0) {
+        names.add(b.name.substring(slashIdx + 1));
+      }
+    }
+    // Exclude already-protected and HEAD
+    const protected_ = new Set($protectedBranches);
+    return [...names].filter((n) => !protected_.has(n) && n !== 'HEAD').sort();
+  });
+
+  let filteredBranchNames = $derived(() => {
+    const q = branchSearchQuery.toLowerCase().trim();
+    if (!q) return availableBranchNames();
+    return availableBranchNames().filter((n) => n.toLowerCase().includes(q));
+  });
+
+  function selectBranch(name: string) {
+    addProtectedBranch(name);
+    branchSearchQuery = '';
+    branchDropdownOpen = false;
+  }
+
+  function handleWindowClick(e: MouseEvent) {
+    if (branchDropdownOpen) {
+      const wrapper = (e.target as HTMLElement)?.closest('.branch-dropdown-wrapper');
+      if (!wrapper) branchDropdownOpen = false;
     }
   }
 
@@ -64,6 +95,8 @@
     }
   }
 </script>
+
+<svelte:window onclick={handleWindowClick} />
 
 <div class="section">
   <h3 class="section-title">Fetch</h3>
@@ -265,7 +298,7 @@
   <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
     <div class="setting-label">
       <span class="label-text">Protected branches</span>
-      <span class="label-description">These branches will never appear in the "Clean Up Merged Branches" dialog.</span>
+      <span class="label-description">These branches are excluded from "Clean Up Merged Branches" and "Delete All Branches".</span>
     </div>
     {#if $protectedBranches.length > 0}
       <div class="excluded-authors-list">
@@ -286,15 +319,39 @@
     {:else}
       <span class="no-authors-text">No protected branches</span>
     {/if}
-    <div class="add-author-row">
-      <input
-        type="text"
-        class="text-input"
-        placeholder="Branch name to protect..."
-        bind:value={newBranchInput}
-        onkeydown={(e) => { if (e.key === 'Enter') handleAddProtectedBranch(); }}
-      />
-      <button class="add-author-btn" onclick={handleAddProtectedBranch} disabled={!newBranchInput.trim()}>Add</button>
+    <div class="branch-dropdown-wrapper">
+      <button
+        class="branch-dropdown-trigger"
+        onclick={() => { branchDropdownOpen = !branchDropdownOpen; branchSearchQuery = ''; }}
+        disabled={availableBranchNames().length === 0}
+      >
+        {availableBranchNames().length === 0 ? 'No branches available' : 'Add branch...'}
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" class="dropdown-chevron" style="transform: rotate({branchDropdownOpen ? '180deg' : '0deg'})"><path d="M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/></svg>
+      </button>
+      {#if branchDropdownOpen}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="branch-dropdown-menu" onkeydown={(e) => { if (e.key === 'Escape') branchDropdownOpen = false; }}>
+          <input
+            type="text"
+            class="branch-dropdown-search"
+            placeholder="Search branches..."
+            autocapitalize="off"
+            bind:value={branchSearchQuery}
+          />
+          <div class="branch-dropdown-list">
+            {#each filteredBranchNames() as name (name)}
+              <button class="branch-dropdown-item" onclick={() => selectBranch(name)}>
+                <svg class="shrink-0 text-muted-foreground" viewBox="0 0 16 16" width="12" height="12">
+                  <path fill="currentColor" d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z" />
+                </svg>
+                {name}
+              </button>
+            {:else}
+              <span class="branch-dropdown-empty">No matching branches</span>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -497,5 +554,87 @@
   }
   .clear-all-btn:hover {
     color: var(--foreground);
+  }
+
+  .branch-dropdown-wrapper {
+    position: relative;
+  }
+  .branch-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .branch-dropdown-trigger:hover:not(:disabled) {
+    border-color: var(--primary);
+  }
+  .branch-dropdown-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .dropdown-chevron {
+    transition: transform 0.15s;
+  }
+  .branch-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: var(--popover);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+  }
+  .branch-dropdown-search {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--foreground);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    outline: none;
+  }
+  .branch-dropdown-search::placeholder {
+    color: var(--muted-foreground);
+  }
+  .branch-dropdown-list {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .branch-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    color: var(--foreground);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.1s;
+  }
+  .branch-dropdown-item:hover {
+    background: var(--accent);
+  }
+  .branch-dropdown-empty {
+    display: block;
+    padding: 12px 10px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    text-align: center;
   }
 </style>
