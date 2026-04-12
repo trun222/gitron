@@ -6,9 +6,9 @@
   <p align="center">
     <a href="#installation">Install</a> &middot;
     <a href="#features">Features</a> &middot;
+    <a href="#ai-commit-messages">AI</a> &middot;
     <a href="#server-mode">Server Mode</a> &middot;
     <a href="#development">Development</a> &middot;
-    <a href="#roadmap">Roadmap</a> &middot;
     <a href="#contributing">Contributing</a>
   </p>
 </p>
@@ -19,102 +19,199 @@
 
 ---
 
-Gitron is a fast, cross-platform Git GUI that aims to deliver the polish and depth of GitKraken — for free, as open source. Built on Rust (Tauri v2) for performance and Svelte 5 for a responsive UI, Gitron is designed from the ground up with a plugin architecture and first-class AI agent integration.
-
-Gitron runs in two modes from the same codebase: as a **native desktop app** (Tauri v2) or as a **self-hosted web server** you can access from any browser.
-
-> **Status:** Active development (v0.5.0). Core git operations, branching, remotes, AI features, and commit graph filtering work. Desktop and server modes available.
-
-## Why Gitron?
-
-The Git GUI landscape has a gap:
-
-- **GitKraken** — polished but Electron-heavy, partially paywalled, closed-source
-- **GitHub Desktop** — limited features, GitHub-centric, Electron
-- **GitButler** — innovative but opinionated (virtual branches), not a traditional Git GUI
-- **Lazygit** — excellent but terminal-only
-- **Gittyup** — small community, limited momentum
-
-Gitron fills the gap: a **fast, full-featured, cross-platform, open-source Git GUI** with a plugin architecture and first-class AI agent integration.
+Gitron is a fast, cross-platform Git GUI built on Rust (Tauri v2) and Svelte 5. It runs in two modes from the same codebase: as a **native desktop app** or as a **self-hosted web server** accessible from any browser.
 
 ## Features
 
-### What works today
+### Commit Graph
 
-- **Commit graph** — resizable, multi-column commit list with keyboard navigation, author filtering to hide noisy commits (e.g. bots), and collapsible committed files
-- **Commit search** — search commits by message, author, or diff content from the command bar
-- **Commit diff viewer** — click any commit to see its changed files in the sidebar, click a file to view its full diff with syntax highlighting and arrow key navigation
-- **Staging panel** — interactive stage/unstage per file with bulk actions, flat or tree view
-- **Discard changes** — discard individual files or directories via context menu
-- **Gitignore management** — right-click files or extensions to add them to `.gitignore`
-- **Commit authoring** — message input with Cmd/Ctrl+Enter to commit
-- **AI commit messages** — generate commit titles and descriptions from staged diffs using OpenAI, Anthropic, Gemini, or OpenRouter
-- **Inline diff viewer** — syntax-highlighted diffs powered by Shiki (Catppuccin Mocha theme)
-- **Branch management** — create, checkout, delete, merge, and rebase branches
-- **Remote operations** — fetch, pull, push, force push, delete remote branches
-- **Stash management** — apply, pop, and drop stashes
-- **Tag management** — create, delete, push tags; remote tag tracking; tags sorted by commit position
-- **GitHub integration** — OAuth device flow login, user profile display
-- **Command palette** — Cmd/Ctrl+K to search repos, branches, and actions
-- **Self-hosted server mode** — run Gitron as a web server accessible from any browser, with Docker support
-- **Settings persistence** — recent repositories, column widths saved between sessions, expand-tree-by-default option
-- **Auto-fetch** — configurable auto-fetch intervals (15s, 30s, 1m, 5m) with silent background fetching
-- **Keyboard shortcuts** — graph navigation, staging shortcuts, commit file navigation, command palette
+- Visual lane-based branch graph with colored paths and merge lines
+- Multi-column layout: graph, message, author, date, SHA — all resizable with persistent widths
+- Column visibility toggles — show or hide individual columns
+- Author filtering to exclude noisy commits (bots, CI)
+- Gravatar avatars for commit authors
+- Worktree indicators on commits
+- Keyboard navigation (arrow keys to move, Enter to select)
 
-### Planned
+### Commit Search
 
-- Side-by-side diffs, hunk-level staging
-- Merge conflict resolution editor, interactive rebase, cherry-pick
-- Git blame, file history
-- **Plugin system** — extend Gitron with Rust backend plugins and Svelte frontend plugins
-- **Agent Gateway** — MCP server exposing repo state to AI agents with permissioned access
+- Full-text search across commit messages from the command bar (`/`)
+- Optional diff content search — find commits that changed specific code
+- Live results with debounced highlighting
+- Navigate between matches with keyboard
 
-See the full [Roadmap](#roadmap) below.
+### Staging & Commits
 
-## AI Commit Messages
+- Stage and unstage individual files, directories, or all at once
+- Flat file list or collapsible tree view for working changes
+- Discard changes per file, per directory, or all at once via context menu
+- Add files or extensions to `.gitignore` from the right-click menu
+- Commit with title and optional multi-line body
+- `Cmd+Enter` / `Ctrl+Enter` to commit
+- Git hooks are executed on commit
+- Commits are disabled during rebase and merge conflicts to prevent mistakes
 
-Gitron can generate conventional commit messages from your staged diffs using LLM providers. Stage your files, click the sparkle button next to the commit title, and Gitron will produce a title and description.
+### Diff Viewer
 
-### Setup
+- Syntax-highlighted inline diffs powered by Shiki (Catppuccin Mocha theme)
+- View diffs for unstaged changes, staged changes, or any commit's files
+- Click a commit to see its changed files in the sidebar, then click a file to view the diff
+- Arrow key navigation between files
+- Hunk grouping with skip indicators
+- File status badges (added, modified, deleted, renamed, conflicted)
 
-1. Open **Settings** (gear icon in the toolbar) and go to the **AI** tab
-2. Choose a provider (OpenAI, Anthropic, Gemini, or OpenRouter)
-3. Paste your API key — it's stored securely in your OS keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service)
-4. Select a model from the dropdown (models are fetched live from the provider's API)
-5. Click the radio button to make it your active provider
+### Branches
 
-### Usage
+- Create, checkout, delete, merge, and rebase branches
+- Protected branches — configurable list (main, master, develop by default) prevents accidental deletion
+- Branch conflict detection — prompts when a local and remote branch share a name
+- Find and clean up merged branches with an interactive selection dialog
+- Bulk delete all non-protected local branches
+- Reset to any commit (soft, mixed, or hard)
+- Rebase continue/abort and merge abort from the UI
+- Cherry-pick abort support
 
-1. Stage one or more files in the sidebar
-2. Click the **sparkle button** next to the commit title input
-3. Gitron reads your staged diffs, sends them to the selected AI model, and fills in both the commit title and description
-4. Edit the generated message if needed, then commit
+### Conflict Resolution
 
-### Supported Providers
+- Automatic detection of merge, rebase, and cherry-pick conflicts
+- Conflict banner with operation progress and continue/abort controls
+- Conflicted files listed in their own sidebar section
+- Line-level ours/theirs selection in the diff viewer
+- Quick "accept ours" / "accept theirs" for full sections
+- Step-by-step progress tracking during multi-commit rebases
+
+### Remotes
+
+- List, add, and remove remotes
+- Fetch from a specific remote or all at once
+- Pull and push with tracking status (ahead/behind counts)
+- Force push with confirmation dialog
+- Delete remote branches
+- Checkout remote branches as local tracking branches
+- Auto-fetch at configurable intervals (off, 15s, 30s, 1m, 5m, 15m)
+
+### Tags
+
+- Create annotated or lightweight tags at any commit
+- Delete local and remote tags
+- Move tags to a different commit
+- Push tags to remotes (single or force)
+- View remote-only tags with context menu actions
+- Tags sorted by commit position in the graph
+- Click a tag to jump to its commit
+
+### Stashes
+
+- Save stashes with an optional message
+- Apply, pop, or drop individual stashes
+- Full stash list in the sidebar
+- Quick stash access from the command palette
+
+### Worktrees
+
+- List, add, and remove linked worktrees
+- Lock and unlock worktrees
+- Prune stale worktree entries
+- Worktree indicators shown on commits in the graph
+- Sidebar visibility toggle
+
+### Checkpoints
+
+- Detect refs created by AI coding tools (Claude, Copilot, Cursor, etc.)
+- Purge checkpoint refs and run garbage collection to reclaim disk space
+
+### GitHub Integration
+
+- Device flow OAuth login — no app registration required
+- User profile display in the toolbar
+- Browse and search your GitHub repositories
+- Clone repositories directly from the GitHub repo list
+
+### AI Commit Messages
+
+Generate conventional commit messages from your staged diffs using LLM providers. Stage your files, click the sparkle button next to the commit title, and Gitron fills in both the title and description.
+
+**Supported providers:**
 
 | Provider | Models | Notes |
 |----------|--------|-------|
-| **OpenAI** | GPT-4.1 Nano, GPT-4.1 Mini, GPT-4o Mini, and more | Models fetched dynamically; filtered to chat-capable models |
-| **Anthropic** | Claude 4.5 Haiku, Claude Sonnet, etc. | Models fetched dynamically; sorted by cost tier |
-| **Gemini** | Gemini 2.0 Flash Lite, Gemini 2.0 Flash, and more | Models fetched dynamically; filtered to text generation |
+| **OpenAI** | GPT-4.1 Nano, GPT-4.1 Mini, GPT-4o Mini, and more | Filtered to chat-capable models |
+| **Anthropic** | Claude 4.5 Haiku, Claude Sonnet, etc. | Sorted by cost tier |
+| **Gemini** | Gemini 2.0 Flash Lite, Gemini 2.0 Flash, and more | Filtered to text generation |
 | **OpenRouter** | Auto (best available) + affordable models | Filtered to models under $2/M input tokens |
 
-### Advanced Settings
+**Setup:** Open Settings (gear icon) > AI tab > choose a provider > paste your API key > select a model > activate the provider.
 
-Under the **Advanced** section for each provider:
+**Advanced options:** custom base URL for proxies or self-hosted models, configurable max output tokens (500–4,000).
 
-- **Custom Base URL** — override the default API endpoint (useful for proxies or self-hosted models)
-- **Max Output Tokens** — control how many tokens the model can use for the response (default: 1,500). Options: 500, 1,000, 1,500, 2,000, 4,000
+**Privacy:** API keys are stored in your OS keychain (not plain text). Diffs go directly to your chosen provider — Gitron does not proxy or store your code. Only staged diffs are sent, truncated to ~8,000 characters for large changesets.
 
-### Privacy
+### Integrated Terminal
 
-- Your API keys are stored in the OS keychain, not in plain text
-- Diffs are sent directly to the provider you select — Gitron does not proxy or store your code
-- Only staged diffs are sent (truncated to ~8,000 characters for large changesets)
+- Built-in PTY terminal panel powered by xterm.js
+- Opens in the current repository directory
+- Configurable shell, font, cursor style, and scrollback buffer
+- Clickable URLs
+- Open external terminal from context menu (iTerm, Warp, Alacritty, Kitty, Ghostty, Windows Terminal, and more)
+- Toggle with `Ctrl+``
+
+### Output Panel
+
+- View stdout/stderr from git operations
+- Color-coded success and error output
+- Toggle with `Cmd+``
+
+### Command Palette
+
+Open with **Cmd+K** (macOS) or **Ctrl+K** (Windows/Linux) to quickly access:
+
+- Open, switch, or clone repositories
+- Create, checkout, delete, merge, or rebase branches
+- Stage, unstage, or discard files
+- Save, apply, pop, or drop stashes
+- Add or remove remotes
+- Fetch, pull, push
+- Create or delete worktrees
+- Search commits
+- Clean up merged branches, purge checkpoint refs
+- Open repository in terminal
+
+### Settings
+
+| Category | Options |
+|----------|---------|
+| **Appearance** | Theme (Tron, Tron Enhanced, Dark, Light, System), zoom (80–150%), high contrast mode, editor font size, monospace font family |
+| **Git** | Auto-fetch interval, file watcher interval, verbose error display, protected branches list, excluded authors |
+| **Terminal** | Shell, font size, font family, cursor style (block/underline/bar), scrollback buffer |
+| **AI** | Provider, API key, model selection, custom base URL, max output tokens |
+| **GitHub** | Authentication status, OAuth token |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+K` / `Ctrl+K` | Open command palette |
+| `Cmd+R` | Refresh repository |
+| `/` | Search commits |
+| `?` | Show keyboard shortcuts |
+| `Cmd+,` | Open settings |
+| `Cmd+`` ` | Toggle output panel |
+| `` Ctrl+` `` | Toggle terminal |
+| `Escape` | Close panel / clear selection |
+| `Up / Down` | Navigate commits or files |
+| `S` | Stage selected file |
+| `U` | Unstage selected file |
+| `Cmd+Shift+A` | Stage all |
+| `Cmd+Shift+U` | Unstage all |
+| `Cmd+Shift+D` | Discard all changes |
+| `Cmd+Enter` | Create commit |
+| `Cmd+Shift+P` | Push |
+| `Cmd+Shift+L` | Pull |
+| `Cmd+Shift+F` | Fetch |
 
 ## Server Mode
 
-Gitron can run as a self-hosted web server, giving you a full Git GUI accessible from any browser. This is useful for headless servers, remote development machines, or teams that want a shared Git interface without installing a desktop app.
+Run Gitron as a self-hosted web server for headless machines, remote development, or browser-based access.
 
 ### Quick Start with Docker
 
@@ -137,8 +234,6 @@ docker build -t gitron-server .
 ```
 
 ### Run the Server Binary Directly
-
-If you prefer running without Docker, build and run the server binary:
 
 ```bash
 # Build
@@ -164,7 +259,7 @@ Options:
 
 ### Authentication
 
-When binding to a non-localhost address (e.g. `--host 0.0.0.0`), the server requires a bearer token for API access. Pass it with `--token`:
+When binding to a non-localhost address, the server requires a bearer token:
 
 ```bash
 gitron-server --host 0.0.0.0 --token my-secret-token
@@ -174,7 +269,7 @@ The frontend will prompt for the token on first load.
 
 ### Credentials and Settings
 
-In server mode, credentials and settings are stored as JSON files in `~/.config/gitron/`:
+In server mode, credentials and settings are stored in `~/.config/gitron/`:
 
 - `credentials.json` — API keys for AI providers
 - `ai_settings.json` — AI provider configuration
@@ -182,13 +277,11 @@ In server mode, credentials and settings are stored as JSON files in `~/.config/
 
 ## Installation
 
-### Download (coming soon)
+### Download
 
-Pre-built binaries for macOS, Windows, and Linux will be available on the [Releases](https://github.com/thomasunderwoodii/gitron/releases) page once the project reaches a stable milestone.
+Pre-built binaries for macOS (ARM and Intel), Windows, and Linux are available on the [Releases](https://github.com/thomasunderwoodii/gitron/releases) page.
 
-### Build from source
-
-Building from source works on macOS, Windows, and Linux.
+### Build from Source
 
 #### Prerequisites
 
@@ -201,29 +294,21 @@ Building from source works on macOS, Windows, and Linux.
 
 #### macOS
 
-Install Xcode Command Line Tools (required for Rust compilation and system libraries):
-
 ```bash
 xcode-select --install
-```
 
-Then build Gitron:
-
-```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
 pnpm install
 pnpm tauri build
 ```
 
-The built `.app` and `.dmg` will be in `src-tauri/target/release/bundle/`.
+The `.app` and `.dmg` will be in `src-tauri/target/release/bundle/`.
 
 #### Windows
 
 1. Install [Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (select "Desktop development with C++")
-2. WebView2 is required — it's pre-installed on Windows 10 (late builds) and Windows 11. If missing, install it from [Microsoft](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
-
-Then build Gitron:
+2. WebView2 is required — pre-installed on Windows 10 (late builds) and Windows 11
 
 ```powershell
 git clone https://github.com/thomasunderwoodii/gitron.git
@@ -232,14 +317,13 @@ pnpm install
 pnpm tauri build
 ```
 
-The installer (`.msi` or `.exe`) will be in `src-tauri\target\release\bundle\`.
+The installer will be in `src-tauri\target\release\bundle\`.
 
 #### Linux
 
-Install system dependencies. The exact packages depend on your distribution:
+Install system dependencies for your distribution:
 
 **Debian / Ubuntu:**
-
 ```bash
 sudo apt update
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
@@ -247,7 +331,6 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
 ```
 
 **Fedora:**
-
 ```bash
 sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file \
   libxdo-devel librsvg2-devel
@@ -255,14 +338,12 @@ sudo dnf group install "C Development Tools and Libraries"
 ```
 
 **Arch Linux:**
-
 ```bash
 sudo pacman -S webkit2gtk-4.1 base-devel curl wget file openssl \
   xdotool librsvg
 ```
 
-Then build Gitron:
-
+Then:
 ```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
 cd gitron
@@ -274,9 +355,9 @@ The built packages (`.deb`, `.AppImage`, `.rpm`) will be in `src-tauri/target/re
 
 ## Development
 
-### Running in dev mode
+### Running in Dev Mode
 
-**Desktop mode (Tauri):**
+**Desktop (Tauri):**
 
 ```bash
 git clone https://github.com/thomasunderwoodii/gitron.git
@@ -285,45 +366,13 @@ pnpm install
 pnpm dev
 ```
 
-This starts the Vite dev server, compiles the Rust backend, opens the Tauri window, and watches for changes.
-
-**Server mode (Axum):**
+**Server (Axum):**
 
 ```bash
 pnpm server:dev
 ```
 
-This builds the frontend, compiles the Axum server, and serves everything at `http://localhost:9417`.
-
-### Project structure
-
-```
-gitron/
-├── crates/
-│   ├── gitron-core/         # Shared Rust logic (git, AI, GitHub, cache, watcher)
-│   │   └── src/
-│   │       ├── git/         # All git operations (git2-rs)
-│   │       ├── ai/          # AI commit message generation
-│   │       ├── github/      # GitHub OAuth + API
-│   │       ├── cache/       # Repo state cache
-│   │       └── watcher/     # File system watcher (notify-rs)
-│   └── gitron-server/       # Axum web server (thin wrapper over gitron-core)
-│       └── src/
-│           ├── main.rs      # CLI, server setup
-│           └── routes/      # HTTP handlers (mirrors Tauri commands)
-├── src-tauri/               # Tauri desktop app (thin wrapper over gitron-core)
-│   └── src/
-│       ├── lib.rs           # Tauri builder, command registration
-│       └── commands/        # IPC handlers (no git logic)
-├── src/                     # Svelte 5 frontend (shared between both modes)
-│   └── lib/
-│       ├── api/             # Transport abstraction (Tauri IPC or HTTP)
-│       ├── stores/          # Svelte stores (state management)
-│       └── components/      # UI components
-├── Dockerfile               # Multi-stage build for server mode
-├── docs/                    # Project documentation
-└── package.json
-```
+Serves everything at `http://localhost:9417`.
 
 ### Architecture
 
@@ -352,95 +401,92 @@ gitron/
 ```
 
 - **gitron-core** contains all shared logic — both the Tauri app and the Axum server are thin wrappers
-- **git2-rs** handles all hot-path operations (graph traversal, diffs, status, staging, commits, branches) in-process for maximum performance
-- **git CLI** is used for complex operations (rebase, advanced merge)
-- **Transport abstraction** — the frontend auto-detects Tauri IPC or HTTP and uses the same API surface for both
-- **Strict module boundaries** — command handlers contain zero git logic; `gitron-core` contains all git logic; frontend components never call `invoke()` or `fetch()` directly (they go through stores and API layers)
+- **git2-rs** handles hot-path operations (graph, diffs, status, staging, commits, branches) in-process
+- **git CLI** is used for complex operations (rebase, merge, cherry-pick)
+- **Transport abstraction** — the frontend auto-detects Tauri IPC or HTTP and uses the same API surface
 
-### Tech stack
+### Tech Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Shared core | Rust (gitron-core) | All git, AI, and GitHub logic in one place |
-| Desktop | Tauri v2 | Native performance, ~5-10MB bundle, no Electron |
-| Web server | Axum | Self-hosted mode, Docker-ready, token auth |
-| Git operations | git2-rs | In-process, zero-overhead git operations |
-| Frontend | Svelte 5 + SvelteKit | Compiles away, minimal runtime, great DX |
-| Styling | TailwindCSS v4 | Utility-first, design tokens via CSS custom properties |
-| UI components | shadcn-svelte (bits-ui) | Accessible, headless primitives |
-| Syntax highlighting | Shiki | Accurate, TextMate grammar-based highlighting |
+| Layer | Technology |
+|-------|-----------|
+| Shared core | Rust (gitron-core) |
+| Desktop | Tauri v2 |
+| Web server | Axum |
+| Git operations | git2-rs |
+| Frontend | Svelte 5 + SvelteKit |
+| Styling | TailwindCSS v4 |
+| UI components | shadcn-svelte (bits-ui) |
+| Syntax highlighting | Shiki |
 
-### Useful commands
+### Project Structure
+
+```
+gitron/
+├── crates/
+│   ├── gitron-core/         # Shared Rust logic (git, AI, GitHub, cache, watcher)
+│   │   └── src/
+│   │       ├── git/         # All git operations (git2-rs)
+│   │       ├── ai/          # AI commit message generation
+│   │       ├── github/      # GitHub OAuth + API
+│   │       ├── cache/       # Repo state cache
+│   │       └── watcher/     # File system watcher (notify-rs)
+│   └── gitron-server/       # Axum web server
+│       └── src/
+│           ├── main.rs      # CLI, server setup
+│           └── routes/      # HTTP handlers (mirrors Tauri commands)
+├── src-tauri/               # Tauri desktop app
+│   └── src/
+│       ├── lib.rs           # Tauri builder, command registration
+│       └── commands/        # IPC handlers
+├── src/                     # Svelte 5 frontend (shared between both modes)
+│   └── lib/
+│       ├── api/             # Transport abstraction (Tauri IPC or HTTP)
+│       ├── stores/          # Svelte stores (state management)
+│       └── components/      # UI components
+├── Dockerfile               # Multi-stage build for server mode
+└── docs/                    # Project documentation
+```
+
+### Commands
 
 ```bash
-# Development
 pnpm dev                  # Desktop mode (Tauri + Vite dev server)
 pnpm server:dev           # Server mode (build frontend + Axum on :9417)
 pnpm check                # TypeScript / Svelte type checking
-
-# Production
 pnpm tauri build          # Build desktop app + installer
 pnpm build                # Build frontend only
 pnpm build:server         # Build server binary only
 ```
 
-## Roadmap
-
-Gitron is developed in phases. Each phase builds on the previous one.
-
-| Phase | Focus | Status |
-|-------|-------|--------|
-| **1. Foundation** | Core git backend, commit graph, app shell | Complete |
-| **2. Core Workflow** | Stage, commit, push, pull, branch UI, diffs | Complete |
-| **3. Advanced Git** | Merge, rebase, stash, tags, commit search, server mode | In progress |
-| **4. Plugin System** | Backend (Rust traits) + frontend (UI slots) plugins | Planned |
-| **5. Agent Gateway** | MCP server, AI agent permissions, action queue | Planned |
-| **6. Polish & Release** | Theming, auto-update, code signing, installers | Planned |
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed status of every item.
-
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [ROADMAP](docs/ROADMAP.md) | Current status and what's next |
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | System design, module structure, data flow |
 | [TECHNICAL_SPEC](docs/TECHNICAL_SPEC.md) | IPC commands, data types, state management |
 | [DEVELOPER_GUIDE](docs/DEVELOPER_GUIDE.md) | How to add features, conventions, pitfalls |
 | [VISION](docs/VISION.md) | Project direction and principles |
-| [PLUGIN_SYSTEM](docs/PLUGIN_SYSTEM.md) | Plugin architecture design |
-| [AGENT_GATEWAY](docs/AGENT_GATEWAY.md) | AI agent gateway design |
 
 ## Contributing
 
-Contributions are welcome! Whether it's bug reports, feature requests, documentation improvements, or code contributions — all help is appreciated.
+Contributions are welcome — bug reports, feature requests, documentation improvements, and code contributions.
 
-### Getting started
+### Getting Started
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/my-feature`
 3. Read the [Developer Guide](docs/DEVELOPER_GUIDE.md) for conventions and module boundaries
-4. Make your changes following the feature checklist: Rust types → Rust git logic → Rust command → register in lib.rs → TS types → TS API → Store → Component
+4. Follow the feature pipeline: Rust types → Rust logic → Tauri command + Server route → TS types → TS API → Store → Component
 5. Commit using [conventional commits](https://www.conventionalcommits.org/): `type(scope): description`
 6. Open a pull request
 
-### Commit convention
+### Key Guidelines
 
-```
-type(scope): description
-
-Types: feat, fix, refactor, docs, chore, test, style
-Scopes: git, ui, graph, diff, staging, branch, plugin, agent, docs
-```
-
-### Key guidelines
-
-- Follow the strict module boundaries (see [CLAUDE.md](CLAUDE.md) or [Developer Guide](docs/DEVELOPER_GUIDE.md))
-- **Dual-mode parity** — every new feature must work in both desktop (Tauri) and server (Axum) modes
-- Use Svelte 5 runes (`$state`, `$derived`, `$props`) — no Svelte 4 patterns
-- No `unwrap()` in Rust production code — use `GitResult<T>` and proper error handling
-- Keep command handlers thin — all git logic belongs in `crates/gitron-core/`
-- Use `getTransport()` for all backend calls in the frontend — never import `@tauri-apps/*` directly
+- **Dual-mode parity** — every feature must work in both desktop (Tauri) and server (Axum) modes
+- Follow strict module boundaries — all git logic in `gitron-core`, command handlers are thin wrappers
+- Svelte 5 runes only (`$state`, `$derived`, `$props`)
+- No `unwrap()` in Rust production code
+- Use `getTransport()` for all backend calls in the frontend
 
 ## License
 
