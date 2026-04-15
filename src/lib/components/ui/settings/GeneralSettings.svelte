@@ -12,6 +12,7 @@
     treeExpandedByDefault, setTreeExpandedByDefault,
   } from '$lib/stores/settings';
   import type { ThemeMode, ZoomLevel, EditorFontSize, MonoFont } from '$lib/api/types';
+  import { Select } from '$lib/components/ui/select';
 
   const themeOptions: { value: ThemeMode; label: string }[] = [
     { value: 'tron', label: 'Tron' },
@@ -54,30 +55,22 @@
       <span class="label-text">Theme</span>
       <span class="label-description">Choose the application color scheme</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$theme}
-      onchange={(e) => setTheme((e.target as HTMLSelectElement).value as ThemeMode)}
-    >
-      {#each themeOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={themeOptions}
+      onchange={(v) => setTheme(v)}
+    />
   </div>
   <div class="setting-row">
     <div class="setting-label">
       <span class="label-text">UI Zoom</span>
       <span class="label-description">Scale the entire interface up or down</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$zoomLevel}
-      onchange={(e) => setZoomLevel(Number((e.target as HTMLSelectElement).value) as ZoomLevel)}
-    >
-      {#each zoomOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={zoomOptions}
+      onchange={(v) => setZoomLevel(v)}
+    />
   </div>
   <div class="setting-row">
     <div class="setting-label">
@@ -104,30 +97,22 @@
       <span class="label-text">Font Size</span>
       <span class="label-description">Font size for diff viewer and output panel</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$editorFontSize}
-      onchange={(e) => setEditorFontSize(Number((e.target as HTMLSelectElement).value) as EditorFontSize)}
-    >
-      {#each fontSizeOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={fontSizeOptions}
+      onchange={(v) => setEditorFontSize(v)}
+    />
   </div>
   <div class="setting-row">
     <div class="setting-label">
       <span class="label-text">Monospace Font</span>
       <span class="label-description">Font family for code and diffs</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$monoFont}
-      onchange={(e) => setMonoFont((e.target as HTMLSelectElement).value as MonoFont)}
-    >
-      {#each monoFontOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={monoFontOptions}
+      onchange={(v) => setMonoFont(v)}
+    />
   </div>
 </div>
 
@@ -255,21 +240,6 @@
   .label-description {
     font-size: 11px;
     color: var(--muted-foreground);
-  }
-
-  .select-input {
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--secondary);
-    color: var(--foreground);
-    font-size: 12px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .select-input:focus {
-    outline: none;
-    border-color: var(--primary);
   }
 
   .toggle {

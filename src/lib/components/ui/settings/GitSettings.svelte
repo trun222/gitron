@@ -15,6 +15,33 @@
   import { isTauri } from '$lib/api';
   import { localBranches, remoteBranches } from '$lib/stores/repo';
   import type { AutoFetchInterval, FileWatcherInterval, TerminalCursorStyle } from '$lib/api/types';
+  import { Select } from '$lib/components/ui/select';
+
+  const terminalFontSizeOptions = [10, 11, 12, 13, 14, 16, 18, 20].map((n) => ({ value: n, label: String(n) }));
+
+  const cursorStyleOptions: { value: TerminalCursorStyle; label: string }[] = [
+    { value: 'block', label: 'Block' },
+    { value: 'underline', label: 'Underline' },
+    { value: 'bar', label: 'Bar' },
+  ];
+
+  const scrollbackOptions = [
+    { value: 1000, label: '1,000' },
+    { value: 5000, label: '5,000' },
+    { value: 10000, label: '10,000' },
+    { value: 50000, label: '50,000' },
+  ];
+
+  const terminalAppOptions = [
+    { value: '', label: 'System Default' },
+    { value: 'iTerm', label: 'iTerm2' },
+    { value: 'Warp', label: 'Warp' },
+    { value: 'Ghostty', label: 'Ghostty' },
+    { value: 'Alacritty', label: 'Alacritty' },
+    { value: 'Kitty', label: 'Kitty' },
+    { value: 'Hyper', label: 'Hyper' },
+    { value: '__custom__', label: 'Custom...' },
+  ];
 
   const fetchOptions: { value: AutoFetchInterval; label: string }[] = [
     { value: 0, label: 'Off' },
@@ -105,15 +132,11 @@
       <span class="label-text">Auto-fetch interval</span>
       <span class="label-description">Automatically fetch from remotes at a regular interval</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$autoFetchInterval}
-      onchange={(e) => setAutoFetchInterval(Number((e.target as HTMLSelectElement).value) as AutoFetchInterval)}
-    >
-      {#each fetchOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={fetchOptions}
+      onchange={(v) => setAutoFetchInterval(v)}
+    />
   </div>
 </div>
 
@@ -124,15 +147,11 @@
       <span class="label-text">Poll fallback interval</span>
       <span class="label-description">Use polling if native file watching fails (e.g. Linux inotify limits). "Native only" disables the fallback.</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$fileWatcherInterval}
-      onchange={(e) => setFileWatcherInterval(Number((e.target as HTMLSelectElement).value) as FileWatcherInterval)}
-    >
-      {#each watcherOptions as opt (opt.value)}
-        <option value={opt.value}>{opt.label}</option>
-      {/each}
-    </select>
+      options={watcherOptions}
+      onchange={(v) => setFileWatcherInterval(v)}
+    />
   </div>
 </div>
 
@@ -156,20 +175,12 @@
       <span class="label-text">Font size</span>
       <span class="label-description">Font size in the terminal panel</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$terminalFontSize}
-      onchange={(e) => setTerminalFontSize(Number((e.target as HTMLSelectElement).value))}
-    >
-      <option value={10}>10</option>
-      <option value={11}>11</option>
-      <option value={12}>12</option>
-      <option value={13}>13</option>
-      <option value={14}>14</option>
-      <option value={16}>16</option>
-      <option value={18}>18</option>
-      <option value={20}>20</option>
-    </select>
+      options={terminalFontSizeOptions}
+      onchange={(v) => setTerminalFontSize(v)}
+      minWidth="100px"
+    />
   </div>
   <div class="setting-row">
     <div class="setting-label">
@@ -189,31 +200,22 @@
       <span class="label-text">Cursor style</span>
       <span class="label-description">Shape of the cursor in the terminal</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$terminalCursorStyle}
-      onchange={(e) => setTerminalCursorStyle((e.target as HTMLSelectElement).value as TerminalCursorStyle)}
-    >
-      <option value="block">Block</option>
-      <option value="underline">Underline</option>
-      <option value="bar">Bar</option>
-    </select>
+      options={cursorStyleOptions}
+      onchange={(v) => setTerminalCursorStyle(v)}
+    />
   </div>
   <div class="setting-row">
     <div class="setting-label">
       <span class="label-text">Scrollback buffer</span>
       <span class="label-description">Number of lines kept in scroll history</span>
     </div>
-    <select
-      class="select-input"
+    <Select
       value={$terminalScrollback}
-      onchange={(e) => setTerminalScrollback(Number((e.target as HTMLSelectElement).value))}
-    >
-      <option value={1000}>1,000</option>
-      <option value={5000}>5,000</option>
-      <option value={10000}>10,000</option>
-      <option value={50000}>50,000</option>
-    </select>
+      options={scrollbackOptions}
+      onchange={(v) => setTerminalScrollback(v)}
+    />
   </div>
 </div>
 
@@ -226,20 +228,11 @@
       <span class="label-description">Used for "Open in Terminal" on worktrees</span>
     </div>
     <div class="terminal-controls">
-      <select
-        class="select-input"
+      <Select
         value={isCustomTerminal || showCustomInput ? '__custom__' : $terminalApp}
-        onchange={(e) => handleTerminalSelect((e.target as HTMLSelectElement).value)}
-      >
-        <option value="">System Default</option>
-        <option value="iTerm">iTerm2</option>
-        <option value="Warp">Warp</option>
-        <option value="Ghostty">Ghostty</option>
-        <option value="Alacritty">Alacritty</option>
-        <option value="Kitty">Kitty</option>
-        <option value="Hyper">Hyper</option>
-        <option value="__custom__">Custom...</option>
-      </select>
+        options={terminalAppOptions}
+        onchange={(v) => handleTerminalSelect(v)}
+      />
       {#if isCustomTerminal || showCustomInput}
         <input
           type="text"
@@ -413,21 +406,6 @@
   .label-description {
     font-size: 11px;
     color: var(--muted-foreground);
-  }
-
-  .select-input {
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--secondary);
-    color: var(--foreground);
-    font-size: 12px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .select-input:focus {
-    outline: none;
-    border-color: var(--primary);
   }
 
   .terminal-controls {

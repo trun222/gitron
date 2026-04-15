@@ -12,6 +12,15 @@
     setMaxTokens,
     fetchModelsForProvider,
   } from '$lib/stores/ai';
+  import { Select } from '$lib/components/ui/select';
+
+  const maxTokensOptions = [
+    { value: 500, label: '500' },
+    { value: 1000, label: '1,000' },
+    { value: 1500, label: '1,500 (default)' },
+    { value: 2000, label: '2,000' },
+    { value: 4000, label: '4,000' },
+  ];
 
   let keyInputs = $state<Record<string, string>>({});
   let savingKey = $state<string | null>(null);
@@ -120,16 +129,14 @@
               {#if $aiFetchingModels}
                 <span class="fetching-text">Loading models...</span>
               {:else}
-                <select
-                  class="select-input"
-                  value={$aiSettings.selected_model ?? ''}
-                  onchange={(e) => setSelectedModel((e.target as HTMLSelectElement).value || null)}
-                >
-                  <option value="">Select a model...</option>
-                  {#each provider.models as model (model.id)}
-                    <option value={model.id}>{model.name}</option>
-                  {/each}
-                </select>
+                <div class="select-grow">
+                  <Select
+                    value={$aiSettings.selected_model ?? ''}
+                    options={[{ value: '', label: 'Select a model...' }, ...provider.models.map((m) => ({ value: m.id, label: m.name }))]}
+                    onchange={(v) => setSelectedModel(v || null)}
+                    placeholder="Select a model..."
+                  />
+                </div>
                 {#if provider.has_key}
                   <button
                     class="refresh-btn"
@@ -178,17 +185,12 @@
 
                 <!-- svelte-ignore a11y_label_has_associated_control -->
                 <label class="model-label mt">Max Output Tokens</label>
-                <select
-                  class="select-input"
-                  value={String($aiSettings.max_tokens)}
-                  onchange={(e) => setMaxTokens(Number((e.target as HTMLSelectElement).value))}
-                >
-                  <option value="500">500</option>
-                  <option value="1000">1,000</option>
-                  <option value="1500">1,500 (default)</option>
-                  <option value="2000">2,000</option>
-                  <option value="4000">4,000</option>
-                </select>
+                <Select
+                  value={$aiSettings.max_tokens}
+                  options={maxTokensOptions}
+                  onchange={(v) => setMaxTokens(v)}
+                  align="left"
+                />
                 <span class="hint">Max tokens the model can use for generated output</span>
               </div>
             {/if}
@@ -379,19 +381,9 @@
     flex-shrink: 0;
   }
 
-  .select-input {
+  .select-grow {
     flex: 1;
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--secondary);
-    color: var(--foreground);
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .select-input:focus {
-    outline: none;
-    border-color: var(--primary);
+    min-width: 0;
   }
 
   .advanced-toggle {
