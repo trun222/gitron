@@ -17,6 +17,7 @@
   const themeOptions: { value: ThemeMode; label: string }[] = [
     { value: 'tron', label: 'Tron' },
     { value: 'tron-enhanced', label: 'Tron (Enhanced)' },
+    { value: 'synthwave', label: 'Synthwave' },
     { value: 'dark', label: 'Dark' },
     { value: 'light', label: 'Light' },
     { value: 'system', label: 'System' },

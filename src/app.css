@@ -202,6 +202,105 @@
   --color-graph-13: #40C4FF;
 }
 
+/*
+ * Synthwave Theme
+ *
+ * Retro-futuristic 80s aesthetic: deep purple-black backgrounds,
+ * hot pink and sunset orange accents, chrome highlights.
+ * Always layered on top of .dark (applied via settings.ts).
+ */
+.synthwave {
+  --background: oklch(0.14 0.04 300);
+  --foreground: oklch(0.90 0.03 310);
+  --card: oklch(0.12 0.045 305);
+  --card-foreground: oklch(0.90 0.03 310);
+  --popover: oklch(0.14 0.04 300);
+  --popover-foreground: oklch(0.90 0.03 310);
+  --primary: oklch(0.72 0.22 340);
+  --primary-foreground: oklch(0.14 0.04 300);
+  --secondary: oklch(0.22 0.05 300);
+  --secondary-foreground: oklch(0.90 0.03 310);
+  --muted: oklch(0.22 0.05 300);
+  --muted-foreground: oklch(0.52 0.06 310);
+  --accent: oklch(0.30 0.06 295);
+  --accent-foreground: oklch(0.90 0.03 310);
+  --destructive: oklch(0.65 0.25 25);
+  --border: oklch(0.28 0.07 310);
+  --input: oklch(0.24 0.05 300);
+  --ring: oklch(0.72 0.22 340);
+  --sidebar: oklch(0.12 0.045 305);
+  --sidebar-foreground: oklch(0.90 0.03 310);
+  --sidebar-primary: oklch(0.72 0.22 340);
+  --sidebar-primary-foreground: oklch(0.14 0.04 300);
+  --sidebar-accent: oklch(0.22 0.05 300);
+  --sidebar-accent-foreground: oklch(0.90 0.03 310);
+  --sidebar-border: oklch(0.28 0.07 310);
+  --sidebar-ring: oklch(0.72 0.22 340);
+
+  /* Git status colors — warm neon palette */
+  --color-git-added: #00FFC8;
+  --color-git-added-bg: rgba(0, 255, 200, 0.12);
+  --color-git-modified: #FFB347;
+  --color-git-modified-bg: rgba(255, 179, 71, 0.12);
+  --color-git-deleted: #FF3366;
+  --color-git-deleted-bg: rgba(255, 51, 102, 0.12);
+  --color-git-modified-foreground: oklch(0.14 0.04 300);
+  --color-git-added-foreground: oklch(0.14 0.04 300);
+  --color-git-conflict: #FF3366;
+  --color-git-conflict-bg: rgba(255, 51, 102, 0.15);
+  --color-git-conflict-ours: #36D1DC;
+  --color-git-conflict-theirs: #CB5EEE;
+
+  /* Graph lane colors — synthwave neon spectrum */
+  --color-graph-0: #FF6AC1;
+  --color-graph-1: #00FFC8;
+  --color-graph-2: #FFB347;
+  --color-graph-3: #FF3366;
+  --color-graph-4: #CB5EEE;
+  --color-graph-5: #36D1DC;
+  --color-graph-6: #FF9F43;
+  --color-graph-7: #EE5A24;
+  --color-graph-8: #7B68EE;
+  --color-graph-9: #FFC312;
+  --color-graph-10: #FF78C5;
+  --color-graph-11: #17C0EB;
+  --color-graph-12: #A55EEA;
+  --color-graph-13: #2ED573;
+}
+
+/* Synthwave glow effects */
+.synthwave *:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring), 0 0 10px rgba(255, 106, 193, 0.35);
+}
+
+.synthwave footer {
+  border-top-color: rgba(255, 106, 193, 0.35);
+  box-shadow: 0 -1px 8px rgba(255, 106, 193, 0.12);
+}
+
+.synthwave header {
+  border-bottom-color: rgba(203, 94, 238, 0.3);
+  box-shadow: 0 1px 8px rgba(203, 94, 238, 0.1);
+}
+
+.synthwave ::-webkit-scrollbar-thumb {
+  background: rgba(255, 106, 193, 0.25);
+}
+
+.synthwave ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 106, 193, 0.45);
+}
+
+.synthwave [role="option"][aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Synthwave high contrast */
+.synthwave.high-contrast {
+  --muted-foreground: oklch(0.70 0.06 310);
+  --border: oklch(0.38 0.07 310);
+}
+
 /* Tron glow effects */
 .tron *:focus-visible {
   box-shadow: 0 0 0 1px var(--ring), 0 0 8px rgba(0, 255, 255, 0.3);

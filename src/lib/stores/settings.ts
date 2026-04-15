@@ -72,8 +72,8 @@ export function applyTheme(mode: ThemeMode): void {
     systemThemeHandler = null;
   }
 
-  // Always remove tron classes first, then re-add if needed
-  document.documentElement.classList.remove('tron', 'tron-enhanced');
+  // Always remove theme classes first, then re-add if needed
+  document.documentElement.classList.remove('tron', 'tron-enhanced', 'synthwave');
 
   if (mode === 'system') {
     systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -94,6 +94,9 @@ export function applyTheme(mode: ThemeMode): void {
   } else if (mode === 'tron') {
     document.documentElement.classList.add('dark');
     document.documentElement.classList.add('tron');
+  } else if (mode === 'synthwave') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('synthwave');
   } else if (mode === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
