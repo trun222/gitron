@@ -482,10 +482,103 @@
   box-shadow: inset 3px 0 0 var(--primary);
 }
 
+/* Sakura theme — Japanese cherry blossom, soft pink petals on midnight indigo */
+.sakura {
+  --background: oklch(0.13 0.03 290);
+  --foreground: oklch(0.92 0.02 340);
+  --card: oklch(0.11 0.035 285);
+  --card-foreground: oklch(0.92 0.02 340);
+  --popover: oklch(0.13 0.03 290);
+  --popover-foreground: oklch(0.92 0.02 340);
+  --primary: oklch(0.76 0.14 350);
+  --primary-foreground: oklch(0.13 0.03 290);
+  --secondary: oklch(0.18 0.035 285);
+  --secondary-foreground: oklch(0.92 0.02 340);
+  --muted: oklch(0.18 0.035 285);
+  --muted-foreground: oklch(0.55 0.04 310);
+  --accent: oklch(0.22 0.045 295);
+  --accent-foreground: oklch(0.92 0.02 340);
+  --destructive: oklch(0.55 0.22 15);
+  --border: oklch(0.23 0.04 295);
+  --input: oklch(0.18 0.035 285);
+  --ring: oklch(0.76 0.14 350);
+  --sidebar: oklch(0.11 0.035 285);
+  --sidebar-foreground: oklch(0.92 0.02 340);
+  --sidebar-primary: oklch(0.76 0.14 350);
+  --sidebar-primary-foreground: oklch(0.13 0.03 290);
+  --sidebar-accent: oklch(0.18 0.035 285);
+  --sidebar-accent-foreground: oklch(0.92 0.02 340);
+  --sidebar-border: oklch(0.23 0.04 295);
+  --sidebar-ring: oklch(0.76 0.14 350);
+
+  /* Git status colors — sakura palette */
+  --color-git-added: #8BE9A2;
+  --color-git-added-bg: rgba(139, 233, 162, 0.12);
+  --color-git-modified: #F4A5C0;
+  --color-git-modified-bg: rgba(244, 165, 192, 0.12);
+  --color-git-deleted: #E85B7A;
+  --color-git-deleted-bg: rgba(232, 91, 122, 0.12);
+  --color-git-modified-foreground: oklch(0.13 0.03 290);
+  --color-git-added-foreground: oklch(0.13 0.03 290);
+  --color-git-conflict: #E85B7A;
+  --color-git-conflict-bg: rgba(232, 91, 122, 0.15);
+  --color-git-conflict-ours: #F4A5C0;
+  --color-git-conflict-theirs: #C387FF;
+
+  /* Graph lane colors — cherry blossom spectrum: pinks, lavenders, soft greens, plum */
+  --color-graph-0: #F48FB1;
+  --color-graph-1: #CE93D8;
+  --color-graph-2: #F06292;
+  --color-graph-3: #B39DDB;
+  --color-graph-4: #8BE9A2;
+  --color-graph-5: #F8BBD0;
+  --color-graph-6: #80CBC4;
+  --color-graph-7: #E57399;
+  --color-graph-8: #A5D6A7;
+  --color-graph-9: #EF9A9A;
+  --color-graph-10: #C5CAE9;
+  --color-graph-11: #FFAB91;
+  --color-graph-12: #F48FB1;
+  --color-graph-13: #9FA8DA;
+}
+
+/* Sakura glow effects — soft cherry blossom radiance */
+.sakura *:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring), 0 0 14px rgba(244, 143, 177, 0.3);
+}
+
+.sakura footer {
+  border-top-color: rgba(244, 143, 177, 0.2);
+  box-shadow: 0 -1px 10px rgba(206, 147, 216, 0.1);
+}
+
+.sakura header {
+  border-bottom-color: rgba(244, 143, 177, 0.2);
+  box-shadow: 0 1px 10px rgba(244, 143, 177, 0.1);
+}
+
+.sakura ::-webkit-scrollbar-thumb {
+  background: rgba(244, 143, 177, 0.2);
+}
+
+.sakura ::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 143, 177, 0.38);
+}
+
+.sakura [role="option"][aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
 /* Ember high contrast */
 .ember.high-contrast {
   --muted-foreground: oklch(0.68 0.06 45);
   --border: oklch(0.34 0.06 40);
+}
+
+/* Sakura high contrast */
+.sakura.high-contrast {
+  --muted-foreground: oklch(0.68 0.05 320);
+  --border: oklch(0.35 0.05 295);
 }
 
 /* Tron glow effects */

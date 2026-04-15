@@ -20,6 +20,7 @@
     { value: 'synthwave', label: 'Synthwave' },
     { value: 'aurora', label: 'Aurora' },
     { value: 'ember', label: 'Ember' },
+    { value: 'sakura', label: 'Sakura' },
     { value: 'dark', label: 'Dark' },
     { value: 'light', label: 'Light' },
     { value: 'system', label: 'System' },

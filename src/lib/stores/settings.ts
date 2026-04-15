@@ -73,7 +73,7 @@ export function applyTheme(mode: ThemeMode): void {
   }
 
   // Always remove theme classes first, then re-add if needed
-  document.documentElement.classList.remove('tron', 'tron-enhanced', 'synthwave', 'aurora', 'ember');
+  document.documentElement.classList.remove('tron', 'tron-enhanced', 'synthwave', 'aurora', 'ember', 'sakura');
 
   if (mode === 'system') {
     systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -103,6 +103,9 @@ export function applyTheme(mode: ThemeMode): void {
   } else if (mode === 'ember') {
     document.documentElement.classList.add('dark');
     document.documentElement.classList.add('ember');
+  } else if (mode === 'sakura') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('sakura');
   } else if (mode === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
