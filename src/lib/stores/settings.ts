@@ -73,7 +73,7 @@ export function applyTheme(mode: ThemeMode): void {
   }
 
   // Always remove theme classes first, then re-add if needed
-  document.documentElement.classList.remove('tron', 'tron-enhanced', 'synthwave');
+  document.documentElement.classList.remove('tron', 'tron-enhanced', 'synthwave', 'aurora');
 
   if (mode === 'system') {
     systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -97,6 +97,9 @@ export function applyTheme(mode: ThemeMode): void {
   } else if (mode === 'synthwave') {
     document.documentElement.classList.add('dark');
     document.documentElement.classList.add('synthwave');
+  } else if (mode === 'aurora') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('aurora');
   } else if (mode === 'dark') {
     document.documentElement.classList.add('dark');
   } else {

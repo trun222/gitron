@@ -301,6 +301,100 @@
   --border: oklch(0.38 0.07 310);
 }
 
+/* ── Aurora Theme ── */
+/* Inspired by the Northern Lights: deep arctic navy with shifting green-cyan-violet aurora accents */
+.aurora {
+  --background: oklch(0.13 0.025 250);
+  --foreground: oklch(0.92 0.015 210);
+  --card: oklch(0.11 0.03 255);
+  --card-foreground: oklch(0.92 0.015 210);
+  --popover: oklch(0.13 0.025 250);
+  --popover-foreground: oklch(0.92 0.015 210);
+  --primary: oklch(0.78 0.18 165);
+  --primary-foreground: oklch(0.13 0.025 250);
+  --secondary: oklch(0.20 0.03 250);
+  --secondary-foreground: oklch(0.92 0.015 210);
+  --muted: oklch(0.20 0.03 250);
+  --muted-foreground: oklch(0.55 0.04 220);
+  --accent: oklch(0.26 0.04 260);
+  --accent-foreground: oklch(0.92 0.015 210);
+  --destructive: oklch(0.62 0.22 25);
+  --border: oklch(0.25 0.04 255);
+  --input: oklch(0.20 0.03 250);
+  --ring: oklch(0.78 0.18 165);
+  --sidebar: oklch(0.11 0.03 255);
+  --sidebar-foreground: oklch(0.92 0.015 210);
+  --sidebar-primary: oklch(0.78 0.18 165);
+  --sidebar-primary-foreground: oklch(0.13 0.025 250);
+  --sidebar-accent: oklch(0.20 0.03 250);
+  --sidebar-accent-foreground: oklch(0.92 0.015 210);
+  --sidebar-border: oklch(0.25 0.04 255);
+  --sidebar-ring: oklch(0.78 0.18 165);
+
+  /* Git status colors — aurora palette */
+  --color-git-added: #39FF7E;
+  --color-git-added-bg: rgba(57, 255, 126, 0.12);
+  --color-git-modified: #7DF0FF;
+  --color-git-modified-bg: rgba(125, 240, 255, 0.12);
+  --color-git-deleted: #FF5A7E;
+  --color-git-deleted-bg: rgba(255, 90, 126, 0.12);
+  --color-git-modified-foreground: oklch(0.13 0.025 250);
+  --color-git-added-foreground: oklch(0.13 0.025 250);
+  --color-git-conflict: #FF5A7E;
+  --color-git-conflict-bg: rgba(255, 90, 126, 0.15);
+  --color-git-conflict-ours: #7DF0FF;
+  --color-git-conflict-theirs: #C387FF;
+
+  /* Graph lane colors — aurora curtain spectrum */
+  --color-graph-0: #39FF7E;
+  --color-graph-1: #7DF0FF;
+  --color-graph-2: #C387FF;
+  --color-graph-3: #FF5A7E;
+  --color-graph-4: #47E5BC;
+  --color-graph-5: #5BB8FF;
+  --color-graph-6: #E86EFF;
+  --color-graph-7: #FFD93D;
+  --color-graph-8: #36D9A0;
+  --color-graph-9: #9B8AFF;
+  --color-graph-10: #FF8FA3;
+  --color-graph-11: #6CFFDA;
+  --color-graph-12: #76B4FF;
+  --color-graph-13: #DA85FF;
+}
+
+/* Aurora glow effects — cool green-cyan shimmer */
+.aurora *:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring), 0 0 12px rgba(57, 255, 126, 0.25);
+}
+
+.aurora footer {
+  border-top-color: rgba(57, 255, 126, 0.25);
+  box-shadow: 0 -1px 10px rgba(57, 255, 126, 0.08);
+}
+
+.aurora header {
+  border-bottom-color: rgba(125, 240, 255, 0.25);
+  box-shadow: 0 1px 10px rgba(125, 240, 255, 0.08);
+}
+
+.aurora ::-webkit-scrollbar-thumb {
+  background: rgba(57, 255, 126, 0.18);
+}
+
+.aurora ::-webkit-scrollbar-thumb:hover {
+  background: rgba(57, 255, 126, 0.35);
+}
+
+.aurora [role="option"][aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Aurora high contrast */
+.aurora.high-contrast {
+  --muted-foreground: oklch(0.70 0.04 220);
+  --border: oklch(0.35 0.05 255);
+}
+
 /* Tron glow effects */
 .tron *:focus-visible {
   box-shadow: 0 0 0 1px var(--ring), 0 0 8px rgba(0, 255, 255, 0.3);

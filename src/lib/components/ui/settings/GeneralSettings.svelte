@@ -18,6 +18,7 @@
     { value: 'tron', label: 'Tron' },
     { value: 'tron-enhanced', label: 'Tron (Enhanced)' },
     { value: 'synthwave', label: 'Synthwave' },
+    { value: 'aurora', label: 'Aurora' },
     { value: 'dark', label: 'Dark' },
     { value: 'light', label: 'Light' },
     { value: 'system', label: 'System' },
