@@ -395,6 +395,99 @@
   --border: oklch(0.35 0.05 255);
 }
 
+/* Ember theme — volcanic heat, molten amber on charcoal */
+.ember {
+  --background: oklch(0.12 0.02 40);
+  --foreground: oklch(0.90 0.03 70);
+  --card: oklch(0.10 0.025 35);
+  --card-foreground: oklch(0.90 0.03 70);
+  --popover: oklch(0.12 0.02 40);
+  --popover-foreground: oklch(0.90 0.03 70);
+  --primary: oklch(0.75 0.17 55);
+  --primary-foreground: oklch(0.12 0.02 40);
+  --secondary: oklch(0.19 0.025 35);
+  --secondary-foreground: oklch(0.90 0.03 70);
+  --muted: oklch(0.19 0.025 35);
+  --muted-foreground: oklch(0.52 0.05 45);
+  --accent: oklch(0.24 0.04 40);
+  --accent-foreground: oklch(0.90 0.03 70);
+  --destructive: oklch(0.58 0.24 28);
+  --border: oklch(0.24 0.04 35);
+  --input: oklch(0.19 0.025 35);
+  --ring: oklch(0.75 0.17 55);
+  --sidebar: oklch(0.10 0.025 35);
+  --sidebar-foreground: oklch(0.90 0.03 70);
+  --sidebar-primary: oklch(0.75 0.17 55);
+  --sidebar-primary-foreground: oklch(0.12 0.02 40);
+  --sidebar-accent: oklch(0.19 0.025 35);
+  --sidebar-accent-foreground: oklch(0.90 0.03 70);
+  --sidebar-border: oklch(0.24 0.04 35);
+  --sidebar-ring: oklch(0.75 0.17 55);
+
+  /* Git status colors — ember palette */
+  --color-git-added: #7AE582;
+  --color-git-added-bg: rgba(122, 229, 130, 0.12);
+  --color-git-modified: #FFB347;
+  --color-git-modified-bg: rgba(255, 179, 71, 0.12);
+  --color-git-deleted: #FF5C5C;
+  --color-git-deleted-bg: rgba(255, 92, 92, 0.12);
+  --color-git-modified-foreground: oklch(0.12 0.02 40);
+  --color-git-added-foreground: oklch(0.12 0.02 40);
+  --color-git-conflict: #FF5C5C;
+  --color-git-conflict-bg: rgba(255, 92, 92, 0.15);
+  --color-git-conflict-ours: #FFD166;
+  --color-git-conflict-theirs: #FF8A5C;
+
+  /* Graph lane colors — molten spectrum from amber through crimson to gold */
+  --color-graph-0: #FFA347;
+  --color-graph-1: #FF5C5C;
+  --color-graph-2: #FFD166;
+  --color-graph-3: #E85D75;
+  --color-graph-4: #FF8A5C;
+  --color-graph-5: #7AE582;
+  --color-graph-6: #FFB86C;
+  --color-graph-7: #C74B50;
+  --color-graph-8: #FFCB6B;
+  --color-graph-9: #FF6E8A;
+  --color-graph-10: #E8A848;
+  --color-graph-11: #FF7B72;
+  --color-graph-12: #FFDF80;
+  --color-graph-13: #D96459;
+}
+
+/* Ember glow effects — warm amber-orange radiance */
+.ember *:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring), 0 0 12px rgba(255, 163, 71, 0.3);
+}
+
+.ember footer {
+  border-top-color: rgba(255, 163, 71, 0.25);
+  box-shadow: 0 -1px 10px rgba(255, 92, 92, 0.1);
+}
+
+.ember header {
+  border-bottom-color: rgba(255, 163, 71, 0.25);
+  box-shadow: 0 1px 10px rgba(255, 163, 71, 0.1);
+}
+
+.ember ::-webkit-scrollbar-thumb {
+  background: rgba(255, 163, 71, 0.2);
+}
+
+.ember ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 163, 71, 0.38);
+}
+
+.ember [role="option"][aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Ember high contrast */
+.ember.high-contrast {
+  --muted-foreground: oklch(0.68 0.06 45);
+  --border: oklch(0.34 0.06 40);
+}
+
 /* Tron glow effects */
 .tron *:focus-visible {
   box-shadow: 0 0 0 1px var(--ring), 0 0 8px rgba(0, 255, 255, 0.3);
