@@ -1063,6 +1063,28 @@ pub fn rebase_abort(workdir: &str) -> GitResult<RebaseResult> {
     })
 }
 
+/// Continue a merge in progress (after conflicts are resolved and staged)
+pub fn merge_continue(workdir: &str) -> GitResult<MergeResult> {
+    let output = with_watcher_paused(|| super::cli::run_git_raw(
+        workdir,
+        &["-c", "core.editor=true", "commit", "--no-edit"],
+    ))?;
+
+    let conflicted = output.exit_code != 0
+        && (output.stderr.contains("CONFLICT")
+            || output.stderr.contains("unmerged")
+            || output.stdout.contains("CONFLICT"));
+
+    Ok(MergeResult {
+        success: output.exit_code == 0,
+        conflicted,
+        output: OperationOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        },
+    })
+}
+
 /// Abort a merge in progress
 pub fn merge_abort(workdir: &str) -> GitResult<MergeResult> {
     let output = with_watcher_paused(|| super::cli::run_git_raw(workdir, &["merge", "--abort"]))?;

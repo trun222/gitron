@@ -39,6 +39,7 @@ const COMMAND_MAP: Record<string, string> = {
   merge_into: '/api/branch/merge',
   rebase_continue: '/api/branch/rebase-continue',
   rebase_abort: '/api/branch/rebase-abort',
+  merge_continue: '/api/branch/merge-continue',
   merge_abort: '/api/branch/merge-abort',
   cherry_pick_abort: '/api/branch/cherry-pick-abort',
   // Conflict

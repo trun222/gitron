@@ -284,6 +284,10 @@ export async function mergeAbort(path: string): Promise<MergeResult> {
   return getTransport().invoke('merge_abort', { path });
 }
 
+export async function mergeContinue(path: string): Promise<MergeResult> {
+  return getTransport().invoke('merge_continue', { path });
+}
+
 export async function cherryPickAbort(path: string): Promise<OperationOutput> {
   return getTransport().invoke('cherry_pick_abort', { path });
 }

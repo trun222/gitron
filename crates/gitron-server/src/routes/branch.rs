@@ -145,6 +145,14 @@ pub async fn rebase_abort(
     Ok(Json(result))
 }
 
+pub async fn merge_continue(
+    Json(req): Json<PathRequest>,
+) -> Result<Json<MergeResult>, (StatusCode, String)> {
+    let workdir = get_workdir(&req.path)?;
+    let result = repository::merge_continue(&workdir).map_err(err)?;
+    Ok(Json(result))
+}
+
 pub async fn merge_abort(
     Json(req): Json<PathRequest>,
 ) -> Result<Json<MergeResult>, (StatusCode, String)> {

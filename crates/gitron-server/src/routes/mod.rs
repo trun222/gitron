@@ -61,6 +61,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/branch/merge", post(branch::merge_into))
         .route("/branch/rebase-continue", post(branch::rebase_continue))
         .route("/branch/rebase-abort", post(branch::rebase_abort))
+        .route("/branch/merge-continue", post(branch::merge_continue))
         .route("/branch/merge-abort", post(branch::merge_abort))
         .route("/branch/cherry-pick-abort", post(branch::cherry_pick_abort))
         // Conflict

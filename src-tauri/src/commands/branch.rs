@@ -118,6 +118,19 @@ pub fn rebase_abort(path: String) -> Result<RebaseResult, GitError> {
     repository::rebase_abort(&workdir)
 }
 
+/// Continue a merge in progress (commits with default merge message)
+#[tauri::command]
+pub fn merge_continue(path: String) -> Result<MergeResult, GitError> {
+    let workdir = {
+        let repo = repository::open(&path)?;
+        repo.workdir()
+            .ok_or_else(|| GitError::Other("Bare repository".into()))?
+            .to_string_lossy()
+            .to_string()
+    };
+    repository::merge_continue(&workdir)
+}
+
 /// Abort a merge in progress
 #[tauri::command]
 pub fn merge_abort(path: String) -> Result<MergeResult, GitError> {

@@ -4,6 +4,7 @@
     isConflictState,
     rebaseContinue,
     rebaseAbort,
+    mergeContinue,
     mergeAbort,
     cherryPickAbort,
   } from '$lib/stores/repo';
@@ -31,8 +32,9 @@
     const state = $repoStatus?.state;
     if (state === 'Rebasing' || state === 'RebasingInteractive') {
       rebaseContinue();
+    } else if (state === 'Merging') {
+      mergeContinue();
     }
-    // Merge continue = just commit (handled elsewhere)
   }
 
   function handleAbort() {
@@ -48,16 +50,17 @@
 
   let canContinue = $derived.by(() => {
     const state = $repoStatus?.state;
-    // Can continue rebase when no conflicts remain
     if (state === 'Rebasing' || state === 'RebasingInteractive') return !hasConflicts;
-    // Merge "continue" is done via commit, not a separate action
+    if (state === 'Merging') return !hasConflicts;
     return false;
   });
 
   let showContinue = $derived.by(() => {
     const state = $repoStatus?.state;
-    return state === 'Rebasing' || state === 'RebasingInteractive';
+    return state === 'Rebasing' || state === 'RebasingInteractive' || state === 'Merging';
   });
+
+  let continueLabel = $derived($repoStatus?.state === 'Merging' ? 'Complete Merge' : `Continue ${operationLabel}`);
 </script>
 
 {#if $isConflictState}
@@ -99,9 +102,9 @@
           class:opacity-50={!canContinue}
           disabled={!canContinue}
           onclick={handleContinue}
-          title={hasConflicts ? 'Resolve all conflicts first' : `Continue ${operationLabel.toLowerCase()}`}
+          title={hasConflicts ? 'Resolve all conflicts first' : continueLabel}
         >
-          Continue {operationLabel}
+          {continueLabel}
         </button>
       {/if}
       <button

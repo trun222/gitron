@@ -50,6 +50,7 @@ pub fn run() {
             branch::merge_into,
             branch::rebase_continue,
             branch::rebase_abort,
+            branch::merge_continue,
             branch::merge_abort,
             branch::cherry_pick_abort,
             conflict::get_conflicted_file,

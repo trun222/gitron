@@ -718,6 +718,28 @@ export async function rebaseAbort() {
   }
 }
 
+export async function mergeContinue() {
+  const path = get(repoPath);
+  if (!path) return;
+  try {
+    const result = await api.mergeContinue(path);
+    addOutput('merge --continue', result.output.stdout, result.output.stderr, result.success);
+    if (result.conflicted) {
+      error.set(null);
+    } else if (!result.success) {
+      error.set(`Merge continue failed:\n${result.output.stderr || result.output.stdout}`);
+    } else {
+      error.set(null);
+      addToast('Merge completed successfully', 'success');
+    }
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    await refreshAll(path);
+  } catch (e) {
+    error.set(String(e));
+  }
+}
+
 export async function mergeAbort() {
   const path = get(repoPath);
   if (!path) return;
