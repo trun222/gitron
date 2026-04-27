@@ -392,6 +392,61 @@
 
   let totalConflicts = $derived($selectedConflictFile?.conflict_sections.length ?? 0);
 
+  // Build a flat, collapsed list of items for the conflict viewer so we don't
+  // materialize a DOM node per line on huge files (e.g. lockfiles). Non-conflict
+  // regions are collapsed to a single "gap" row, keeping a small amount of
+  // context around each conflict for orientation.
+  type ConflictItem =
+    | { kind: 'context'; line: string; lineNo: number }
+    | { kind: 'gap'; gap: number; afterLineNo: number }
+    | { kind: 'conflict'; sectionIdx: number };
+
+  const CONFLICT_CONTEXT_LINES = 5;
+
+  let conflictItems = $derived.by((): ConflictItem[] => {
+    const file = $selectedConflictFile;
+    if (!file || file.is_binary) return [];
+    const lines = file.lines;
+    const sections = file.conflict_sections;
+    const items: ConflictItem[] = [];
+
+    if (sections.length === 0) {
+      // No conflict markers parsed — fall back to a single gap so we never
+      // render the whole file inline.
+      if (lines.length > 0) items.push({ kind: 'gap', gap: lines.length, afterLineNo: 0 });
+      return items;
+    }
+
+    let cursor = 0; // 0-based index of next un-emitted line
+    for (let s = 0; s < sections.length; s++) {
+      const section = sections[s];
+      const sectionStart = section.start_line - 1; // 0-based
+      const sectionEnd = section.end_line - 1; // inclusive, 0-based
+
+      const contextStart = Math.max(cursor, sectionStart - CONFLICT_CONTEXT_LINES);
+      if (contextStart > cursor) {
+        items.push({ kind: 'gap', gap: contextStart - cursor, afterLineNo: cursor });
+      }
+      for (let i = contextStart; i < sectionStart; i++) {
+        items.push({ kind: 'context', line: lines[i], lineNo: i + 1 });
+      }
+
+      items.push({ kind: 'conflict', sectionIdx: s });
+      cursor = sectionEnd + 1;
+    }
+
+    // Trailing context after the last conflict
+    const contextEnd = Math.min(lines.length, cursor + CONFLICT_CONTEXT_LINES);
+    for (let i = cursor; i < contextEnd; i++) {
+      items.push({ kind: 'context', line: lines[i], lineNo: i + 1 });
+    }
+    if (contextEnd < lines.length) {
+      items.push({ kind: 'gap', gap: lines.length - contextEnd, afterLineNo: contextEnd });
+    }
+
+    return items;
+  });
+
   // Update current conflict index based on scroll position
   function updateCurrentConflictFromScroll() {
     if (conflictScrollLocked) return;
@@ -805,17 +860,13 @@
         <p class="text-muted-foreground text-sm text-center p-8">Binary file conflict — resolve externally or choose a version</p>
       {:else}
         {@const sections = $selectedConflictFile.conflict_sections}
-        {@const lines = $selectedConflictFile.lines}
-        {@const sectionStarts = new Set(sections.map(s => s.start_line - 1))}
-        {#each lines as line, lineIdx}
-          {@const sectionIdx = sections.findIndex(s => lineIdx >= s.start_line - 1 && lineIdx <= s.end_line - 1)}
-          {#if sectionIdx >= 0}
+        {#each conflictItems as item}
+          {#if item.kind === 'conflict'}
+            {@const sectionIdx = item.sectionIdx}
             {@const section = sections[sectionIdx]}
-            {@const isStart = lineIdx === section.start_line - 1}
-            {#if isStart}
-              {@const res = resolutions[sectionIdx]}
-              <!-- Conflict section block -->
-              <div class="border-y" style="border-color: var(--color-git-conflict);" data-conflict-idx={sectionIdx}>
+            {@const res = resolutions[sectionIdx]}
+            <!-- Conflict section block -->
+            <div class="border-y" style="border-color: var(--color-git-conflict);" data-conflict-idx={sectionIdx}>
                 <!-- Action bar -->
                 <div class="flex items-center gap-2 px-4 py-1.5" style="background: var(--color-git-conflict-bg);">
                   <span class="text-[11px] font-medium" style="color: var(--color-git-conflict);">
@@ -991,19 +1042,22 @@
                 {/each}
                 {/if}
               </div>
-            {/if}
-            <!-- Lines within the conflict marker range are rendered as part of the block above -->
+          {:else if item.kind === 'gap'}
+            <!-- Collapsed non-conflict region -->
+            <div class="flex items-center justify-center gap-2 py-1 bg-card/30 border-y border-border/50 select-none">
+              <span class="text-[11px] text-muted-foreground/70">··· {item.gap} {item.gap === 1 ? 'line' : 'lines'} hidden ···</span>
+            </div>
           {:else}
-            <!-- Normal (non-conflict) line -->
+            <!-- Context line near a conflict -->
             <div class="flex min-w-fit">
               <div class="flex shrink-0 bg-card/50 border-r border-border/50 select-none">
                 <span class="w-12 text-right pr-2 text-muted-foreground/30">
-                  {lineIdx + 1}
+                  {item.lineNo}
                 </span>
                 <span class="w-6 text-center text-muted-foreground/30"> </span>
               </div>
               <span class="whitespace-pre pl-2 pr-4"
-                >{#each tokenizeLineCached(highlighter, line, language) as token}<span
+                >{#each tokenizeLineCached(highlighter, item.line, language) as token}<span
                     style:color={token.color}>{token.content}</span
                   >{/each}</span
               >

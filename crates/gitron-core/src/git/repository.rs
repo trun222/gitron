@@ -924,10 +924,25 @@ pub fn merge_branch(workdir: &str, branch: &str) -> GitResult<MergeResult> {
 
 /// Read a conflicted file from the working directory and parse its conflict markers
 pub fn get_conflicted_file(repo: &Repository, file_path: &str) -> GitResult<ConflictedFileContent> {
+    // Hard cap to prevent the UI from freezing on huge files (e.g. lockfiles).
+    // Files larger than this must be resolved externally.
+    const MAX_CONFLICT_FILE_BYTES: u64 = 10 * 1024 * 1024;
+
     let workdir = repo
         .workdir()
         .ok_or_else(|| GitError::Other("Bare repository".into()))?;
     let full_path = workdir.join(file_path);
+
+    if let Ok(meta) = std::fs::metadata(&full_path) {
+        if meta.len() > MAX_CONFLICT_FILE_BYTES {
+            return Err(GitError::Other(format!(
+                "File '{}' is too large to load in the conflict viewer ({} bytes, limit {} bytes). Resolve externally.",
+                file_path,
+                meta.len(),
+                MAX_CONFLICT_FILE_BYTES
+            )));
+        }
+    }
 
     // Check if binary
     let bytes = std::fs::read(&full_path)
