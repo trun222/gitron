@@ -33,6 +33,16 @@ pub async fn create_branch(
     Ok(Json(branch))
 }
 
+pub async fn create_and_checkout_branch(
+    Json(req): Json<CreateBranchRequest>,
+) -> Result<Json<CreateBranchResult>, (StatusCode, String)> {
+    let mut repo = repository::open(&req.path).map_err(err)?;
+    let target_ref = req.target.as_deref().unwrap_or("HEAD");
+    let result =
+        repository::create_and_checkout_branch(&mut repo, &req.name, target_ref).map_err(err)?;
+    Ok(Json(result))
+}
+
 #[derive(Deserialize)]
 pub struct BranchNameRequest {
     path: String,

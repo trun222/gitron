@@ -52,6 +52,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         // Branch
         .route("/branch/list", post(branch::list_branches))
         .route("/branch/create", post(branch::create_branch))
+        .route("/branch/create-checkout", post(branch::create_and_checkout_branch))
         .route("/branch/checkout", post(branch::checkout_branch))
         .route("/branch/delete", post(branch::delete_branch))
         .route("/branch/merged", post(branch::find_merged_branches))

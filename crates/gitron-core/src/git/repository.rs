@@ -383,22 +383,89 @@ pub fn create_branch<'repo>(
     })
 }
 
-/// Helper: checkout a tree object and set HEAD to the given ref
-pub fn do_checkout(repo: &Repository, refname: &str) -> GitResult<()> {
-    // Block checkout if there are uncommitted changes
+/// Returns true if the index or working tree has uncommitted changes to
+/// tracked files (untracked files are ignored — they survive a checkout).
+pub fn has_uncommitted_changes(repo: &Repository) -> GitResult<bool> {
     let statuses = repo.statuses(Some(
         git2::StatusOptions::new()
             .include_untracked(false)
             .include_ignored(false),
     ))?;
-    let dirty = statuses.iter().any(|e| {
+    Ok(statuses.iter().any(|e| {
         let s = e.status();
         s.is_index_new() || s.is_index_modified() || s.is_index_deleted()
             || s.is_index_renamed() || s.is_index_typechange()
             || s.is_wt_modified() || s.is_wt_deleted()
             || s.is_wt_renamed() || s.is_wt_typechange()
-    });
-    if dirty {
+    }))
+}
+
+/// Create a new branch and check it out in one step.
+///
+/// If there are uncommitted changes, they are stashed first so the checkout
+/// can proceed, then re-applied on the new branch. If re-applying fails
+/// (e.g. conflicts when branching from an older commit), the stash is kept
+/// so nothing is lost; `stash_restored` will be false in that case.
+pub fn create_and_checkout_branch(
+    repo: &mut Repository,
+    name: &str,
+    target: &str,
+) -> GitResult<CreateBranchResult> {
+    let auto_stashed = has_uncommitted_changes(repo)?;
+    if auto_stashed {
+        let msg = format!("gitron: auto-stash before creating branch '{}'", name);
+        save_stash(repo, Some(&msg))?;
+    }
+
+    let created = create_branch(repo, name, target).and_then(|_| checkout_branch(repo, name));
+    if let Err(e) = created {
+        // Put the working tree back the way we found it before reporting the error.
+        if auto_stashed {
+            let _ = restore_auto_stash(repo);
+        }
+        return Err(e);
+    }
+
+    let stash_restored = auto_stashed && restore_auto_stash(repo)?;
+
+    let info = get_repo_info(repo)?;
+    Ok(CreateBranchResult { info, auto_stashed, stash_restored })
+}
+
+/// Re-apply stash@{0} (created by an auto-stash) onto the current HEAD,
+/// preserving which changes were staged. Returns true and drops the stash if
+/// it applied cleanly. If applying produces conflicts, the working tree is
+/// reset back to a clean HEAD and the stash is kept so nothing is lost.
+fn restore_auto_stash(repo: &mut Repository) -> GitResult<bool> {
+    // First try to bring back the index state too; fall back to a plain apply
+    // if the index cannot be reinstated (e.g. the staged content conflicts).
+    let mut opts = git2::StashApplyOptions::new();
+    opts.reinstantiate_index();
+    let applied = repo
+        .stash_apply(0, Some(&mut opts))
+        .or_else(|_| repo.stash_apply(0, None));
+
+    let conflicted = match applied {
+        Ok(()) => repo.index()?.has_conflicts(),
+        Err(_) => true,
+    };
+
+    if conflicted {
+        // Back out to a clean checkout of HEAD; the stash still holds the changes.
+        let head = repo.head()?.peel_to_commit()?;
+        repo.reset(head.as_object(), git2::ResetType::Hard, None)?;
+        return Ok(false);
+    }
+
+    repo.stash_drop(0)
+        .map_err(|e| GitError::Other(format!("Failed to drop auto-stash: {}", e)))?;
+    Ok(true)
+}
+
+/// Helper: checkout a tree object and set HEAD to the given ref
+pub fn do_checkout(repo: &Repository, refname: &str) -> GitResult<()> {
+    // Block checkout if there are uncommitted changes
+    if has_uncommitted_changes(repo)? {
         return Err(GitError::Other(
             "Cannot checkout — you have uncommitted changes. Commit or stash them first.".into()
         ));
@@ -664,8 +731,13 @@ pub fn reset_to_commit(repo: &Repository, commit_oid: &str, reset_type: &str) ->
 /// Save (create) a new stash with an optional message.
 /// Stashes all dirty working-directory and index state.
 pub fn save_stash(repo: &mut Repository, message: Option<&str>) -> GitResult<()> {
-    let sig = repo.signature()
-        .map_err(|e| GitError::Other(format!("Failed to get signature for stash: {}", e)))?;
+    // The stash author is not meaningful, so like `git stash` itself, fall
+    // back to a placeholder identity when user.name/user.email are not set.
+    let sig = match repo.signature() {
+        Ok(sig) => sig,
+        Err(_) => git2::Signature::now("gitron", "gitron@localhost")
+            .map_err(|e| GitError::Other(format!("Failed to create signature for stash: {}", e)))?,
+    };
     let flags = git2::StashFlags::DEFAULT;
     let msg = message.filter(|m| !m.is_empty());
     repo.stash_save(&sig, msg.unwrap_or(""), Some(flags))

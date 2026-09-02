@@ -41,6 +41,7 @@ pub fn run() {
             staging::add_to_gitignore,
             branch::list_branches,
             branch::create_branch,
+            branch::create_and_checkout_branch,
             branch::checkout_branch,
             branch::delete_branch,
             branch::find_merged_branches,

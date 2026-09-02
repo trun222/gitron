@@ -223,6 +223,17 @@ pub struct RepoInfo {
     pub is_empty: bool,
 }
 
+/// Result of creating and checking out a branch in one step
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateBranchResult {
+    pub info: RepoInfo,
+    /// Uncommitted changes were stashed before switching branches
+    pub auto_stashed: bool,
+    /// The auto-stash was successfully re-applied on the new branch
+    /// (false means it was left in the stash list for manual recovery)
+    pub stash_restored: bool,
+}
+
 /// Consolidated result from opening a repository (all data in one round-trip)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenRepoResult {

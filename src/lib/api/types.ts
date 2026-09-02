@@ -162,6 +162,14 @@ export interface RepoInfo {
   is_empty: boolean;
 }
 
+export interface CreateBranchResult {
+  info: RepoInfo;
+  /** Uncommitted changes were stashed before switching branches */
+  auto_stashed: boolean;
+  /** The auto-stash was re-applied on the new branch (false = left in stash list) */
+  stash_restored: boolean;
+}
+
 export interface OpenRepoResult {
   info: RepoInfo;
   status: RepoStatus;

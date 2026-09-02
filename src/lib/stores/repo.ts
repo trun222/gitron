@@ -539,6 +539,8 @@ export async function checkoutBranch(name: string) {
   if (graph) {
     const isRemote = graph.branches.some((b) => b.is_remote && b.name === name);
     if (isRemote) {
+      // Pull down the latest tip first so the checkout lands on current state
+      if (!(await syncRemoteBranch(name))) return;
       const localName = name.includes('/') ? name.split('/').slice(1).join('/') : name;
       const localExists = graph.branches.some((b) => !b.is_remote && b.name === localName);
       if (localExists) {
@@ -587,30 +589,37 @@ export function dismissBranchConflict() {
   branchConflictPrompt.set(null);
 }
 
-export async function createAndCheckoutBranch(name: string) {
+/// Create a branch and switch to it. Uncommitted changes are auto-stashed
+/// before the switch and re-applied afterwards (see core create_and_checkout_branch).
+async function createAndSwitch(name: string, target?: string) {
   const path = get(repoPath);
   if (!path) return;
   try {
-    await api.createBranch(path, name);
-    const info = await api.checkoutBranch(path, name);
-    repoInfo.set(info);
+    const result = await api.createAndCheckoutBranch(path, name, target);
+    repoInfo.set(result.info);
     await refreshAll(path);
+    if (result.auto_stashed) {
+      if (result.stash_restored) {
+        addToast(`Uncommitted changes carried over to '${name}'`, 'info');
+      } else {
+        addToast(
+          `Changes were stashed before switching to '${name}' but could not be re-applied. Pop the stash to recover them.`,
+          'error',
+          8000
+        );
+      }
+    }
   } catch (e) {
     error.set(String(e));
   }
 }
 
+export async function createAndCheckoutBranch(name: string) {
+  await createAndSwitch(name);
+}
+
 export async function createBranchAtCommit(name: string, targetOid: string) {
-  const path = get(repoPath);
-  if (!path) return;
-  try {
-    await api.createBranch(path, name, targetOid);
-    const info = await api.checkoutBranch(path, name);
-    repoInfo.set(info);
-    await refreshAll(path);
-  } catch (e) {
-    error.set(String(e));
-  }
+  await createAndSwitch(name, targetOid);
 }
 
 export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixed' | 'hard') {
@@ -625,7 +634,52 @@ export async function resetToCommit(commitOid: string, resetType: 'soft' | 'mixe
   }
 }
 
-export async function rebaseOnto(ontoBranch: string) {
+/**
+ * Split a remote-tracking branch name ("origin/feature/x") into its remote and
+ * branch parts, preferring a match against the configured remote names so that
+ * branches containing slashes are handled correctly.
+ */
+function splitRemoteBranch(name: string): { remote: string; branch: string } | null {
+  for (const r of get(remotes)) {
+    if (name.startsWith(`${r.name}/`)) {
+      return { remote: r.name, branch: name.slice(r.name.length + 1) };
+    }
+  }
+  const slash = name.indexOf('/');
+  if (slash <= 0) return null;
+  return { remote: name.slice(0, slash), branch: name.slice(slash + 1) };
+}
+
+/**
+ * Fetch the latest tip of a remote-tracking branch so an operation targeting it
+ * runs against up-to-date state instead of a stale ref. Returns false when the
+ * fetch failed, in which case the caller should not run the operation.
+ */
+export async function syncRemoteBranch(remoteBranchName: string): Promise<boolean> {
+  const path = get(repoPath);
+  if (!path) return false;
+  const parts = splitRemoteBranch(remoteBranchName);
+  if (!parts) {
+    error.set(`Cannot determine the remote for "${remoteBranchName}"`);
+    return false;
+  }
+  const label = `fetch ${parts.remote} ${parts.branch}`;
+  networkOperation.set('fetching');
+  try {
+    const result = await api.fetchRemote(path, parts.remote, parts.branch);
+    addOutput(label, result.output.stdout, result.output.stderr, true);
+    return true;
+  } catch (e) {
+    const msg = String(e);
+    addOutput(label, '', msg, false);
+    error.set(`Failed to fetch ${remoteBranchName}:\n${msg}`);
+    return false;
+  } finally {
+    networkOperation.set(null);
+  }
+}
+
+export async function rebaseOnto(ontoBranch: string, options?: { syncRemote?: boolean }) {
   const path = get(repoPath);
   if (!path) return;
   const status = get(repoStatus);
@@ -633,6 +687,7 @@ export async function rebaseOnto(ontoBranch: string) {
     error.set(`Cannot rebase while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
     return;
   }
+  if (options?.syncRemote && !(await syncRemoteBranch(ontoBranch))) return;
   try {
     const result = await api.rebaseOnto(path, ontoBranch);
     addOutput('rebase', result.output.stdout, result.output.stderr, result.success);
@@ -649,7 +704,7 @@ export async function rebaseOnto(ontoBranch: string) {
   }
 }
 
-export async function mergeInto(branchName: string) {
+export async function mergeInto(branchName: string, options?: { syncRemote?: boolean }) {
   const path = get(repoPath);
   if (!path) return;
   const status = get(repoStatus);
@@ -657,6 +712,7 @@ export async function mergeInto(branchName: string) {
     error.set(`Cannot merge while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
     return;
   }
+  if (options?.syncRemote && !(await syncRemoteBranch(branchName))) return;
   try {
     const result = await api.mergeInto(path, branchName);
     addOutput('merge', result.output.stdout, result.output.stderr, result.success);

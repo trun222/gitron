@@ -611,12 +611,32 @@
     const items: (MenuAction | 'separator')[] = [
       { id: 'checkout', label: 'Checkout branch', disabled: branch.is_head },
     ];
-    if (current && !branch.is_head && !branch.is_remote) {
+
+    // Branches this one can be rebased onto / merged from. A remote target is
+    // fetched first, so operating on `origin/main` always uses its latest tip
+    // without having to check it out and pull.
+    const targets: { name: string; isRemote: boolean }[] = [];
+    if (!branch.is_head) targets.push({ name: branch.name, isRemote: branch.is_remote });
+    if (!branch.is_remote && branch.upstream) targets.push({ name: branch.upstream, isRemote: true });
+
+    if (current && targets.length > 0) {
       const opInProgress = $repoStatus?.state !== 'Clean';
-      items.push(
-        { id: 'rebase-onto', label: `Rebase ${current} onto ${branch.name}`, disabled: opInProgress },
-        { id: 'merge-into', label: `Merge ${current} into ${branch.name}`, disabled: opInProgress },
-      );
+      items.push('separator');
+      for (const t of targets) {
+        items.push({
+          id: `rebase-onto:${t.isRemote ? 'remote' : 'local'}:${t.name}`,
+          label: `Rebase ${current} onto ${t.name}`,
+          disabled: opInProgress,
+        });
+      }
+      for (const t of targets) {
+        items.push({
+          id: `merge-into:${t.isRemote ? 'remote' : 'local'}:${t.name}`,
+          label: `Merge ${t.name} into ${current}`,
+          disabled: opInProgress,
+        });
+      }
+      items.push('separator');
     }
     items.push(
       { id: 'delete-branch', label: 'Delete branch', disabled: branch.is_head, danger: true },
@@ -728,12 +748,6 @@
           });
         }
         break;
-      case 'rebase-onto':
-        if (branchName) rebaseOnto(branchName);
-        break;
-      case 'merge-into':
-        if (branchName) mergeInto(branchName);
-        break;
       case 'copy-name':
         if (branchName) navigator.clipboard.writeText(branchName);
         break;
@@ -780,7 +794,13 @@
         if (authorName) addExcludedAuthor(authorName);
         break;
       default:
-        if (actionId.startsWith('move-tag:') && commitOid) {
+        if (actionId.startsWith('rebase-onto:')) {
+          const [scope, ...rest] = actionId.slice('rebase-onto:'.length).split(':');
+          rebaseOnto(rest.join(':'), { syncRemote: scope === 'remote' });
+        } else if (actionId.startsWith('merge-into:')) {
+          const [scope, ...rest] = actionId.slice('merge-into:'.length).split(':');
+          mergeInto(rest.join(':'), { syncRemote: scope === 'remote' });
+        } else if (actionId.startsWith('move-tag:') && commitOid) {
           const moveTagName = actionId.slice('move-tag:'.length);
           moveTag(moveTagName, commitOid);
         }

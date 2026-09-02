@@ -30,6 +30,7 @@ const COMMAND_MAP: Record<string, string> = {
   // Branch
   list_branches: '/api/branch/list',
   create_branch: '/api/branch/create',
+  create_and_checkout_branch: '/api/branch/create-checkout',
   checkout_branch: '/api/branch/checkout',
   delete_branch: '/api/branch/delete',
   find_merged_branches: '/api/branch/merged',

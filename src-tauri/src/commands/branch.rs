@@ -19,6 +19,18 @@ pub fn create_branch(
     repository::create_branch(&repo, &name, target_ref)
 }
 
+/// Create a new branch and check it out, auto-stashing uncommitted changes
+#[tauri::command]
+pub fn create_and_checkout_branch(
+    path: String,
+    name: String,
+    target: Option<String>,
+) -> Result<CreateBranchResult, GitError> {
+    let mut repo = repository::open(&path)?;
+    let target_ref = target.as_deref().unwrap_or("HEAD");
+    repository::create_and_checkout_branch(&mut repo, &name, target_ref)
+}
+
 /// Checkout a branch
 #[tauri::command]
 pub fn checkout_branch(path: String, name: String) -> Result<RepoInfo, GitError> {

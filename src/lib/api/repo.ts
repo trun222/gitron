@@ -1,6 +1,7 @@
 import { getTransport } from '$lib/api';
 import type {
   RepoInfo,
+  CreateBranchResult,
   RepoStatus,
   CommitGraph,
   Branch,
@@ -141,6 +142,14 @@ export async function createBranch(
   target?: string
 ): Promise<Branch> {
   return getTransport().invoke('create_branch', { path, name, target });
+}
+
+export async function createAndCheckoutBranch(
+  path: string,
+  name: string,
+  target?: string
+): Promise<CreateBranchResult> {
+  return getTransport().invoke('create_and_checkout_branch', { path, name, target });
 }
 
 export async function checkoutBranch(path: string, name: string): Promise<RepoInfo> {

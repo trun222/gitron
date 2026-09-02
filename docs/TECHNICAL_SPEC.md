@@ -144,6 +144,7 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 |---------|-----------|---------|-------------|
 | `list_branches` | `path: String` | `Vec<Branch>` | Lists all local and remote branches |
 | `create_branch` | `path: String`, `name: String`, `target: Option<String>` | `Branch` | Creates a new branch (defaults to HEAD) |
+| `create_and_checkout_branch` | `path: String`, `name: String`, `target: Option<String>` | `CreateBranchResult` | Creates a branch and checks it out. Uncommitted changes are auto-stashed before the switch and re-applied after; if re-applying fails the stash is kept and `stash_restored` is false |
 | `checkout_branch` | `path: String`, `name: String` | `RepoInfo` | Checks out a branch and returns updated repo info |
 | `delete_branch` | `path: String`, `name: String` | `Vec<Branch>` | Deletes a local branch and returns updated list |
 | `reset_to_commit` | `path: String`, `commit_oid: String`, `reset_type: String` | `RepoInfo` | Resets current branch to the given commit (soft/mixed/hard) |
