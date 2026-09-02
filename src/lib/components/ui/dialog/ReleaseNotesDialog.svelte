@@ -15,11 +15,13 @@
     hasConfiguredProvider,
   } from '$lib/stores/ai';
   import { addToast } from '$lib/stores/toast';
+  import { copyToClipboard } from '$lib/utils/clipboard';
 
   let from = $state('');
   let to = $state('HEAD');
   let markdown = $state('');
   let commitsExpanded = $state(false);
+  let outputEl: HTMLTextAreaElement | null = $state(null);
   let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Seed inputs from the store each time the dialog opens
@@ -81,12 +83,8 @@
 
   async function handleCopy() {
     if (!markdown.trim()) return;
-    try {
-      await navigator.clipboard.writeText(markdown);
-      addToast('Release notes copied to clipboard', 'success');
-    } catch {
-      addToast('Failed to copy to clipboard', 'error');
-    }
+    const ok = await copyToClipboard(markdown, outputEl);
+    addToast(ok ? 'Release notes copied to clipboard' : 'Failed to copy to clipboard', ok ? 'success' : 'error');
   }
 
   function handleOpenChange(open: boolean) {
@@ -199,6 +197,7 @@
         <textarea
           class="notes-output"
           rows="12"
+          bind:this={outputEl}
           bind:value={markdown}
           placeholder={$releaseNotesGenerating ? 'Generating…' : 'Generated notes will appear here. You can edit them before copying.'}
           readonly={$releaseNotesGenerating}

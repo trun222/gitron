@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copyToClipboard } from '$lib/utils/clipboard';
   import {
     worktrees,
     linkedWorktrees,
@@ -120,7 +121,7 @@
     } else if (actionId === 'open-terminal') {
       await openWorktreeInTerminal(wt.path);
     } else if (actionId === 'copy-path') {
-      await navigator.clipboard.writeText(wt.path);
+      await copyToClipboard(wt.path);
     } else if (actionId === 'toggle-lock') {
       await toggleWorktreeLock(wt.path, wt.is_locked);
     } else if (actionId === 'remove') {

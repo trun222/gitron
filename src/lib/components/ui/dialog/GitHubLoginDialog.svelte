@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Dialog } from 'bits-ui';
+  import { copyToClipboard } from '$lib/utils/clipboard';
   import { loginDialogOpen, deviceFlow, authLoading, authError, cancelLogin } from '$lib/stores/github';
 
   let copied = $state(false);
@@ -7,7 +8,8 @@
   async function copyCode() {
     const code = $deviceFlow?.user_code;
     if (!code) return;
-    await navigator.clipboard.writeText(code);
+    const ok = await copyToClipboard(code);
+    if (!ok) return;
     copied = true;
     setTimeout(() => (copied = false), 2000);
   }

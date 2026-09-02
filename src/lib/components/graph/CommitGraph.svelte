@@ -14,6 +14,7 @@
   import { graphColumnWidths, saveGraphColumnWidths, graphColumnVisibility, toggleColumnVisibility, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { linkedWorktrees } from '$lib/stores/worktree';
   import { openReleaseNotes } from '$lib/stores/ai';
+  import { copyToClipboard } from '$lib/utils/clipboard';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import type { Commit, Branch, Tag, StashEntry, GraphColumnVisibility, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
 
@@ -735,10 +736,10 @@
         }
         break;
       case 'copy-sha':
-        if (commitOid) navigator.clipboard.writeText(commitOid);
+        if (commitOid) copyToClipboard(commitOid);
         break;
       case 'copy-message':
-        if (commitMessage) navigator.clipboard.writeText(commitMessage);
+        if (commitMessage) copyToClipboard(commitMessage);
         break;
       case 'checkout':
         if (branchName) checkoutBranch(branchName);
@@ -753,7 +754,7 @@
         }
         break;
       case 'copy-name':
-        if (branchName) navigator.clipboard.writeText(branchName);
+        if (branchName) copyToClipboard(branchName);
         break;
       case 'reset-soft':
         if (commitOid) resetToCommit(commitOid, 'soft');
@@ -792,7 +793,7 @@
         if (tagName) deleteRemoteTag(tagName);
         break;
       case 'copy-tag-name':
-        if (tagName) navigator.clipboard.writeText(tagName);
+        if (tagName) copyToClipboard(tagName);
         break;
       case 'release-notes':
         // Tag name reads better than a SHA in the prompt and the dialog
