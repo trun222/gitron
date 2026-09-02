@@ -29,7 +29,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Lockfiles (npm is primary)
-pnpm-lock.yaml
 yarn.lock
 bun.lockb
 

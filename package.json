@@ -3,6 +3,7 @@
   "version": "0.6.4",
   "description": "Open-source, AI-native Git GUI built with Rust and Svelte",
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "tauri dev",
     "dev:frontend": "vite dev",

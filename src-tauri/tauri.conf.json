@@ -4,9 +4,9 @@
   "version": "0.6.4",
   "identifier": "com.thomasunderwoodii.gitron",
   "build": {
-    "beforeDevCommand": "npm run dev:frontend",
+    "beforeDevCommand": "pnpm run dev:frontend",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "pnpm run build",
     "frontendDist": "../build"
   },
   "app": {
