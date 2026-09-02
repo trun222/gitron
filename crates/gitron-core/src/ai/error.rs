@@ -19,6 +19,12 @@ pub enum AIError {
 
     #[error("No staged files to generate a commit message from")]
     NoStagedFiles,
+
+    #[error("No commits found between {0} and {1}")]
+    NoCommitsInRange(String, String),
+
+    #[error("Git error: {0}")]
+    Git(#[from] crate::git::error::GitError),
 }
 
 impl serde::Serialize for AIError {

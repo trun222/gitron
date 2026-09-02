@@ -4,12 +4,18 @@ use serde::Deserialize;
 use super::credential;
 use super::error::{AIError, AIResult};
 use super::providers;
-use super::types::GenerateResult;
-use crate::git::diff;
+use super::types::{GenerateResult, ReleaseNotesResult};
+use crate::git::{diff, range};
 
 const MAX_DIFF_CHARS: usize = 8000;
+/// Upper bound on the commit-list portion of a release-notes prompt.
+const MAX_RANGE_CHARS: usize = 24000;
+/// Max characters of a single commit body included in a release-notes prompt.
+const MAX_BODY_CHARS: usize = 400;
+/// Max changed-file paths listed in a release-notes prompt.
+const MAX_FILES_LISTED: usize = 80;
 
-const SYSTEM_PROMPT: &str = "\
+const COMMIT_SYSTEM_PROMPT: &str = "\
 You are a commit message generator. Given a git diff, write a conventional commit message.
 
 You MUST return exactly two parts separated by a blank line:
@@ -31,6 +37,30 @@ Rules:
 - Use imperative mood (\"Add feature\" not \"Added feature\")
 - Always include a body, never return only a title
 - Return ONLY the commit message, no markdown formatting or code blocks";
+
+const RELEASE_NOTES_SYSTEM_PROMPT: &str = "\
+You are a release notes writer for a software project. You will be given the git commits \
+between two revisions (newest first) plus a summary of the files that changed. Write release \
+notes in Markdown for end users and developers.
+
+Structure:
+- Start with a short overview paragraph (1-3 sentences) describing the theme of the release.
+- Then group changes under these headings, omitting any that would be empty:
+  ### Features
+  ### Bug Fixes
+  ### Improvements
+  ### Breaking Changes
+  ### Other
+- Each item is one concise bullet describing the user-visible change, not the implementation.
+- Merge related commits into a single bullet when they describe one change.
+- Preserve issue and pull request references such as #123 when they appear in a commit.
+- Do not list commit SHAs or author names.
+- Do not invent changes that are not supported by the commits.
+
+Rules:
+- Return ONLY the Markdown release notes.
+- Do not wrap the output in a code block.
+- Do not add a top-level title or version heading; the caller adds that.";
 
 /// Generate a commit message from staged diffs.
 pub async fn generate_commit_message(
@@ -80,6 +110,124 @@ pub async fn generate_commit_message(
 
     let user_prompt = format!("Generate a commit message for this diff:\n\n{}", diff_text);
 
+    let response_text = call_provider(
+        provider_id,
+        base_url,
+        model_id,
+        COMMIT_SYSTEM_PROMPT,
+        &user_prompt,
+        max_tokens,
+    )
+    .await?;
+
+    parse_commit_message(&response_text)
+}
+
+/// Generate Markdown release notes for the commits in `from..to`.
+///
+/// `from` is exclusive and `to` is inclusive. Both accept any revision spec
+/// (tag, branch, SHA, `HEAD~3`).
+pub async fn generate_release_notes(
+    path: &str,
+    from: &str,
+    to: &str,
+    provider_id: &str,
+    model_id: &str,
+    base_url: Option<&str>,
+    max_tokens: u32,
+) -> AIResult<ReleaseNotesResult> {
+    let repo = Repository::open(path)
+        .map_err(|e| AIError::ApiError(format!("Failed to open repo: {}", e)))?;
+
+    let summary = range::summarize_range(&repo, from, to)?;
+    if summary.commits.is_empty() {
+        return Err(AIError::NoCommitsInRange(from.to_string(), to.to_string()));
+    }
+
+    let user_prompt = build_release_notes_prompt(from, to, &summary);
+
+    let response_text = call_provider(
+        provider_id,
+        base_url,
+        model_id,
+        RELEASE_NOTES_SYSTEM_PROMPT,
+        &user_prompt,
+        max_tokens,
+    )
+    .await?;
+
+    let markdown = strip_code_fence(&response_text).to_string();
+    if markdown.is_empty() {
+        return Err(AIError::InvalidResponse("Empty response from AI".into()));
+    }
+
+    Ok(ReleaseNotesResult { markdown, range: summary })
+}
+
+/// Render a commit range as prompt text, truncating so large ranges stay within limits.
+fn build_release_notes_prompt(from: &str, to: &str, summary: &crate::git::types::CommitRangeSummary) -> String {
+    let mut text = format!(
+        "Write release notes for the changes between `{}` and `{}`.\n\n\
+         {} commits, {} files changed, +{} / -{} lines.\n\nCommits (newest first):\n",
+        from,
+        to,
+        summary.commits.len(),
+        summary.files_changed,
+        summary.insertions,
+        summary.deletions,
+    );
+
+    let mut truncated = false;
+    for commit in &summary.commits {
+        let mut entry = format!("- {}", commit.summary);
+        if commit.is_merge {
+            entry.push_str(" [merge]");
+        }
+        if !commit.body.is_empty() {
+            let body: String = commit.body.chars().take(MAX_BODY_CHARS).collect();
+            for line in body.lines() {
+                entry.push_str("\n    ");
+                entry.push_str(line);
+            }
+            if commit.body.chars().count() > MAX_BODY_CHARS {
+                entry.push_str("\n    ...");
+            }
+        }
+        entry.push('\n');
+        if text.len() + entry.len() > MAX_RANGE_CHARS {
+            truncated = true;
+            break;
+        }
+        text.push_str(&entry);
+    }
+    if truncated {
+        text.push_str("... (older commits omitted)\n");
+    }
+
+    if !summary.files.is_empty() {
+        text.push_str("\nChanged files:\n");
+        for file in summary.files.iter().take(MAX_FILES_LISTED) {
+            text.push_str("- ");
+            text.push_str(file);
+            text.push('\n');
+        }
+        if summary.files.len() > MAX_FILES_LISTED {
+            text.push_str(&format!("... and {} more\n", summary.files.len() - MAX_FILES_LISTED));
+        }
+    }
+
+    text
+}
+
+/// Look up the provider's key and dispatch to the matching API client.
+async fn call_provider(
+    provider_id: &str,
+    base_url: Option<&str>,
+    model_id: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+    max_tokens: u32,
+) -> AIResult<String> {
     let api_key = credential::get_key(provider_id)
         .ok_or_else(|| AIError::NoApiKey(provider_id.to_string()))?;
 
@@ -87,14 +235,12 @@ pub async fn generate_commit_message(
         .unwrap_or("https://api.openai.com/v1");
     let effective_base_url = base_url.unwrap_or(default_url);
 
-    let response_text = match provider_id {
-        "anthropic" => call_anthropic(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
-        "gemini" => call_gemini(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
-        "openai" => call_openai(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
-        _ => call_openai_compatible(effective_base_url, &api_key, model_id, &user_prompt, max_tokens).await?,
-    };
-
-    parse_commit_message(&response_text)
+    match provider_id {
+        "anthropic" => call_anthropic(effective_base_url, &api_key, model_id, system_prompt, user_prompt, max_tokens).await,
+        "gemini" => call_gemini(effective_base_url, &api_key, model_id, system_prompt, user_prompt, max_tokens).await,
+        "openai" => call_openai(effective_base_url, &api_key, model_id, system_prompt, user_prompt, max_tokens).await,
+        _ => call_openai_compatible(effective_base_url, &api_key, model_id, system_prompt, user_prompt, max_tokens).await,
+    }
 }
 
 /// Call OpenAI API (uses max_completion_tokens).
@@ -102,6 +248,7 @@ async fn call_openai(
     base_url: &str,
     api_key: &str,
     model: &str,
+    system_prompt: &str,
     user_prompt: &str,
     max_tokens: u32,
 ) -> AIResult<String> {
@@ -111,7 +258,7 @@ async fn call_openai(
     let body = serde_json::json!({
         "model": model,
         "messages": [
-            { "role": "system", "content": SYSTEM_PROMPT },
+            { "role": "system", "content": system_prompt },
             { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.3,
@@ -158,6 +305,7 @@ async fn call_openai_compatible(
     base_url: &str,
     api_key: &str,
     model: &str,
+    system_prompt: &str,
     user_prompt: &str,
     max_tokens: u32,
 ) -> AIResult<String> {
@@ -167,7 +315,7 @@ async fn call_openai_compatible(
     let body = serde_json::json!({
         "model": model,
         "messages": [
-            { "role": "system", "content": SYSTEM_PROMPT },
+            { "role": "system", "content": system_prompt },
             { "role": "user", "content": user_prompt }
         ],
         "temperature": 0.3,
@@ -214,6 +362,7 @@ async fn call_anthropic(
     base_url: &str,
     api_key: &str,
     model: &str,
+    system_prompt: &str,
     user_prompt: &str,
     max_tokens: u32,
 ) -> AIResult<String> {
@@ -223,7 +372,7 @@ async fn call_anthropic(
     let body = serde_json::json!({
         "model": model,
         "max_tokens": max_tokens,
-        "system": SYSTEM_PROMPT,
+        "system": system_prompt,
         "messages": [
             { "role": "user", "content": user_prompt }
         ],
@@ -265,6 +414,7 @@ async fn call_gemini(
     base_url: &str,
     api_key: &str,
     model: &str,
+    system_prompt: &str,
     user_prompt: &str,
     max_tokens: u32,
 ) -> AIResult<String> {
@@ -278,7 +428,7 @@ async fn call_gemini(
 
     let body = serde_json::json!({
         "systemInstruction": {
-            "parts": [{ "text": SYSTEM_PROMPT }]
+            "parts": [{ "text": system_prompt }]
         },
         "contents": [{
             "parts": [{ "text": user_prompt }]
@@ -327,11 +477,10 @@ async fn call_gemini(
         .ok_or_else(|| AIError::InvalidResponse("No text in response".into()))
 }
 
-/// Parse AI response into title + body.
-fn parse_commit_message(text: &str) -> AIResult<GenerateResult> {
+/// Strip a surrounding markdown code fence, if the model added one.
+fn strip_code_fence(text: &str) -> &str {
     let trimmed = text.trim();
-    // Strip markdown code block wrappers if present
-    let cleaned = if trimmed.starts_with("```") {
+    if trimmed.starts_with("```") {
         let without_opener = trimmed
             .strip_prefix("```")
             .unwrap_or(trimmed)
@@ -343,7 +492,12 @@ fn parse_commit_message(text: &str) -> AIResult<GenerateResult> {
             .trim()
     } else {
         trimmed
-    };
+    }
+}
+
+/// Parse AI response into title + body.
+fn parse_commit_message(text: &str) -> AIResult<GenerateResult> {
+    let cleaned = strip_code_fence(text);
 
     if cleaned.is_empty() {
         return Err(AIError::InvalidResponse("Empty response from AI".into()));

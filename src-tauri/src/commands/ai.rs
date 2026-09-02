@@ -1,5 +1,5 @@
 use gitron_core::ai::error::AIResult;
-use gitron_core::ai::types::{AIModel, AIProvider, AISettings, GenerateResult};
+use gitron_core::ai::types::{AIModel, AIProvider, AISettings, GenerateResult, ReleaseNotesResult};
 use gitron_core::ai::{credential, generate, providers};
 
 #[tauri::command]
@@ -34,6 +34,28 @@ pub async fn ai_generate_commit_message(
     max_tokens: Option<u32>,
 ) -> AIResult<GenerateResult> {
     generate::generate_commit_message(&path, &provider, &model, base_url.as_deref(), max_tokens.unwrap_or(1500)).await
+}
+
+#[tauri::command]
+pub async fn ai_generate_release_notes(
+    path: String,
+    from: String,
+    to: String,
+    provider: String,
+    model: String,
+    base_url: Option<String>,
+    max_tokens: Option<u32>,
+) -> AIResult<ReleaseNotesResult> {
+    generate::generate_release_notes(
+        &path,
+        &from,
+        &to,
+        &provider,
+        &model,
+        base_url.as_deref(),
+        max_tokens.unwrap_or(1500),
+    )
+    .await
 }
 
 #[tauri::command]

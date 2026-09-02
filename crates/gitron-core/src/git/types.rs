@@ -22,6 +22,32 @@ pub struct Signature {
 }
 
 /// A branch reference
+/// One commit inside a `from..to` range.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitRangeEntry {
+    pub oid: String,
+    pub short_oid: String,
+    pub summary: String,
+    /// Message body after the summary line (may be empty).
+    pub body: String,
+    pub author: String,
+    pub is_merge: bool,
+}
+
+/// Commits and diffstat between two revisions (`from` exclusive, `to` inclusive).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitRangeSummary {
+    pub from_oid: String,
+    pub to_oid: String,
+    /// Newest first.
+    pub commits: Vec<CommitRangeEntry>,
+    pub files_changed: usize,
+    pub insertions: usize,
+    pub deletions: usize,
+    /// Paths touched in the range (capped by the caller for prompts).
+    pub files: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Branch {
     pub name: String,

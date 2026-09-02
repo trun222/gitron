@@ -1,4 +1,4 @@
-use gitron_core::git::{error::GitError, graph as git_graph, repository, types::*};
+use gitron_core::git::{error::GitError, graph as git_graph, range, repository, types::*};
 
 /// Get the commit graph for a repository
 #[tauri::command]
@@ -42,4 +42,11 @@ pub fn search_commits(
 pub fn get_commit_detail(path: String, oid: String) -> Result<Commit, GitError> {
     let repo = repository::open(&path)?;
     git_graph::get_commit_detail(&repo, &oid)
+}
+
+/// Summarize the commits and diffstat between two revisions (`from` exclusive, `to` inclusive)
+#[tauri::command]
+pub fn get_commit_range(path: String, from: String, to: String) -> Result<CommitRangeSummary, GitError> {
+    let repo = repository::open(&path)?;
+    range::summarize_range(&repo, &from, &to)
 }

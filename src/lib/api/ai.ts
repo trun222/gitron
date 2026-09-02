@@ -1,5 +1,5 @@
 import { getTransport } from '$lib/api';
-import type { AIModel, AIProvider, AISettings, GenerateResult } from './types';
+import type { AIModel, AIProvider, AISettings, GenerateResult, ReleaseNotesResult } from './types';
 
 export async function getProviders(): Promise<AIProvider[]> {
   return getTransport().invoke('ai_get_providers');
@@ -32,6 +32,26 @@ export async function generateCommitMessage(
 ): Promise<GenerateResult> {
   return getTransport().invoke('ai_generate_commit_message', {
     path,
+    provider,
+    model,
+    baseUrl: baseUrl ?? null,
+    maxTokens: maxTokens ?? null,
+  });
+}
+
+export async function generateReleaseNotes(
+  path: string,
+  from: string,
+  to: string,
+  provider: string,
+  model: string,
+  baseUrl?: string | null,
+  maxTokens?: number
+): Promise<ReleaseNotesResult> {
+  return getTransport().invoke('ai_generate_release_notes', {
+    path,
+    from,
+    to,
     provider,
     model,
     baseUrl: baseUrl ?? null,

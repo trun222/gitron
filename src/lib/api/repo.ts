@@ -1,5 +1,6 @@
 import { getTransport } from '$lib/api';
 import type {
+  CommitRangeSummary,
   RepoInfo,
   CreateBranchResult,
   RepoStatus,
@@ -77,6 +78,14 @@ export async function searchCommits(
 
 export async function getCommitDetail(path: string, oid: string) {
   return getTransport().invoke('get_commit_detail', { path, oid });
+}
+
+export async function getCommitRange(
+  path: string,
+  from: string,
+  to: string
+): Promise<CommitRangeSummary> {
+  return getTransport().invoke('get_commit_range', { path, from, to });
 }
 
 export async function getCommitDiff(path: string, oid: string): Promise<FileDiff[]> {

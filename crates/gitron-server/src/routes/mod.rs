@@ -34,6 +34,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         // Graph
         .route("/graph", post(graph::get_commit_graph))
         .route("/graph/detail", post(graph::get_commit_detail))
+        .route("/graph/range", post(graph::get_commit_range))
         .route("/graph/search", post(graph::search_commits))
         // Diff
         .route("/diff/workdir", post(diff::get_workdir_diff))
@@ -119,6 +120,7 @@ pub fn api_router(state: Arc<ServerState>) -> Router {
         .route("/ai/delete-key", post(ai::delete_key))
         .route("/ai/fetch-models", post(ai::fetch_models))
         .route("/ai/generate", post(ai::generate_commit_message))
+        .route("/ai/release-notes", post(ai::generate_release_notes))
         .route("/ai/settings", get(ai::get_settings).post(ai::save_settings))
         // Filesystem browser
         .route("/fs/list", post(fs::list_directory))

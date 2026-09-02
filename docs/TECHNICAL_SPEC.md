@@ -119,6 +119,7 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 |---------|-----------|---------|-------------|
 | `get_commit_graph` | `path: String`, `max_commits: Option<usize>`, `include_remotes: Option<bool>` | `CommitGraph` | Returns the commit graph (commits, branches, tags) |
 | `get_commit_detail` | `path: String`, `oid: String` | `Commit` | Returns detailed info for a single commit |
+| `get_commit_range` | `path: String`, `from: String`, `to: String` | `CommitRangeSummary` | Commits (newest first) and diffstat for `from..to`. `from` is exclusive, `to` inclusive; both accept any rev spec (tag, branch, SHA, `HEAD~3`) |
 
 ### Diff Commands (`commands/diff.rs`)
 
@@ -166,6 +167,7 @@ Every Tauri command is defined in `src-tauri/src/commands/`. Each command takes 
 | `ai_delete_key` | `provider: String` | `()` | Removes an API key from the OS keychain |
 | `ai_fetch_models` | `provider: String`, `base_url: Option<String>` | `Vec<AIModel>` | Fetches available models from a provider's API (requires API key) |
 | `ai_generate_commit_message` | `path: String`, `provider: String`, `model: String`, `base_url: Option<String>`, `max_tokens: Option<u32>` | `GenerateResult` | Generates a commit message from staged diffs using the specified AI provider/model |
+| `ai_generate_release_notes` | `path: String`, `from: String`, `to: String`, `provider: String`, `model: String`, `base_url: Option<String>`, `max_tokens: Option<u32>` | `ReleaseNotesResult` | Generates Markdown release notes for the commits in `from..to`. Errors with `NoCommitsInRange` when the range is empty |
 | `ai_get_settings` | `app: AppHandle` | `AISettings` | Reads AI settings from `tauri-plugin-store` |
 | `ai_save_settings` | `app: AppHandle`, `settings: AISettings` | `()` | Writes AI settings to `tauri-plugin-store` |
 
@@ -456,6 +458,30 @@ AIModel {
 GenerateResult {
   title: string           — commit title line (first line of response)
   body: string            — commit body (remaining lines after blank line separator)
+}
+
+ReleaseNotesResult {
+  markdown: string        — release notes as Markdown (code fence stripped if the model added one)
+  range: CommitRangeSummary — the commits and diffstat the notes were generated from
+}
+
+CommitRangeSummary {
+  from_oid: string        — resolved OID of `from` (exclusive)
+  to_oid: string          — resolved OID of `to` (inclusive)
+  commits: CommitRangeEntry[] — newest first
+  files_changed: number
+  insertions: number
+  deletions: number
+  files: string[]         — paths touched in the range
+}
+
+CommitRangeEntry {
+  oid: string
+  short_oid: string
+  summary: string         — first line of the commit message
+  body: string            — remaining message body (may be empty)
+  author: string
+  is_merge: boolean
 }
 
 AISettings {

@@ -13,6 +13,7 @@
   import { get } from 'svelte/store';
   import { graphColumnWidths, saveGraphColumnWidths, graphColumnVisibility, toggleColumnVisibility, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
   import { linkedWorktrees } from '$lib/stores/worktree';
+  import { openReleaseNotes } from '$lib/stores/ai';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import type { Commit, Branch, Tag, StashEntry, GraphColumnVisibility, GraphColumnWidths, GraphEdge, WorktreeInfo } from '$lib/api/types';
 
@@ -587,6 +588,8 @@
     }
     items.push(
       'separator',
+      { id: 'release-notes', label: 'Generate release notes after this commit\u2026' },
+      'separator',
       { id: 'copy-sha', label: 'Copy commit SHA' },
       { id: 'copy-message', label: 'Copy commit message' },
       'separator',
@@ -682,6 +685,7 @@
     }
     items.push(
       'separator',
+      { id: 'release-notes', label: 'Generate release notes since this tag\u2026' },
       { id: 'copy-tag-name', label: 'Copy tag name' },
       'separator',
       { id: 'delete-tag', label: 'Delete local tag', danger: true },
@@ -789,6 +793,11 @@
         break;
       case 'copy-tag-name':
         if (tagName) navigator.clipboard.writeText(tagName);
+        break;
+      case 'release-notes':
+        // Tag name reads better than a SHA in the prompt and the dialog
+        if (tagName) openReleaseNotes({ from: tagName });
+        else if (commitOid) openReleaseNotes({ from: commitOid });
         break;
       case 'hide-author':
         if (authorName) addExcludedAuthor(authorName);

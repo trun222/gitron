@@ -8,3 +8,4 @@ export { default as ForcePushDialog } from './ForcePushDialog.svelte';
 export { default as GitHubLoginDialog } from './GitHubLoginDialog.svelte';
 export { default as GitHubUserMenu } from './GitHubUserMenu.svelte';
 export { default as PurgeCheckpointsDialog } from './PurgeCheckpointsDialog.svelte';
+export { default as ReleaseNotesDialog } from './ReleaseNotesDialog.svelte';

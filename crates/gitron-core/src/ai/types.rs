@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::git::types::CommitRangeSummary;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIProvider {
     pub id: String,
@@ -20,6 +22,15 @@ pub struct AIModel {
 pub struct GenerateResult {
     pub title: String,
     pub body: String,
+}
+
+/// Generated release notes for a commit range (`from..to`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseNotesResult {
+    /// Markdown release notes produced by the model.
+    pub markdown: String,
+    /// The commits and diffstat the notes were generated from.
+    pub range: CommitRangeSummary,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

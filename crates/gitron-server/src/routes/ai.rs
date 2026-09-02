@@ -3,7 +3,7 @@ use axum::Json;
 use serde::Deserialize;
 
 use gitron_core::ai::{credential, generate, providers};
-use gitron_core::ai::types::{AIModel, AIProvider, AISettings, GenerateResult};
+use gitron_core::ai::types::{AIModel, AIProvider, AISettings, GenerateResult, ReleaseNotesResult};
 
 pub async fn get_providers() -> Result<Json<Vec<AIProvider>>, (StatusCode, String)> {
     Ok(Json(providers::get_providers()))
@@ -66,6 +66,36 @@ pub async fn generate_commit_message(
 ) -> Result<Json<GenerateResult>, (StatusCode, String)> {
     let result = generate::generate_commit_message(
         &req.path,
+        &req.provider,
+        &req.model,
+        req.base_url.as_deref(),
+        req.max_tokens.unwrap_or(1500),
+    )
+    .await
+    .map_err(err)?;
+    Ok(Json(result))
+}
+
+#[derive(Deserialize)]
+pub struct ReleaseNotesRequest {
+    path: String,
+    from: String,
+    to: String,
+    provider: String,
+    model: String,
+    #[serde(rename = "baseUrl")]
+    base_url: Option<String>,
+    #[serde(rename = "maxTokens")]
+    max_tokens: Option<u32>,
+}
+
+pub async fn generate_release_notes(
+    Json(req): Json<ReleaseNotesRequest>,
+) -> Result<Json<ReleaseNotesResult>, (StatusCode, String)> {
+    let result = generate::generate_release_notes(
+        &req.path,
+        &req.from,
+        &req.to,
         &req.provider,
         &req.model,
         req.base_url.as_deref(),

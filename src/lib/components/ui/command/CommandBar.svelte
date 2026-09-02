@@ -27,6 +27,7 @@
     pruneStaleWorktrees,
   } from '$lib/stores/worktree';
   import { toggleTerminalPanel } from '$lib/stores/terminal';
+  import { openReleaseNotes } from '$lib/stores/ai';
 
   let { onShowShortcuts, onShowSettings }: { onShowShortcuts?: () => void; onShowSettings?: () => void } = $props();
 
@@ -186,6 +187,13 @@
     search = '';
     inputRef?.blur();
     toggleTerminalPanel();
+  }
+
+  function handleReleaseNotes() {
+    isOpen = false;
+    search = '';
+    inputRef?.blur();
+    openReleaseNotes();
   }
 
   function handleCleanupBranches() {
@@ -627,6 +635,15 @@
                 >
                   <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   <span>Discard All Changes</span>
+                </Command.Item>
+                <Command.Item
+                  value="generate-release-notes"
+                  keywords={['release', 'notes', 'changelog', 'generate', 'ai', 'version', 'tag']}
+                  onSelect={handleReleaseNotes}
+                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer outline-none data-[selected]:bg-accent"
+                >
+                  <svg class="shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  <span>Generate Release Notes...</span>
                 </Command.Item>
                 <Command.Item
                   value="cleanup-merged-branches"

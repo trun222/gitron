@@ -78,7 +78,7 @@ gitron/
 │       │   ├── staging.rs       # stage_file, unstage_file, stage_files, stage_all, unstage_all
 │       │   ├── branch.rs        # list_branches, create_branch, checkout_branch, delete_branch
 │       │   ├── commit.rs        # create_commit
-│       │   └── ai.rs            # AI commands: get_providers, save/delete key, fetch_models, generate, settings
+│       │   └── ai.rs            # AI commands: get_providers, save/delete key, fetch_models, generate, release notes, settings
 │       ├── git/                 # Core git logic (all git2-rs calls live here)
 │       │   ├── mod.rs           # Re-exports: types, error, repository, graph, diff
 │       │   ├── types.rs         # All data types (Commit, Branch, FileDiff, RepoStatus, etc.)
@@ -202,13 +202,14 @@ ai/
 ├── credential.rs   — API key CRUD via crate::credential_store (OS keychain)
 ├── types.rs        — AIProvider, AIModel, GenerateResult, AISettings
 ├── providers.rs    — Provider registry, default models, dynamic model fetching from APIs
-└── generate.rs     — Staged diff → prompt → provider API call → title + body parsing
+└── generate.rs     — Staged diff or commit range → prompt → provider API call → response parsing
 ```
 
 **Supported providers**: OpenAI, Anthropic, Gemini, OpenRouter (plus any OpenAI-compatible endpoint via custom base URL).
 
 **Key flows**:
 - `generate_commit_message()`: opens repo → reads staged diffs → builds prompt (truncated at 8k chars) → calls provider API → parses response into title + body
+- `generate_release_notes()`: opens repo → `git::range::summarize_range(from, to)` (revwalk + tree diffstat) → builds prompt from commit summaries/bodies and changed files (truncated at 24k chars) → calls provider API → returns Markdown plus the range summary
 - `fetch_models()`: calls provider's model listing API, filters to relevant models, sorts by cost tier
 - Provider-specific API differences: OpenAI uses `max_completion_tokens`, Anthropic/OpenRouter use `max_tokens`, Gemini uses `maxOutputTokens` and `systemInstruction`
 

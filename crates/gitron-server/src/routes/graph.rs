@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
-use gitron_core::git::{graph as git_graph, repository, types::*};
+use gitron_core::git::{graph as git_graph, range, repository, types::*};
 
 #[derive(Deserialize)]
 pub struct GraphRequest {
@@ -41,6 +41,21 @@ pub async fn get_commit_detail(
     let repo = repository::open(&req.path).map_err(err)?;
     let commit = git_graph::get_commit_detail(&repo, &req.oid).map_err(err)?;
     Ok(Json(commit))
+}
+
+#[derive(Deserialize)]
+pub struct CommitRangeRequest {
+    path: String,
+    from: String,
+    to: String,
+}
+
+pub async fn get_commit_range(
+    Json(req): Json<CommitRangeRequest>,
+) -> Result<Json<CommitRangeSummary>, (StatusCode, String)> {
+    let repo = repository::open(&req.path).map_err(err)?;
+    let summary = range::summarize_range(&repo, &req.from, &req.to).map_err(err)?;
+    Ok(Json(summary))
 }
 
 #[derive(Deserialize)]

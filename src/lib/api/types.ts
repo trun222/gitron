@@ -31,6 +31,29 @@ export interface Tag {
   message: string | null;
 }
 
+/** One commit inside a `from..to` range. */
+export interface CommitRangeEntry {
+  oid: string;
+  short_oid: string;
+  summary: string;
+  /** Message body after the summary line (may be empty). */
+  body: string;
+  author: string;
+  is_merge: boolean;
+}
+
+/** Commits and diffstat between two revisions (`from` exclusive, `to` inclusive). */
+export interface CommitRangeSummary {
+  from_oid: string;
+  to_oid: string;
+  /** Newest first. */
+  commits: CommitRangeEntry[];
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+  files: string[];
+}
+
 export interface RemoteTagInfo {
   name: string;
   oid: string;
@@ -352,6 +375,14 @@ export interface AIModel {
 export interface GenerateResult {
   title: string;
   body: string;
+}
+
+/** Generated release notes for a commit range. */
+export interface ReleaseNotesResult {
+  /** Markdown release notes produced by the model. */
+  markdown: string;
+  /** The commits and diffstat the notes were generated from. */
+  range: CommitRangeSummary;
 }
 
 export interface AISettings {

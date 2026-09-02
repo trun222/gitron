@@ -12,6 +12,7 @@ const COMMAND_MAP: Record<string, string> = {
   // Graph
   get_commit_graph: '/api/graph',
   get_commit_detail: '/api/graph/detail',
+  get_commit_range: '/api/graph/range',
   search_commits: '/api/graph/search',
   // Diff
   get_workdir_diff: '/api/diff/workdir',
@@ -97,6 +98,7 @@ const COMMAND_MAP: Record<string, string> = {
   ai_delete_key: '/api/ai/delete-key',
   ai_fetch_models: '/api/ai/fetch-models',
   ai_generate_commit_message: '/api/ai/generate',
+  ai_generate_release_notes: '/api/ai/release-notes',
   ai_get_settings: '/api/ai/settings',
   ai_save_settings: '/api/ai/settings',
   // Filesystem
