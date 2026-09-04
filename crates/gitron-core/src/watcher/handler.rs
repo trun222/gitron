@@ -19,29 +19,35 @@ pub enum WatcherHandle {
     Poll(Debouncer<PollWatcher>),
 }
 
-/// Classify a changed path into a repo change event
+/// Classify a changed path into a repo change event.
+///
+/// Matches on a path component that is exactly `.git` (the git dir, or the
+/// `.git` file of a linked worktree) rather than the substring ".git", so that
+/// `.gitignore`, `.github/`, or a repo living under `~/foo.github/` are not
+/// mistaken for ref changes.
 fn classify_event(path: &Path) -> RepoChangeEvent {
-    let path_str = path.to_string_lossy();
+    use std::path::Component;
 
-    if let Some(git_rel) = path_str.find(".git").map(|i| &path_str[i + 4..]) {
-        // .git/HEAD -> HeadChanged
-        if git_rel.is_empty() || git_rel == "/HEAD" || git_rel == "\\HEAD" {
-            return RepoChangeEvent::HeadChanged;
-        }
-        // .git/refs/ -> RefsChanged
-        if git_rel.starts_with("/refs") || git_rel.starts_with("\\refs") {
-            return RepoChangeEvent::RefsChanged;
-        }
-        // .git/index -> WorkdirChanged (staging area)
-        if git_rel == "/index" || git_rel == "\\index" {
-            return RepoChangeEvent::WorkdirChanged;
-        }
-        // Other .git/ changes -> RefsChanged
-        return RepoChangeEvent::RefsChanged;
+    let mut components = path.components();
+    let in_git_dir = components
+        .by_ref()
+        .any(|c| matches!(c, Component::Normal(name) if name == ".git"));
+    if !in_git_dir {
+        return RepoChangeEvent::WorkdirChanged;
     }
 
-    // Non-.git paths -> WorkdirChanged
-    RepoChangeEvent::WorkdirChanged
+    let rel: Vec<&str> = components
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect();
+    match rel.as_slice() {
+        // The .git entry itself (e.g. a worktree's .git file) or .git/HEAD
+        [] | ["HEAD"] => RepoChangeEvent::HeadChanged,
+        // .git/index -> staging area
+        ["index"] => RepoChangeEvent::WorkdirChanged,
+        // .git/refs/**, packed-refs, logs, objects, ... -> let the consumer's
+        // refs fingerprint decide whether anything actually changed
+        _ => RepoChangeEvent::RefsChanged,
+    }
 }
 
 /// Start watching a repository directory for changes.
@@ -77,9 +83,7 @@ fn try_native_watcher(
     let mut debouncer = new_debouncer(
         Duration::from_millis(200),
         move |events: Result<Vec<notify_debouncer_mini::DebouncedEvent>, notify::Error>| {
-            if let Ok(events) = events {
-                send_classified_events(&tx, &events);
-            }
+            handle_watcher_result(&tx, events);
         },
     )?;
 
@@ -105,9 +109,7 @@ fn try_poll_watcher(
     let mut debouncer = new_debouncer_opt::<_, PollWatcher>(
         config,
         move |events: Result<Vec<notify_debouncer_mini::DebouncedEvent>, notify::Error>| {
-            if let Ok(events) = events {
-                send_classified_events(&tx, &events);
-            }
+            handle_watcher_result(&tx, events);
         },
     )?;
 
@@ -116,6 +118,23 @@ fn try_poll_watcher(
         .watch(repo_path, notify::RecursiveMode::Recursive)?;
 
     Ok(debouncer)
+}
+
+/// Forward a batch from the OS watcher. An error (event queue overflow, a
+/// watch that could not be established, ...) means events may have been lost,
+/// so it is treated as "something changed" to trigger a resync rather than
+/// being dropped on the floor.
+fn handle_watcher_result(
+    tx: &mpsc::Sender<RepoChangeEvent>,
+    events: Result<Vec<notify_debouncer_mini::DebouncedEvent>, notify::Error>,
+) {
+    match events {
+        Ok(events) => send_classified_events(tx, &events),
+        Err(e) => {
+            log::warn!("File watcher error (forcing resync): {e}");
+            tx.try_send(RepoChangeEvent::RefsChanged).ok();
+        }
+    }
 }
 
 fn send_classified_events(
@@ -142,5 +161,33 @@ fn send_classified_events(
     }
     if has_workdir {
         tx.try_send(RepoChangeEvent::WorkdirChanged).ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn classify(p: &str) -> RepoChangeEvent {
+        classify_event(&PathBuf::from(p))
+    }
+
+    #[test]
+    fn classifies_git_dir_entries() {
+        assert!(matches!(classify("/r/.git/HEAD"), RepoChangeEvent::HeadChanged));
+        assert!(matches!(classify("/r/.git"), RepoChangeEvent::HeadChanged));
+        assert!(matches!(classify("/r/.git/index"), RepoChangeEvent::WorkdirChanged));
+        assert!(matches!(classify("/r/.git/refs/heads/main"), RepoChangeEvent::RefsChanged));
+        assert!(matches!(classify("/r/.git/packed-refs"), RepoChangeEvent::RefsChanged));
+        assert!(matches!(classify("/r/.git/worktrees/x/HEAD"), RepoChangeEvent::RefsChanged));
+    }
+
+    #[test]
+    fn workdir_paths_that_merely_contain_dot_git_are_workdir_changes() {
+        assert!(matches!(classify("/r/.gitignore"), RepoChangeEvent::WorkdirChanged));
+        assert!(matches!(classify("/r/.github/workflows/ci.yml"), RepoChangeEvent::WorkdirChanged));
+        assert!(matches!(classify("/home/me/foo.github/src/a.ts"), RepoChangeEvent::WorkdirChanged));
+        assert!(matches!(classify("/r/src/lib.rs"), RepoChangeEvent::WorkdirChanged));
     }
 }

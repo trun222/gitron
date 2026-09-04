@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::time::Duration;
 
 use tokio::process::Command as AsyncCommand;
 
@@ -56,15 +57,43 @@ pub fn run_git(workdir: &str, args: &[&str]) -> GitResult<CliOutput> {
     Ok(result)
 }
 
+/// Upper bound for a single network git command (fetch/push/pull/ls-remote).
+///
+/// Without it a git process stuck on a credential prompt, an askpass GUI, or a
+/// stalled connection never returns, the frontend's `networkOperation` lock is
+/// never released, and every later push/pull is refused until the app restarts.
+pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// Run an already-configured command, killing it if it exceeds `timeout`.
+async fn output_with_timeout(
+    mut cmd: AsyncCommand,
+    args: &[&str],
+    timeout: Duration,
+) -> GitResult<std::process::Output> {
+    // When the timeout fires the `output()` future is dropped; make sure the
+    // child goes with it instead of lingering as an orphan holding repo locks.
+    cmd.kill_on_drop(true);
+    match tokio::time::timeout(timeout, cmd.output()).await {
+        Ok(output) => output.map_err(GitError::Io),
+        Err(_) => Err(GitError::CliError {
+            command: format!("git {}", args.join(" ")),
+            stderr: format!(
+                "Timed out after {}s waiting for git to finish; the process was terminated. \
+                 Check network connectivity and credentials, then try again.",
+                timeout.as_secs()
+            ),
+            exit_code: -1,
+        }),
+    }
+}
+
 /// Run a git CLI command asynchronously (for network ops like fetch/push/pull)
 pub async fn run_git_async(workdir: &str, args: &[&str]) -> GitResult<CliOutput> {
-    let output = AsyncCommand::new("git")
-        .args(args)
+    let mut cmd = AsyncCommand::new("git");
+    cmd.args(args)
         .current_dir(workdir)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
-        .await
-        .map_err(|e| GitError::Io(e))?;
+        .env("GIT_TERMINAL_PROMPT", "0");
+    let output = output_with_timeout(cmd, args, NETWORK_TIMEOUT).await?;
 
     let result = CliOutput {
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -103,16 +132,14 @@ pub async fn run_git_async_with_github_auth(workdir: &str, args: &[&str]) -> Git
     let authed_url = format!("https://x-access-token:{token}@github.com/");
     let config_key = format!("url.{authed_url}.insteadOf");
 
-    let output = AsyncCommand::new("git")
-        .args(args)
+    let mut cmd = AsyncCommand::new("git");
+    cmd.args(args)
         .current_dir(workdir)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_CONFIG_COUNT", "1")
         .env("GIT_CONFIG_KEY_0", &config_key)
-        .env("GIT_CONFIG_VALUE_0", "https://github.com/")
-        .output()
-        .await
-        .map_err(|e| GitError::Io(e))?;
+        .env("GIT_CONFIG_VALUE_0", "https://github.com/");
+    let output = output_with_timeout(cmd, args, NETWORK_TIMEOUT).await?;
 
     let result = CliOutput {
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -142,5 +169,30 @@ fn combine_output(stdout: &str, stderr: &str) -> String {
         (true, false) => stderr.to_string(),
         (false, true) => stdout.to_string(),
         (false, false) => format!("{stdout}\n{stderr}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A git process that never finishes (hung credential prompt, stalled
+    /// connection) must not block the caller forever.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn hung_process_is_killed_after_timeout() {
+        let mut cmd = AsyncCommand::new("sleep");
+        cmd.arg("30");
+        let started = std::time::Instant::now();
+        let result = output_with_timeout(cmd, &["push", "origin"], Duration::from_millis(100)).await;
+        assert!(started.elapsed() < Duration::from_secs(5), "timeout did not fire");
+        match result {
+            Err(GitError::CliError { command, stderr, exit_code }) => {
+                assert_eq!(command, "git push origin");
+                assert!(stderr.contains("Timed out"), "unexpected stderr: {stderr}");
+                assert_eq!(exit_code, -1);
+            }
+            other => panic!("expected CliError, got {other:?}"),
+        }
     }
 }

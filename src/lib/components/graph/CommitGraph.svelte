@@ -8,7 +8,7 @@
     createTagAtCommit, deleteTag, moveTag, pushTag, deleteRemoteTag,
     scrollToCommitOid, remoteTagMap,
     commitSearchActive, commitSearchMatchOids, commitSearchQuery,
-    refreshAll, repoPath,
+    refreshAll, repoPath, remotes as repoRemotes,
   } from '$lib/stores/repo';
   import { get } from 'svelte/store';
   import { graphColumnWidths, saveGraphColumnWidths, graphColumnVisibility, toggleColumnVisibility, theme, excludedAuthors, addExcludedAuthor, removeExcludedAuthor, setExcludedAuthors } from '$lib/stores/settings';
@@ -426,6 +426,8 @@
   }
 
   // --- Unified branch grouping (GitKraken-style) ---
+  const remoteNames = $derived($repoRemotes.map((r) => r.name));
+
   interface UnifiedBranch {
     /** Display name (short, no remote prefix) */
     name: string;
@@ -435,16 +437,35 @@
     primary: Branch;
   }
 
+  // Split "origin/feat/x" into just "feat/x". Uses the configured remote names
+  // rather than "everything before the first slash", because branch names
+  // commonly contain slashes themselves (e.g. "thomas/enable-agency").
+  function stripRemotePrefix(fullName: string): string {
+    for (const rn of remoteNames) {
+      if (fullName.startsWith(`${rn}/`)) return fullName.slice(rn.length + 1);
+    }
+    return fullName.replace(/^[^/]+\//, '');
+  }
+
   function groupBranches(branches: Branch[]): UnifiedBranch[] {
     const locals = branches.filter((b) => !b.is_remote);
-    const remotes = branches.filter((b) => b.is_remote);
+    const remoteBranches = branches.filter((b) => b.is_remote);
     const pairedRemotes = new Set<string>();
     const groups: UnifiedBranch[] = [];
 
     for (const local of locals) {
-      const tracking = local.upstream
-        ? remotes.find((r) => r.name === local.upstream)
-        : null;
+      // Prefer the configured upstream, then fall back to matching by name.
+      // `git push origin <branch>` without `-u` (what the CLI and most agents do)
+      // leaves branch.<name>.remote unset, so upstream is null even though
+      // origin/<branch> sits on this very commit. Without the fallback the pair
+      // renders as two duplicate pills.
+      const tracking =
+        (local.upstream
+          ? remoteBranches.find((r) => !pairedRemotes.has(r.name) && r.name === local.upstream)
+          : undefined) ??
+        remoteBranches.find(
+          (r) => !pairedRemotes.has(r.name) && stripRemotePrefix(r.name) === local.name
+        );
       if (tracking) pairedRemotes.add(tracking.name);
       groups.push({
         name: local.name,
@@ -455,12 +476,10 @@
     }
 
     // Standalone remotes (no local counterpart)
-    for (const remote of remotes) {
+    for (const remote of remoteBranches) {
       if (pairedRemotes.has(remote.name)) continue;
-      // Strip remote prefix for display (e.g. "origin/dev" → "dev")
-      const shortName = remote.name.replace(/^[^/]+\//, '');
       groups.push({
-        name: shortName,
+        name: stripRemotePrefix(remote.name),
         local: null,
         remote,
         primary: remote,

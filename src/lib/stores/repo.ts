@@ -143,6 +143,9 @@ function getAllFiles(): SelectedFileInfo[] {
 export async function openRepo(path: string) {
   loading.set(true);
   error.set(null);
+  // A previous fetch/push whose promise never settled would keep push/pull
+  // disabled forever; opening a repo is a fresh start.
+  networkOperation.set(null);
   try {
     const result = await api.openRepo(path);
     repoPath.set(path);
@@ -188,20 +191,43 @@ export async function closeRepo() {
   remoteTagMap.set(new Map());
   trackingStatus.set(null);
   clearCommitSearch();
+  networkOperation.set(null);
   error.set(null);
 }
 
 export async function refreshAll(path: string) {
   try {
-    const [status, graph] = await Promise.all([
+    // repoInfo and remotes must be refreshed alongside status/graph. An external
+    // tool (git CLI, an AI agent, another GUI) can switch branches, commit, or
+    // add a remote behind our back; without this the UI keeps showing — and
+    // pushing — whatever was checked out when the repo was opened.
+    const [info, status, graph, remoteList] = await Promise.all([
+      api.getRepoInfo(path),
       api.getStatus(path),
       api.getCommitGraph(path, undefined, undefined, get(excludedAuthors)),
+      api.listRemotes(path),
     ]);
+    repoInfo.set(info);
     repoStatus.set(status);
     commitGraph.set(graph);
+    remotes.set(remoteList);
+    // Must run after repoInfo.set — it reads head_branch from the store.
     await refreshTrackingStatus();
   } catch (e) {
     error.set(String(e));
+  }
+}
+
+// Resolve the checked-out branch straight from git rather than trusting the
+// cached store. The watcher can lag an external branch switch by ~500ms, and a
+// push fired inside that window would otherwise target the previous branch.
+async function currentHeadBranch(path: string): Promise<string | undefined> {
+  try {
+    const info = await api.getRepoInfo(path);
+    repoInfo.set(info);
+    return info.head_branch ?? undefined;
+  } catch {
+    return get(repoInfo)?.head_branch ?? undefined;
   }
 }
 
@@ -1237,18 +1263,35 @@ export async function fetchFromRemote(remoteName?: string, options?: { silent?: 
 export async function pushToRemote(remoteName?: string, force?: boolean) {
   const path = get(repoPath);
   if (!path) return;
-  if (get(networkOperation)) return;
-  const remote = remoteName ?? get(defaultRemote)?.name;
-  if (!remote) {
-    error.set('No remote configured');
+  if (get(networkOperation)) {
+    // Don't drop the click silently — a background auto-fetch holds this lock too.
+    addToast('Another remote operation is in progress', 'error');
     return;
   }
-  const info = get(repoInfo);
-  const branch = info?.head_branch ?? undefined;
-  const ts = get(trackingStatus);
-  const setUpstream = !ts?.upstream;
   networkOperation.set('pushing');
   try {
+    // Re-read HEAD, remotes and tracking from git before pushing — an external
+    // tool may have switched branches or added a remote since the last refresh.
+    const branch = await currentHeadBranch(path);
+    if (!branch) {
+      const msg = 'Cannot push: HEAD is detached. Check out a branch first.';
+      error.set(msg);
+      addToast(msg, 'error');
+      return;
+    }
+    let remote = remoteName ?? get(defaultRemote)?.name;
+    if (!remote) {
+      await refreshRemotes(path);
+      remote = get(defaultRemote)?.name;
+    }
+    if (!remote) {
+      error.set('No remote configured');
+      addToast('No remote configured', 'error');
+      return;
+    }
+    await refreshTrackingStatus();
+    const setUpstream = !get(trackingStatus)?.upstream;
+
     const result = await api.pushToRemote(path, remote, branch, force, setUpstream);
     addOutput('push', result.output.stdout, result.output.stderr, true);
     addToast(`Push: ${result.summary}`, 'success');
@@ -1304,21 +1347,30 @@ export function clearCommitSearch() {
 export async function pullFromRemote(remoteName?: string) {
   const path = get(repoPath);
   if (!path) return;
-  if (get(networkOperation)) return;
+  if (get(networkOperation)) {
+    addToast('Another remote operation is in progress', 'error');
+    return;
+  }
   const status = get(repoStatus);
   if (status && status.state !== 'Clean') {
     error.set(`Cannot pull while a ${status.state.toLowerCase()} is in progress. Resolve conflicts or abort first.`);
     return;
   }
-  const remote = remoteName ?? get(defaultRemote)?.name;
-  if (!remote) {
-    error.set('No remote configured');
-    return;
-  }
-  const info = get(repoInfo);
-  const branch = info?.head_branch ?? undefined;
   networkOperation.set('pulling');
   try {
+    // Re-read HEAD and remotes from git — see pushToRemote.
+    const branch = await currentHeadBranch(path);
+    let remote = remoteName ?? get(defaultRemote)?.name;
+    if (!remote) {
+      await refreshRemotes(path);
+      remote = get(defaultRemote)?.name;
+    }
+    if (!remote) {
+      error.set('No remote configured');
+      addToast('No remote configured', 'error');
+      return;
+    }
+
     const result = await api.pullFromRemote(path, remote, branch);
     addOutput('pull', result.output.stdout, result.output.stderr, !result.merge_conflicts);
     if (result.merge_conflicts) {

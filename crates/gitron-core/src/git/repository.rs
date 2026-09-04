@@ -1269,3 +1269,64 @@ pub fn create_commit(workdir: &str, message: &str) -> GitResult<CommitResult> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+
+    fn git(dir: &Path, args: &[&str]) {
+        let out = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .expect("git should run");
+        assert!(
+            out.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// An external tool (git CLI, an agent, another GUI) can switch branches
+    /// behind our back. `open()` caches the resolved .git directory, so this
+    /// asserts the cache does not also pin a stale HEAD — the frontend relies on
+    /// `get_repo_info` reporting the branch git actually has checked out.
+    #[test]
+    fn get_repo_info_sees_external_branch_switch() {
+        let dir = std::env::temp_dir().join(format!("gitron-head-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+
+        git(&dir, &["init", "--initial-branch=main"]);
+        git(&dir, &["config", "user.email", "test@example.com"]);
+        git(&dir, &["config", "user.name", "Test"]);
+        std::fs::write(dir.join("a.txt"), "hello").expect("write");
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-m", "init"]);
+
+        let path = dir.to_string_lossy().to_string();
+
+        let repo = open(&path).expect("open");
+        let info = get_repo_info(&repo).expect("info");
+        assert_eq!(info.head_branch.as_deref(), Some("main"));
+        drop(repo);
+
+        // External change — Gitron never touches the repo here.
+        git(&dir, &["checkout", "-b", "feature/x"]);
+
+        // Second open goes through the GIT_DIR_CACHE fast path.
+        let repo = open(&path).expect("reopen");
+        let info = get_repo_info(&repo).expect("info after switch");
+        assert_eq!(
+            info.head_branch.as_deref(),
+            Some("feature/x"),
+            "get_repo_info must report the externally checked-out branch"
+        );
+        drop(repo);
+
+        invalidate_cache(&path);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
